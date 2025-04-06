@@ -1,0 +1,52 @@
+name: Unit Tests
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        type: string
+        default: '8.0.x'
+        description: '.NET SDK version to use'
+      test-filter:
+        type: string
+        default: 'Category=Unit'
+        description: 'Filter for selecting which tests to run'
+
+jobs:
+  unit-tests:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: build-output
+
+    - name: Run Unit Tests
+      id: run_tests
+      run: |
+          dotnet test --filter "${{ inputs.test-filter }}" --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+    - name: Upload coverage reports to Codecov
+      if: inputs.collect-coverage == true
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./coverage
+        fail_ci_if_error: false
+
+    - name: Add test summary
+      if: always()
+      run: |
+        echo "### Unit Test Results" >> $GITHUB_STEP_SUMMARY
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "All tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Tests failed" >> $GITHUB_STEP_SUMMARY
+        fi

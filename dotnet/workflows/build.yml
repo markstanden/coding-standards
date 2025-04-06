@@ -1,0 +1,54 @@
+name: Build
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        type: string
+        default: '8.0.x'
+        description: '.NET SDK version to use'
+    outputs:
+      build_success:
+        description: "Indicates if the project builds successfully"
+        value: ${{ jobs.build.outputs.success }}
+
+jobs:
+  build:
+    name: Build Solution
+    runs-on: ubuntu-latest
+    outputs:
+      success: ${{ steps.build_step.outputs.success }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      id: build_step
+      run: |
+        dotnet build --no-restore
+        echo "success=true" >> $GITHUB_OUTPUT
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-output
+        path: |
+          **/bin
+          **/obj
+
+    - name: Add build summary
+      if: always()
+      run: |
+        echo "### Build Results" >> $GITHUB_STEP_SUMMARY
+        if [ ${{ job.status }} == 'success' ]; then
+          echo "Build successful" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Build failed" >> $GITHUB_STEP_SUMMARY
+        fi
