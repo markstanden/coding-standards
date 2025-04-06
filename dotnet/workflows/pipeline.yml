@@ -1,0 +1,30 @@
+name: Code Quality Pipeline
+on:
+  pull_request:
+    branches: ["development", "production"]
+  push:
+    branches: ["development", "production"]
+
+jobs:
+  call-format:
+    name: Code Formatting Compliance Check
+    uses: ./.coding-standards/dotnet/workflows/format.yml
+    with:
+      dotnet-version: '8.0.x'
+
+  call-build:
+    name: Build Solution
+    uses: ./.coding-standards/dotnet/workflows/build.yml
+    needs: call-format
+    with:
+      dotnet-version: '8.0.x'
+      configuration: 'Release'
+
+  call-unit-tests:
+    name: Run Unit Tests
+    uses: ./.coding-standards/dotnet/workflows/unit-tests.yml
+    needs: call-build
+    with:
+      dotnet-version: '8.0.x'
+      test-filter: 'Category=Unit'
+      collect-coverage: true
