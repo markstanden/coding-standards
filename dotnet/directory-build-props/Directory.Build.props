@@ -1,0 +1,52 @@
+<Project>
+  <PropertyGroup>
+    <!-- Common build properties -->
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Enables debugging into NuGet packages by linking back to the original source code on GitHub -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <!-- Includes source from non-tracked files (helpful for debugging modified but uncommitted code) -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Generates symbol files alongside assemblies -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <!-- Uses the modern symbol package format that's more compatible with NuGet -->
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Analysis settings -->
+    <!-- Uses the latest available analysis rules -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Enables all code analyzers rather than just the recommended subset -->
+    <AnalysisMode>All</AnalysisMode>
+    <!-- Activates the built-in .NET code analyzers -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+
+    <!-- Documentation -->
+    <!-- Generates XML documentation files for all projects (required for SDK-style API documentation) -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppresses warnings about missing XML comments while still generating docs for the comments that exist -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn> <!-- Missing XML comments -->
+
+    <!-- Marks a project as a test project if it ends with 'Tests' -->
+    <IsTestProject Condition="$(MSBuildProjectName.EndsWith('Tests'))">true</IsTestProject>
+    <IsPackable Condition="'$(IsTestProject)' == 'true'">false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Development dependency packages -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
+  </ItemGroup>
+
+  <!-- Test package references (for test projects) -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <PackageReference Include="xunit" Version="2.7.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.7" />
+    <PackageReference Include="Moq" Version="4.20.70" />
+    <PackageReference Include="Shouldly" Version="4.2.1" />
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+  </ItemGroup>
+</Project>
