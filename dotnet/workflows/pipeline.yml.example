@@ -1,27 +1,27 @@
 name: Code Quality Pipeline
 on:
   pull_request:
-    branches: ["development", "production"]
+    branches: ["main", "dev", "prod"]
   push:
-    branches: ["development", "production"]
+    branches: ["main", "dev", "prod"]
 
 jobs:
   call-format:
     name: Code Formatting Compliance Check
-    uses: ./.coding-standards/dotnet/workflows/format.yml
+    uses: ./.coding-standards/.github/workflows/format.yml@main
     with:
       dotnet-version: '8.0.x'
 
   call-build:
     name: Build Solution
-    uses: ./.coding-standards/dotnet/workflows/build.yml
+    uses: ./.coding-standards/.github/workflows/build.yml@main
     needs: call-format
     with:
       dotnet-version: '8.0.x'
 
   call-unit-tests:
     name: Run Unit Tests
-    uses: ./.coding-standards/dotnet/workflows/unit-tests.yml
+    uses: ./.coding-standards/.github/workflows/unit-tests.yml@main
     needs: call-build
     with:
       dotnet-version: '8.0.x'
