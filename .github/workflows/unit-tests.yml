@@ -8,8 +8,8 @@ on:
         description: '.NET SDK version to use'
       test-filter:
         type: string
-        default: 'Category=Unit'
-        description: 'Filter for selecting which tests to run'
+        default: 'Category!=Integration&FullyQualifiedName!~Integration.Tests'
+        description: 'Filter for selecting which tests to run.  Defaults to excluding all test projects named `*Integration.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]`'
 
 jobs:
   unit-tests:
@@ -32,7 +32,7 @@ jobs:
     - name: Run Unit Tests
       id: run_tests
       run: |
-          dotnet test --filter "${{ inputs.test-filter }}" --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
 
     - name: Upload coverage reports to Codecov
       if: inputs.collect-coverage == true
