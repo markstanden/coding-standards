@@ -1,29 +1,29 @@
-name: Code Formatting
+name: "Code Formatting"
 on:
   workflow_call:
     inputs:
       dotnet-version:
         type: string
-        default: '8.0.x'
-        description: 'The .NET SDK version to use'
+        default: "8.0.x"
+        description: "The .NET SDK version to use"
 
 jobs:
   format:
-    name: Code Formatting Standards Compliance Check
-    runs-on: ubuntu-latest
+    name: "Code Formatting Standards Compliance Check"
+    runs-on: "ubuntu-latest"
     steps:
-    - name: Checkout repo
+    - name: "Checkout repo"
       uses: actions/checkout@v4
 
-    - name: Setup .NET
+    - name: "Setup .NET"
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
 
-    - name: Check .NET format
+    - name: "Check .NET format"
       run: dotnet format --verify-no-changes --verbosity detailed
 
-    - name: Add format summary
+    - name: "Add format summary"
       if: always()
       run: |
         echo "### Format Check Results" >> $GITHUB_STEP_SUMMARY

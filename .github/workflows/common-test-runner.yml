@@ -1,0 +1,64 @@
+name: "Common Test Runner"
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        type: string
+        default: "8.0.x"
+        description: ".NET SDK version to use"
+      test-filter:
+        type: string
+        required: true
+        default: "FullyQualifiedName~Tests"
+        description: "Filter for selecting which tests to run."
+      test-name:
+        type: string
+        required: true
+        default: "All Tests"
+        description: "Name for the test job (e.g., 'Unit Tests')"
+      collect-coverage:
+        type: boolean
+        default: false
+        description: "Whether to collect and upload code coverage."
+
+jobs:
+  run-tests:
+    name: ${{ inputs.test-name }}
+    runs-on: "ubuntu-latest"
+    steps:
+    - name: "Checkout repository"
+      uses: actions/checkout@v4
+
+    - name: "Setup .NET"
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        cache: true
+
+    - name: "Download build artifacts"
+      uses: actions/download-artifact@v4
+      with:
+        name: "build-output"
+
+    - name: "Run Tests"
+      id: run_tests
+      continue-on-error: true
+      run: |
+          dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+    - name: "Upload coverage reports to Codecov"
+      if: inputs.collect-coverage == true && steps.run_tests.outcome == 'success'
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./coverage
+        fail_ci_if_error: false
+
+    - name: "Add test summary"
+      if: always()
+      run: |
+        echo "### ${{ inputs.test-name }} Results" >> $GITHUB_STEP_SUMMARY
+        if [ ${{ steps.run_tests.outcome }} == 'success' ]; then
+          echo "All tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "Tests failed" >> $GITHUB_STEP_SUMMARY
+        fi
