@@ -32,7 +32,6 @@ on:
         required: false
         default: "build-output"
         description: "Name of the build artifact to download."
-  
 
 jobs:
   run-tests:
@@ -52,19 +51,16 @@ jobs:
       with:
         name: ${{ inputs.artifact-name }}
 
-    - name: "Install code coverage collector"
-      if: inputs.collect-coverage == true
-      run: |
-        dotnet add package coverlet.collector --version 6.0.2
-
     - name: "Restore dependencies"
       run: dotnet restore
 
+    - name: "Install Playwright CLI"
+      if: inputs.install-playwright-browsers == true
+      run: dotnet tool install --global Microsoft.Playwright.CLI
+
     - name: "Install Playwright browsers"
       if: inputs.install-playwright-browsers == true
-      run: |
-        dotnet tool install --global Microsoft.Playwright.CLI
-        playwright install --with-deps
+      run: playwright install --with-deps
 
     - name: "Run Tests"
       id: run_tests
@@ -92,7 +88,7 @@ jobs:
         else
           echo "Tests failed" >> $GITHUB_STEP_SUMMARY
         fi
-        
+
     - name: "Check for test failures"
       if: steps.run_tests.outcome == 'failure'
       run: exit 1
