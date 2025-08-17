@@ -27,6 +27,11 @@ on:
         required: false
         default: false
         description: "Whether to install Playwright browsers for E2E tests."
+      artifact-name:
+        type: string
+        required: false
+        default: "build-output"
+        description: "Name of the build artifact to download."
   
 
 jobs:
@@ -45,7 +50,7 @@ jobs:
     - name: "Download build artifacts"
       uses: actions/download-artifact@v4
       with:
-        name: "build-output"
+        name: ${{ inputs.artifact-name }}
 
     - name: "Install code coverage collector"
       if: inputs.collect-coverage == true

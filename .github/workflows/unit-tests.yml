@@ -6,24 +6,29 @@ on:
         type: string
         default: '8.0.x'
         description: '.NET SDK version to use'
-      collect-coverage:
-        type: boolean
-        default: true
-        description: 'Whether to collect and upload code coverage.'
       test-name:
         type: string
         default: 'Unit Tests'
         description: 'Name for the test job (e.g., "Unit Tests")'
+      collect-coverage:
+        type: boolean
+        default: true
+        description: 'Whether to collect and upload code coverage.'
       test-filter:
         type: string
         default: '(Category!=Integration&Category!=E2E)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~E2E.Tests)'
         description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*E2E.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and end-to-end tests `[Trait("Category", "E2E")]`'
+      artifact-name:
+          type: string
+          default: "build-output"
+          description: "Name of the build artifact to download."
 
 jobs:
   unit-tests:
-    uses: ./.github/workflows/common-test-runner.yml
+    uses: "./.github/workflows/common-test-runner.yml"
     with:
       dotnet-version: ${{ inputs.dotnet-version }}
       test-name: ${{ inputs.test-name }}
       test-filter: ${{ inputs.test-filter }}
+      artifact-name: ${{ inputs.artifact-name }}
       collect-coverage: ${{ inputs.collect-coverage }}
