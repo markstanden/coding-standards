@@ -47,6 +47,11 @@ jobs:
       with:
         name: "build-output"
 
+    - name: "Install code coverage collector"
+      if: inputs.collect-coverage == true
+      run: |
+        dotnet add package coverlet.collector --version 6.0.2
+
     - name: "Install Playwright browsers"
       if: inputs.install-playwright-browsers == true
       run: |
@@ -57,7 +62,11 @@ jobs:
       id: run_tests
       continue-on-error: true
       run: |
-          dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          if [ "${{ inputs.collect-coverage }}" == "true" ]; then
+            dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+          else
+            dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
+          fi
 
     - name: "Upload coverage reports to Codecov"
       if: inputs.collect-coverage == true && steps.run_tests.outcome == 'success'

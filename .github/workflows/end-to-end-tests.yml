@@ -21,4 +21,5 @@ jobs:
       dotnet-version: ${{ inputs.dotnet-version }}
       test-name: ${{ inputs.test-name }}
       test-filter: ${{ inputs.test-filter }}
+      install-playwright-browsers: true
       collect-coverage: false
