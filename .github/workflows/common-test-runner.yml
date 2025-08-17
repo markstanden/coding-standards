@@ -57,6 +57,9 @@ jobs:
       run: |
         dotnet add package coverlet.collector --version 6.0.2
 
+    - name: "Restore dependencies"
+      run: dotnet restore
+
     - name: "Install Playwright browsers"
       if: inputs.install-playwright-browsers == true
       run: |
