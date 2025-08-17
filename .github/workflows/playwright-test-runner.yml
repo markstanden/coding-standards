@@ -1,4 +1,4 @@
-name: "Common Test Runner"
+name: "Playwright Test Runner"
 on:
   workflow_call:
     inputs:
@@ -15,18 +15,12 @@ on:
       test-name:
         type: string
         required: false
-        default: "All Tests"
-        description: "Name for the test job (e.g., 'All Tests')"
-      collect-coverage:
-        type: boolean
-        required: false
-        default: false
-        description: "Whether to collect and upload code coverage."
-      artifact-name:
+        default: "End-to-End Tests"
+        description: "Name for the test job (e.g., 'End-to-End Tests')"
+      test-project-path:
         type: string
-        required: false
-        default: "build-output"
-        description: "Name of the build artifact to download."
+        required: true
+        description: "Path to the test project directory for Playwright Tests."
 
 jobs:
   run-tests:
@@ -41,30 +35,28 @@ jobs:
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
 
-    - name: "Download build artifacts"
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ inputs.artifact-name }}
-
     - name: "Restore dependencies"
       run: dotnet restore
+
+    - name: "Build test project for Playwright"
+      run: dotnet build
+      working-directory: ${{ inputs.test-project-path }}
+
+    - name: "Install Playwright CLI"
+      run: dotnet tool install --global Microsoft.Playwright.CLI
+
+    - name: "Verify Playwright CLI installation"
+      run: playwright --version
+      working-directory: ${{ inputs.test-project-path }}
+
+    - name: "Install Playwright browsers"
+      run: playwright install --with-deps
+      working-directory: ${{ inputs.test-project-path }}
 
     - name: "Run Tests"
       id: run_tests
       continue-on-error: true
-      run: |
-          if [ "${{ inputs.collect-coverage }}" == "true" ]; then
-            dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
-          else
-            dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
-          fi
-
-    - name: "Upload coverage reports to Codecov"
-      if: inputs.collect-coverage == true && steps.run_tests.outcome == 'success'
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./coverage
-        fail_ci_if_error: false
+      run: dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
 
     - name: "Add test summary"
       if: always()

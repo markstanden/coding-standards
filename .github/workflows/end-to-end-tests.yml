@@ -22,23 +22,18 @@ on:
         type: string
         default: "Category=E2E|FullyQualifiedName~E2E.Tests"
         description: "Filter for selecting which tests to run."
-      install-playwright-browsers:
-        type: boolean
-        default: true
-        description: "Whether to install Playwright browsers for E2E tests."
       test-project-path:
         type: string
-        required: true
+        default: "path/to/your/E2E-tests"
         description: "Path to the E2E test project directory."
 
 jobs:
-  integration-tests:
-    uses: "./.github/workflows/common-test-runner.yml"
+  e2e-tests:
+    uses: "./.github/workflows/playwright-test-runner.yml"
     with:
       dotnet-version: ${{ inputs.dotnet-version }}
       test-name: ${{ inputs.test-name }}
       test-filter: ${{ inputs.test-filter }}
-      install-playwright-browsers: ${{ inputs.install-playwright-browsers }}
       artifact-name: ${{ inputs.artifact-name }}
       collect-coverage: ${{ inputs.collect-coverage }}
       test-project-path: ${{ inputs.test-project-path }}
