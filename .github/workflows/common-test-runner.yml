@@ -4,22 +4,30 @@ on:
     inputs:
       dotnet-version:
         type: string
+        required: false
         default: "8.0.x"
         description: ".NET SDK version to use"
       test-filter:
         type: string
-        required: true
+        required: false
         default: "FullyQualifiedName~Tests"
         description: "Filter for selecting which tests to run."
       test-name:
         type: string
-        required: true
+        required: false
         default: "All Tests"
-        description: "Name for the test job (e.g., 'Unit Tests')"
+        description: "Name for the test job (e.g., 'All Tests')"
       collect-coverage:
         type: boolean
+        required: false
         default: false
         description: "Whether to collect and upload code coverage."
+      install-playwright-browsers:
+        type: boolean
+        required: false
+        default: false
+        description: "Whether to install Playwright browsers for E2E tests."
+  
 
 jobs:
   run-tests:
@@ -38,6 +46,12 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: "build-output"
+
+    - name: "Install Playwright browsers"
+      if: inputs.install-playwright-browsers == true
+      run: |
+        dotnet tool install --global Microsoft.Playwright.CLI
+        playwright install --with-deps
 
     - name: "Run Tests"
       id: run_tests
