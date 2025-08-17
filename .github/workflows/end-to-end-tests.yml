@@ -26,6 +26,10 @@ on:
         type: boolean
         default: true
         description: "Whether to install Playwright browsers for E2E tests."
+      test-project-path:
+        type: string
+        required: true
+        description: "Path to the E2E test project directory."
 
 jobs:
   integration-tests:
@@ -37,3 +41,4 @@ jobs:
       install-playwright-browsers: ${{ inputs.install-playwright-browsers }}
       artifact-name: ${{ inputs.artifact-name }}
       collect-coverage: ${{ inputs.collect-coverage }}
+      test-project-path: ${{ inputs.test-project-path }}

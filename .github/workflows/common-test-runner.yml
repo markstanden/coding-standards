@@ -32,6 +32,10 @@ on:
         required: false
         default: "build-output"
         description: "Name of the build artifact to download."
+      test-project-path:
+        type: string
+        required: false
+        description: "Path to the test project directory for Playwright."
 
 jobs:
   run-tests:
@@ -58,9 +62,14 @@ jobs:
       if: inputs.install-playwright-browsers == true
       run: dotnet tool install --global Microsoft.Playwright.CLI
 
+    - name: "Verify Playwright CLI installation"
+      if: inputs.install-playwright-browsers == true
+      run: playwright --version
+
     - name: "Install Playwright browsers"
       if: inputs.install-playwright-browsers == true
       run: playwright install --with-deps
+      working-directory: ${{ inputs.test-project-path }}
 
     - name: "Run Tests"
       id: run_tests
