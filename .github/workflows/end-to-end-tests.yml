@@ -1,0 +1,24 @@
+name: "End-to-End Tests"
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        type: string
+        default: "8.0.x"
+        description: ".NET SDK version to use"
+      test-name:
+        type: string
+        default: "End-to-End Tests"
+        description: "Name for the test job (e.g., 'End-to-End Tests')"
+      test-filter:
+        type: string
+        default: "Category=E2E|FullyQualifiedName~E2E.Tests"
+        description: "Filter for selecting which tests to run."
+jobs:
+  integration-tests:
+    uses: "./.github/workflows/common-test-runner.yml"
+    with:
+      dotnet-version: ${{ inputs.dotnet-version }}
+      test-name: ${{ inputs.test-name }}
+      test-filter: ${{ inputs.test-filter }}
+      collect-coverage: false

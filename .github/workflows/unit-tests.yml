@@ -16,8 +16,8 @@ on:
         description: 'Name for the test job (e.g., "Unit Tests")'
       test-filter:
         type: string
-        default: 'Category!=Integration&FullyQualifiedName!~Integration.Tests'
-        description: 'Filter for selecting which tests to run.'
+        default: '(Category!=Integration&Category!=E2E)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~E2E.Tests)'
+        description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*E2E.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and end-to-end tests `[Trait("Category", "E2E")]`'
 
 jobs:
   unit-tests:
