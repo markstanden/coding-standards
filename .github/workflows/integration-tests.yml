@@ -1,0 +1,30 @@
+name: "Integration Tests"
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        type: string
+        default: "8.0.x"
+        description: ".NET SDK version to use"
+      collect-coverage:
+        type: boolean
+        default: true
+        description: "Whether to collect and upload code coverage."
+      test-name:
+        type: string
+        required: true
+        default: "Integration Tests"
+        description: "Name for the test job (e.g., 'Integration Tests')"
+      test-filter:
+        type: string
+        required: true
+        default: "Category=Integration|FullyQualifiedName~Integration.Tests"
+        description: "Filter for selecting which tests to run."
+jobs:
+  integration-tests:
+    uses: "./.github/workflows/common-test-runner.yml"
+    with:
+      dotnet-version: ${{ inputs.dotnet-version }}
+      test-name: ${{ inputs.test-name }}
+      test-filter: ${{ inputs.test-filter }}
+      collect-coverage: ${{ inputs.collect-coverage }}
