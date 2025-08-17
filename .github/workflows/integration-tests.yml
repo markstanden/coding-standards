@@ -12,12 +12,10 @@ on:
         description: "Whether to collect and upload code coverage."
       test-name:
         type: string
-        required: true
         default: "Integration Tests"
         description: "Name for the test job (e.g., 'Integration Tests')"
       test-filter:
         type: string
-        required: true
         default: "Category=Integration|FullyQualifiedName~Integration.Tests"
         description: "Filter for selecting which tests to run."
 jobs:
