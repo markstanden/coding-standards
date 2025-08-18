@@ -11,6 +11,9 @@ jobs:
   format:
     name: "Code Formatting Standards Compliance Check"
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+      actions: write  # needed to save caches
     steps:
     - name: "Checkout repo"
       uses: actions/checkout@v4

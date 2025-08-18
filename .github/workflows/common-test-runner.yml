@@ -32,6 +32,9 @@ jobs:
   run-tests:
     name: ${{ inputs.test-name }}
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+      actions: write  # needed to save caches
     steps:
     - name: "Checkout repository"
       uses: actions/checkout@v4
