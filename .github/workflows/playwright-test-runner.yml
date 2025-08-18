@@ -21,6 +21,10 @@ on:
         type: string
         required: true
         description: "Path to the test project directory for Playwright Tests."
+      base-url:
+        type: string
+        required: true
+        description: "Base URL for the application under test"
 
 jobs:
   run-tests:
@@ -55,6 +59,8 @@ jobs:
 
     - name: "Run Tests"
       id: run_tests
+      env:
+        BASE_URL: ${{ inputs.base-url }}
       continue-on-error: true
       run: dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
 
