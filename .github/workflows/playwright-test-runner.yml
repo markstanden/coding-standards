@@ -57,6 +57,9 @@ jobs:
       run: playwright install --with-deps
       working-directory: ${{ inputs.test-project-path }}
 
+    - name: "Output BASE_URL for debugging"
+      run: echo "BASE_URL=${{ inputs.base-url }}"
+
     - name: "Run Tests"
       id: run_tests
       env:
