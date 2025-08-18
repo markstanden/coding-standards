@@ -15,6 +15,11 @@ on:
         required: true
         type: string
         description: "SonarQube organization"
+      sonar-exclusions:
+        required: false
+        type: string
+        default: "**/.playwright/**,**/test-results/**,**/playwright-report/**,**/playwright/.cache/**,**/bin/**,**/obj/**"
+        description: "Files/directories to exclude from analysis"
     secrets:
       SONAR_TOKEN:
         required: true
@@ -74,6 +79,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ./.sonar/scanner/dotnet-sonarscanner begin /k:"${{ inputs.sonar-project-key }}" /o:"${{ inputs.sonar-organization }}" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          ./.sonar/scanner/dotnet-sonarscanner begin /k:"${{ inputs.sonar-project-key }}" /o:"${{ inputs.sonar-organization }}" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.exclusions="${{ inputs.sonar-exclusions }}"
           dotnet build
           ./.sonar/scanner/dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
