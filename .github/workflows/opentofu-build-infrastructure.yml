@@ -64,6 +64,11 @@ jobs:
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu init
 
+      - name: "Select OpenTofu Workspace"
+        if: inputs.environment != ''
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
+
       - name: "OpenTofu Validate"
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu validate
@@ -126,6 +131,11 @@ jobs:
       - name: "OpenTofu Init"
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu init
+
+      - name: "Select OpenTofu Workspace"
+        if: inputs.environment != ''
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
 
       - name: "OpenTofu Apply"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
