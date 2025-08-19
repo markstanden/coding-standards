@@ -17,6 +17,14 @@ on:
         default: ""
     secrets:
       AZURE_CREDENTIALS:
+        description: |
+          A JSON object containing Azure Service Principal credentials.
+          {
+            "clientId": "********",
+            "clientSecret": "********",
+            "subscriptionId": "********",
+            "tenantId": "********"
+          }
         required: true
     outputs:
       azure-static-web-app-api-token:
