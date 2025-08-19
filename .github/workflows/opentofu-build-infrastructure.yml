@@ -14,7 +14,7 @@ on:
       environment:
         required: false
         type: string
-        default: ""
+        default: "default"
       retention-days:
         required: false
         type: number
@@ -97,7 +97,7 @@ jobs:
       - name: "Upload OpenTofu Plan"
         uses: actions/upload-artifact@v4
         with:
-          name: "opentofu-plan-${{ github.run_id }}"
+          name: "opentofu-plan-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
           path: ${{ inputs.infrastructure-directory }}/tfplan
           retention-days: ${{ inputs.retention-days }}
 
@@ -135,7 +135,7 @@ jobs:
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
         uses: actions/download-artifact@v4
         with:
-          name: "opentofu-plan-${{ github.run_id }}"
+          name: "opentofu-plan-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
           path: ${{ inputs.infrastructure-directory }}
 
       - name: "OpenTofu Init"
