@@ -44,6 +44,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: "Cache OpenTofu providers"
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs.infrastructure-directory }}/.terraform
+          key: ${{ runner.os }}-tofu-${{ hashFiles(format('{0}/.terraform.lock.hcl', inputs.infrastructure-directory)) }}
+          restore-keys: |
+            ${{ runner.os }}-tofu-
+
       - name: "OpenTofu Init"
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu init
@@ -57,7 +65,11 @@ jobs:
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
           tofu plan -detailed-exitcode -no-color -out=tfplan
-          echo "exitcode=$?" >> $GITHUB_OUTPUT
+          exit_code=$?
+          echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
+          if [ "${exit_code}" -eq 1 ]; then
+            exit 1
+          fi
 
       - name: "Upload OpenTofu Plan"
         uses: actions/upload-artifact@v4
@@ -88,6 +100,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: "Cache OpenTofu providers"
+        uses: actions/cache@v4
+        with:
+          path: ${{ inputs.infrastructure-directory }}/.terraform
+          key: ${{ runner.os }}-tofu-${{ hashFiles(format('{0}/.terraform.lock.hcl', inputs.infrastructure-directory)) }}
+          restore-keys: |
+            ${{ runner.os }}-tofu-
+
       - name: "Download OpenTofu Plan"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
         uses: actions/download-artifact@v4
@@ -105,6 +125,7 @@ jobs:
         run: tofu apply -auto-approve tfplan
 
       - name: "Get OpenTofu Outputs"
+        if: needs.opentofu-plan.outputs.plan-exitcode == 2
         id: outputs
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
