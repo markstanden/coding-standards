@@ -1,0 +1,112 @@
+name: "OpenTofu Build Infrastructure"
+
+on:
+  workflow_call:
+    inputs:
+      opentofu-version:
+        required: false
+        type: string
+        default: "1.10.5"
+      infrastructure-directory:
+        required: false
+        type: string
+        default: "./infrastructure"
+      environment:
+        required: false
+        type: string
+        default: ""
+    secrets:
+      AZURE_CREDENTIALS:
+        required: true
+    outputs:
+      azure-static-web-app-api-token:
+        description: "Azure Static Web App API Token"
+        value: ${{ jobs.opentofu-apply.outputs.api-token }}
+
+jobs:
+  opentofu-plan:
+    name: "OpenTofu Plan"
+    runs-on: "ubuntu-latest"
+    outputs:
+      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Setup OpenTofu"
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.opentofu-version }}
+          tofu_wrapper: false
+
+      - name: "Azure CLI Login"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: "OpenTofu Init"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu init
+
+      - name: "OpenTofu Validate"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu validate
+
+      - name: "OpenTofu Plan"
+        id: plan
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          tofu plan -detailed-exitcode -no-color -out=tfplan
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
+
+      - name: "Upload OpenTofu Plan"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "opentofu-plan-${{ github.run_id }}"
+          path: ${{ inputs.infrastructure-directory }}/tfplan
+          retention-days: 5
+
+  opentofu-apply:
+    needs: [ "opentofu-plan" ]
+    name: "OpenTofu Apply"
+    runs-on: "ubuntu-latest"
+    environment: ${{ inputs.environment }}
+    outputs:
+      api-token: ${{ steps.outputs.outputs.api-token }}
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Setup OpenTofu"
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.opentofu-version }}
+          tofu_wrapper: false
+
+      - name: "Azure CLI Login"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: "Download OpenTofu Plan"
+        if: needs.opentofu-plan.outputs.plan-exitcode == 2
+        uses: actions/download-artifact@v4
+        with:
+          name: "opentofu-plan-${{ github.run_id }}"
+          path: ${{ inputs.infrastructure-directory }}
+
+      - name: "OpenTofu Init"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu init
+
+      - name: "OpenTofu Apply"
+        if: needs.opentofu-plan.outputs.plan-exitcode == 2
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu apply -auto-approve tfplan
+
+      - name: "Get OpenTofu Outputs"
+        id: outputs
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          api_token=$(tofu output -raw static_web_app_api_token)
+          echo "api-token=$api_token" >> $GITHUB_OUTPUT
