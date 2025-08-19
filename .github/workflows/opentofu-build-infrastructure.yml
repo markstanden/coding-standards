@@ -81,9 +81,15 @@ jobs:
         id: plan
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
-          tofu plan -detailed-exitcode -no-color -out=tfplan
+          tofu plan -detailed-exitcode -no-color -out=tfplan | tee plan-output.txt
           exit_code=$?
           echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
+
+          echo "## OpenTofu Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -50 plan-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
           if [ "${exit_code}" -eq 1 ]; then
             exit 1
           fi
@@ -96,7 +102,7 @@ jobs:
           retention-days: ${{ inputs.retention-days }}
 
   opentofu-apply:
-    needs: [ "opentofu-plan" ]
+    needs: "opentofu-plan"
     name: "OpenTofu Apply"
     runs-on: "ubuntu-latest"
     environment: ${{ inputs.environment }}
