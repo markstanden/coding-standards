@@ -142,7 +142,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
-          path: ${{ inputs.infrastructure-directory }}/tfplan
+          path: |
+            ${{ inputs.infrastructure-directory }}/tfplan
+            ${{ inputs.infrastructure-directory }}/.terraform
           retention-days: ${{ inputs.retention-days }}
 
   opentofu-apply:
@@ -181,50 +183,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-tofu-
 
-      - name: "Download OpenTofu Plan"
+      - name: "Download OpenTofu Configuration"
         uses: actions/download-artifact@v4
         with:
           name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
           path: ${{ inputs.infrastructure-directory }}
 
-      - name: "OpenTofu Init"
-        env:
-          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
-          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
-          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
-          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          tofu init -reconfigure \
-                    -backend-config="resource_group_name=${{ inputs.backend-resource-group-name }}" \
-                    -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
-                    -backend-config="container_name=${{ inputs.backend-container-name }}" \
-                    -backend-config="key=${{ inputs.project-name }}.tfstate"
-
-      - name: "Select OpenTofu Workspace"
-        if: inputs.environment != ''
-        env:
-          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
-          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
-          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
-          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
-
-      - name: "Check for Existing Resources"
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "Checking for pre-existing resources for workspace: ${{ inputs.environment }}"
-          # This command will fail if the resource group already exists, confirming the source of the error.
-          az group show --name "rg-rrd-${{ inputs.environment }}-euw" && (echo "ERROR: Resource group already exists!" && exit 1) || echo "Resource group does not exist. Proceeding..."
-
       - name: "OpenTofu Apply"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
-        env:
-          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
-          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
-          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
-          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu apply -auto-approve tfplan
 
