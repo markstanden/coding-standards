@@ -15,6 +15,19 @@ on:
         required: false
         type: string
         default: "default"
+      project-name:
+        required: true
+        type: string
+      backend-resource-group-name:
+        required: true
+        type: string
+      backend-storage-account-name:
+        required: true
+        type: string
+      backend-container-name:
+        required: false
+        type: string
+        default: "tfstate"
       retention-days:
         required: false
         type: number
@@ -67,7 +80,11 @@ jobs:
 
       - name: "OpenTofu Init"
         working-directory: ${{ inputs.infrastructure-directory }}
-        run: tofu init
+        run: |
+          tofu init -backend-config="resource_group_name=${{ inputs.backend-resource-group-name }}" \
+                    -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
+                    -backend-config="container_name=${{ inputs.backend-container-name }}" \
+                    -backend-config="key=${{ inputs.project-name }}.tfstate"
 
       - name: "Select OpenTofu Workspace"
         if: inputs.environment != ''
@@ -104,10 +121,8 @@ jobs:
       - name: "Upload OpenTofu Plan"
         uses: actions/upload-artifact@v4
         with:
-          name: "opentofu-plan-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
-          path: |
-            ${{ inputs.infrastructure-directory }}/tfplan
-            ${{ inputs.infrastructure-directory }}/.terraform
+          name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
+          path: ${{ inputs.infrastructure-directory }}/tfplan
           retention-days: ${{ inputs.retention-days }}
 
   opentofu-apply:
@@ -149,17 +164,29 @@ jobs:
       - name: "Download OpenTofu Plan"
         uses: actions/download-artifact@v4
         with:
-          name: "opentofu-plan-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
+          name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
           path: ${{ inputs.infrastructure-directory }}
 
       - name: "OpenTofu Init"
         working-directory: ${{ inputs.infrastructure-directory }}
-        run: tofu init
+        run: |
+          tofu init -reconfigure \
+                    -backend-config="resource_group_name=${{ inputs.backend-resource-group-name }}" \
+                    -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
+                    -backend-config="container_name=${{ inputs.backend-container-name }}" \
+                    -backend-config="key=${{ inputs.project-name }}.tfstate"
 
       - name: "Select OpenTofu Workspace"
         if: inputs.environment != ''
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
+
+      - name: "Check for Existing Resources"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "Checking for pre-existing resources for workspace: ${{ inputs.environment }}"
+          # This command will fail if the resource group already exists, confirming the source of the error.
+          az group show --name "rg-rrd-${{ inputs.environment }}-euw" && (echo "ERROR: Resource group already exists!" && exit 1) || echo "Resource group does not exist. Proceeding..."
 
       - name: "OpenTofu Apply"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
