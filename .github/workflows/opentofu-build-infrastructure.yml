@@ -104,6 +104,16 @@ jobs:
             tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
           fi
 
+      - name: "Check State"
+        id: state
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          if tofu state list > /dev/null 2>&1; then
+            echo "empty=false" >> $GITHUB_OUTPUT
+          else
+            echo "empty=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: "OpenTofu Validate"
         env:
           ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
@@ -217,14 +227,38 @@ jobs:
           fi
 
       - name: "OpenTofu Apply"
-        if: needs.opentofu-plan.outputs.plan-exitcode == 2
+        if: needs.opentofu-plan.outputs.plan-exitcode == 2 || steps.state.outputs.empty == 'true'
         env:
           ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
           ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
           ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
           ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
-        run: tofu apply -auto-approve tfplan
+        run: |
+          if [ "${{ steps.state.outputs.empty }}" = "true" ] && [ "${{ needs.opentofu-plan.outputs.plan-exitcode }}" != "2" ]; then
+            tofu apply -input=false -auto-approve
+          else
+            tofu apply -input=false -auto-approve tfplan
+          fi
+
+      - name: "Diagnose State and Outputs"
+        if: always()
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "--- Workspace ---"
+          tofu workspace show || true
+          echo "\n--- All Workspaces ---"
+          tofu workspace list || true
+          echo "\n--- State Resources ---"
+          tofu state list || echo "(no resources in state)"
+          echo "\n--- Output Keys ---"
+          tofu output -json 2>/dev/null | jq -r 'keys_unsorted[]?' || echo "(no outputs)"
+          echo "------------------------"
 
       - name: "Show State"
         if: always()
