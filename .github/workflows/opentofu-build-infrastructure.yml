@@ -65,11 +65,6 @@ jobs:
           tofu_version: ${{ inputs.opentofu-version }}
           tofu_wrapper: false
 
-      - name: "Azure CLI Login"
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: "Cache OpenTofu providers"
         uses: actions/cache@v4
         with:
@@ -97,11 +92,21 @@ jobs:
         run: tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
 
       - name: "OpenTofu Validate"
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu validate
 
       - name: "OpenTofu Plan"
         id: plan
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
           if tofu plan -detailed-exitcode -no-color -out=tfplan > plan.txt; then
@@ -153,11 +158,6 @@ jobs:
           tofu_version: ${{ inputs.opentofu-version }}
           tofu_wrapper: false
 
-      - name: "Azure CLI Login"
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: "Cache OpenTofu providers"
         uses: actions/cache@v4
         with:
@@ -200,11 +200,21 @@ jobs:
 
       - name: "OpenTofu Apply"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu apply -auto-approve tfplan
 
       - name: "Show State"
         if: always()
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
           echo "--- OpenTofu State Inspection ---"
@@ -213,6 +223,11 @@ jobs:
 
       - name: "Get OpenTofu Outputs"
         id: outputs
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
           echo "--- Debugging OpenTofu Outputs ---"
