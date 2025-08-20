@@ -259,5 +259,9 @@ jobs:
 
           delimiter=$(uuidgen)
           echo "json<<$delimiter" >> $GITHUB_OUTPUT
-          tofu output -json >> $GITHUB_OUTPUT
+          # Ensure valid JSON is always emitted even if state/outputs are absent
+          if ! tofu output -json > .tofu_outputs.json 2>/dev/null; then
+            echo '{}' > .tofu_outputs.json
+          fi
+          cat .tofu_outputs.json >> $GITHUB_OUTPUT
           echo "$delimiter" >> $GITHUB_OUTPUT
