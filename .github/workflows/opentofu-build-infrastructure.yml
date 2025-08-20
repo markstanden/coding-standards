@@ -47,6 +47,9 @@ on:
       tofu-outputs:
         description: "A JSON string containing all OpenTofu outputs."
         value: ${{ jobs.opentofu-apply.outputs.tofu-outputs }}
+      tofu-outputs-b64:
+        description: "Base64 of full OpenTofu outputs JSON (may contain sensitive values)."
+        value: ${{ jobs.opentofu-apply.outputs.tofu-outputs-b64 }}
 
 jobs:
   opentofu-plan:
