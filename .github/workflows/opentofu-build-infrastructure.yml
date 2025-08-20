@@ -156,6 +156,15 @@ jobs:
         id: outputs
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
+          echo "--- Debugging OpenTofu Outputs ---"
+          output_keys=$(tofu output -json | jq -r 'keys_unsorted | @sh')
+          for key in $output_keys; do
+            value=$(tofu output -raw "${key//\'/}")
+            echo "::add-mask::${value}"
+            echo "Output '${key//\'/}': found with length ${#value}"
+          done
+          echo "-----------------------------------"
+
           delimiter=$(uuidgen)
           echo "json<<$delimiter" >> $GITHUB_OUTPUT
           tofu output -json >> $GITHUB_OUTPUT
