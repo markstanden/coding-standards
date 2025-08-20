@@ -61,6 +61,14 @@ jobs:
       run: playwright --version
       working-directory: ${{ inputs.test-project-path }}
 
+    - name: "Cache Playwright browsers"
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-ms-playwright-${{ hashFiles(format('{0}/packages.lock.json', inputs.test-project-path), format('{0}/**/*.csproj', inputs.test-project-path)) }}
+        restore-keys: |
+          ${{ runner.os }}-ms-playwright-
+
     - name: "Install Playwright browsers"
       run: playwright install --with-deps
       working-directory: ${{ inputs.test-project-path }}
