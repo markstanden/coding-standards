@@ -1,0 +1,132 @@
+name: "OpenTofu Destroy Workspace"
+
+on:
+  workflow_call:
+    inputs:
+      opentofu-version:
+        required: false
+        type: string
+        default: "1.7.2"
+      infrastructure-directory:
+        required: false
+        type: string
+        default: "./infrastructure"
+      environment:
+        required: false
+        type: string
+        default: "default"
+      project-name:
+        required: true
+        type: string
+      backend-resource-group-name:
+        required: true
+        type: string
+      backend-storage-account-name:
+        required: true
+        type: string
+      backend-container-name:
+        required: false
+        type: string
+        default: "tfstate"
+    secrets:
+      AZURE_CREDENTIALS:
+        description: |
+          A JSON object containing Azure Service Principal credentials.
+          {
+            "clientId": "********",
+            "clientSecret": "********",
+            "subscriptionId": "********",
+            "tenantId": "********"
+          }
+        required: true
+
+jobs:
+  opentofu-destroy:
+    name: "OpenTofu Destroy"
+    runs-on: "ubuntu-latest"
+    env:
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Setup OpenTofu"
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ inputs.opentofu-version }}
+          tofu_wrapper: false
+
+      - name: "Azure CLI Login"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: "Prepare plugin cache directory"
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - name: "Cache OpenTofu plugin cache"
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: tofu-plugins-${{ hashFiles(format('{0}/.terraform.lock.hcl', inputs.infrastructure-directory)) }}
+          restore-keys: |
+            tofu-plugins-
+
+      - name: "Initialize Backend"
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          rm -f .terraform/environment || true
+          tofu init -reconfigure -input=false \
+            -backend-config="resource_group_name=${{ inputs.backend-resource-group-name }}" \
+            -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
+            -backend-config="container_name=${{ inputs.backend-container-name }}" \
+            -backend-config="key=${{ inputs.project-name }}.tfstate"
+
+      - name: "Select Workspace (if exists)"
+        id: select_ws
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          ws="${{ inputs.environment }}"
+          if [ "$ws" = "default" ]; then
+            echo "selected=default" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if tofu workspace select "$ws" >/dev/null 2>&1; then
+            echo "selected=$ws" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "Workspace '$ws' does not exist; nothing to destroy."
+          echo "selected=" >> $GITHUB_OUTPUT
+
+      - name: "Show current state"
+        if: steps.select_ws.outputs.selected != '' || inputs.environment == 'default'
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "--- Current workspace ---"
+          tofu workspace show || true
+          echo "--- State resources ---"
+          tofu state list || echo "(no resources)"
+
+      - name: "Destroy workspace"
+        if: steps.select_ws.outputs.selected != '' || inputs.environment == 'default'
+        env:
+          ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          tofu destroy -auto-approve -input=false || {
+            echo "Destroy failed; showing state for diagnostics";
+            tofu state list || true;
+            exit 1;
+          }
+
+
