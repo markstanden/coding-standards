@@ -82,7 +82,7 @@ jobs:
         id: plan
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
-          tofu plan -detailed-exitcode -no-color -out=tfplan > plan.txt
+          tofu plan -detailed-exitcode -no-color -out=tfplan > plan.txt || true
           exit_code=$?
           echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
           
