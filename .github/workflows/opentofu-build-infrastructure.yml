@@ -189,6 +189,10 @@ jobs:
           name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
           path: ${{ inputs.infrastructure-directory }}
 
+      - name: "OpenTofu Init"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu init -reconfigure
+
       - name: "OpenTofu Apply"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
         working-directory: ${{ inputs.infrastructure-directory }}
