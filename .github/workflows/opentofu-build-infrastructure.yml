@@ -152,6 +152,14 @@ jobs:
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu apply -auto-approve tfplan
 
+      - name: "Show State"
+        if: always()
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "--- OpenTofu State Inspection ---"
+          tofu show
+          echo "---------------------------------"
+
       - name: "Get OpenTofu Outputs"
         id: outputs
         working-directory: ${{ inputs.infrastructure-directory }}
