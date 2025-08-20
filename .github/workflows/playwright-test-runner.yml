@@ -61,11 +61,25 @@ jobs:
       run: playwright --version
       working-directory: ${{ inputs.test-project-path }}
 
+    - name: "Compute Playwright cache key"
+      id: pwver
+      working-directory: ${{ inputs.test-project-path }}
+      run: |
+        version=$(jq -r '.dependencies."Microsoft.Playwright".resolved // empty' packages.lock.json 2>/dev/null || true)
+        if [ -z "$version" ]; then
+          version=$(jq -r '.dependencies."Microsoft.Playwright".version // empty' packages.lock.json 2>/dev/null || true)
+        fi
+        if [ -z "$version" ]; then
+          version=$(grep -hoP '<PackageReference\s+Include="Microsoft.Playwright"\s+Version="\K[^"]+' **/*.csproj | head -n1 || true)
+        fi
+        echo "Detected Microsoft.Playwright version: ${version}"
+        echo "version=${version}" >> $GITHUB_OUTPUT
+
     - name: "Cache Playwright browsers"
       uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-ms-playwright-${{ hashFiles(format('{0}/packages.lock.json', inputs.test-project-path), format('{0}/**/*.csproj', inputs.test-project-path)) }}
+        key: ${{ runner.os }}-ms-playwright-${{ steps.pwver.outputs.version || hashFiles(format('{0}/packages.lock.json', inputs.test-project-path), format('{0}/**/*.csproj', inputs.test-project-path)) }}
         restore-keys: |
           ${{ runner.os }}-ms-playwright-
 
