@@ -41,6 +41,7 @@ jobs:
     runs-on: "ubuntu-latest"
     outputs:
       plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+      plan-text: ${{ steps.plan.outputs.plan_text }}
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
@@ -81,16 +82,17 @@ jobs:
         id: plan
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
-          tofu plan -detailed-exitcode -no-color -out=tfplan | tee plan-output.txt
+          tofu plan -detailed-exitcode -no-color -out=tfplan > plan.txt
           exit_code=$?
           echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
-
-          echo "## OpenTofu Plan Summary" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -50 plan-output.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
           
+          delimiter=$(uuidgen)
+          echo "plan_text<<$delimiter" >> $GITHUB_OUTPUT
+          cat plan.txt >> $GITHUB_OUTPUT
+          echo "$delimiter" >> $GITHUB_OUTPUT
+
           if [ "${exit_code}" -eq 1 ]; then
+            cat plan.txt
             exit 1
           fi
 
@@ -109,6 +111,12 @@ jobs:
     outputs:
       tofu-outputs: ${{ steps.outputs.outputs.json }}
     steps:
+      - name: "Show Plan Output"
+        run: |
+          echo "--- OpenTofu Plan Text Output ---"
+          echo "${{ needs.opentofu-plan.outputs.plan-text }}"
+          echo "---------------------------------"
+
       - name: "Checkout"
         uses: actions/checkout@v4
 
