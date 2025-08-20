@@ -65,12 +65,18 @@ jobs:
       id: pwver
       working-directory: ${{ inputs.test-project-path }}
       run: |
-        version=$(jq -r '.dependencies."Microsoft.Playwright".resolved // empty' packages.lock.json 2>/dev/null || true)
-        if [ -z "$version" ]; then
-          version=$(jq -r '.dependencies."Microsoft.Playwright".version // empty' packages.lock.json 2>/dev/null || true)
+        version=""
+        if [ -f packages.lock.json ]; then
+          version=$(jq -r '.dependencies["Microsoft.Playwright"].resolved // .dependencies["Microsoft.Playwright"].version // empty' packages.lock.json 2>/dev/null || true)
         fi
         if [ -z "$version" ]; then
-          version=$(grep -hoP '<PackageReference\s+Include="Microsoft.Playwright"\s+Version="\K[^"]+' **/*.csproj | head -n1 || true)
+          assets=$(find . -maxdepth 3 -path '*/obj/project.assets.json' | head -n1)
+          if [ -n "$assets" ]; then
+            version=$(jq -r '.libraries | to_entries | map(select(.key|startswith("microsoft.playwright/"))) | .[0].key | split("/") | .[1]' "$assets" 2>/dev/null || true)
+          fi
+        fi
+        if [ -z "$version" ]; then
+          version=$(playwright --version 2>/dev/null | awk '{print $NF}' || true)
         fi
         echo "Detected Microsoft.Playwright version: ${version}"
         echo "version=${version}" >> $GITHUB_OUTPUT
