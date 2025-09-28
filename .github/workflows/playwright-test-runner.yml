@@ -101,7 +101,7 @@ jobs:
       env:
         BASE_URL: ${{ inputs.base-url }}
       continue-on-error: true
-      run: dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
+      run: dotnet test ${{ inputs.test-project-path }} --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
 
     - name: "Add test summary"
       if: always()
