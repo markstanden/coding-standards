@@ -16,7 +16,7 @@ on:
         description: 'Whether to collect and upload code coverage.'
       test-filter:
         type: string
-        default: '(Category!=Integration&Category!=E2E)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~E2E.Tests)'
+        default: '(Category!=Integration&Category!=Acceptance)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~Acceptance.Tests)'
         description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*E2E.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and end-to-end tests `[Trait("Category", "E2E")]`'
       artifact-name:
           type: string
