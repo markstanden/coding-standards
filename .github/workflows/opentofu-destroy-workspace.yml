@@ -7,6 +7,15 @@ on:
         required: false
         type: string
         default: "1.7.2"
+      tofu-wrapper:
+        type: boolean
+        default: false
+      cache-key-prefix:
+        type: string
+        default: "tofu-plugins"
+      terraform-lock-file:
+        type: string
+        default: ".terraform.lock.hcl"
       infrastructure-directory:
         required: false
         type: string
@@ -59,7 +68,7 @@ jobs:
         uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: ${{ inputs.opentofu-version }}
-          tofu_wrapper: false
+          tofu_wrapper: ${{ inputs.tofu-wrapper }}
 
       - name: "Azure CLI Login"
         uses: azure/login@v1
@@ -74,9 +83,9 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: tofu-plugins-${{ hashFiles(format('{0}/.terraform.lock.hcl', inputs.infrastructure-directory)) }}
+          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}
           restore-keys: |
-            tofu-plugins-
+            ${{ inputs.cache-key-prefix }}-
 
       - name: "Initialize Backend"
         working-directory: ${{ inputs.infrastructure-directory }}
