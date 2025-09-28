@@ -94,17 +94,20 @@ jobs:
         id: select_ws
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
+          echo "--- Available workspaces ---"
+          tofu workspace list || echo "Failed to list workspaces"
+          echo "----------------------------"
+          
           ws="${{ inputs.environment }}"
-          if [ "$ws" = "default" ]; then
-            echo "selected=default" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          echo "Attempting to select workspace: '$ws'"
+
           if tofu workspace select "$ws" >/dev/null 2>&1; then
+            echo "Successfully selected workspace: '$ws'"
             echo "selected=$ws" >> $GITHUB_OUTPUT
-            exit 0
+          else
+            echo "Workspace '$ws' does not exist; nothing to destroy."
+            echo "selected=" >> $GITHUB_OUTPUT
           fi
-          echo "Workspace '$ws' does not exist; nothing to destroy."
-          echo "selected=" >> $GITHUB_OUTPUT
 
       - name: "Show current state"
         if: steps.select_ws.outputs.selected != '' || inputs.environment == 'default'
