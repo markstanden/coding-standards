@@ -41,6 +41,7 @@ jobs:
 
     - name: "Cache NuGet packages"
       uses: actions/cache@v4
+      continue-on-error: true
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
@@ -83,6 +84,7 @@ jobs:
 
     - name: "Cache Playwright browsers"
       uses: actions/cache@v4
+      continue-on-error: true
       with:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-ms-playwright-${{ steps.pwver.outputs.version || hashFiles(format('{0}/packages.lock.json', inputs.test-project-path), format('{0}/**/*.csproj', inputs.test-project-path)) }}

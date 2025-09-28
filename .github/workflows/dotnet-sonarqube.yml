@@ -48,6 +48,7 @@ jobs:
   
       - name: "Cache NuGet packages"
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
@@ -56,6 +57,7 @@ jobs:
 
       - name: "Cache SonarQube Cloud packages"
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -64,6 +66,7 @@ jobs:
       - name: "Cache SonarQube Cloud scanner"
         id: cache-sonar-scanner
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: ./.sonar/scanner
           key: ${{ runner.os }}-sonar-scanner
