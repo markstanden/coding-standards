@@ -1,0 +1,99 @@
+name: "Build Frontend"
+on:
+  workflow_call:
+    inputs:
+      dotnet-version:
+        type: string
+        default: "9.0.x"
+        description: ".NET SDK version to use"
+      node-version:
+        type: string
+        default: "22"
+        description: "Node.js version to use"
+      web-project-path:
+        type: string
+        default: "src/Web"
+        description: "Path to the web project directory"
+      artifact-name:
+        type: string
+        default: "frontend-build"
+        description: "Name for the uploaded artifact"
+      retention-days:
+        type: number
+        default: 30
+        description: "Number of days to retain the artifact"
+      environment-variables:
+        type: string
+        default: ""
+        description: "Environment variables for the build process (JSON format: {\"KEY1\":\"value1\",\"KEY2\":\"value2\"})"
+
+jobs:
+  build-frontend:
+    name: "Build Frontend Artifact"
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+      actions: write  # needed to save caches
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set environment variables"
+        if: inputs.environment-variables != ''
+        run: |
+          # Set custom environment variables from JSON input
+          if [ "${{ inputs.environment-variables }}" != "" ]; then
+            echo "${{ inputs.environment-variables }}" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
+          fi
+
+      - name: "Check for npm requirements"
+        id: check-npm
+        run: |
+          if [ -f "${{ inputs.web-project-path }}/package.json" ]; then
+            echo "npm-required=true" >> $GITHUB_OUTPUT
+          else
+            echo "npm-required=false" >> $GITHUB_OUTPUT
+          fi
+  
+      - name: "Setup Node.js"
+        if: steps.check-npm.outputs.npm-required == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "npm"
+          cache-dependency-path: "${{ inputs.web-project-path }}/package-lock.json"
+
+      - name: "Install npm dependencies"
+        if: steps.check-npm.outputs.npm-required == 'true'
+        working-directory: ${{ inputs.web-project-path }}
+        run: npm ci
+
+      - name: "Setup .NET"
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+
+      - name: "Cache NuGet packages"
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: "Restore dependencies"
+        run: dotnet restore ${{ inputs.web-project-path }}
+
+      - name: "Build"
+        run: dotnet build ${{ inputs.web-project-path }} --no-restore --configuration Release
+
+      - name: "Publish"
+        run: dotnet publish ${{ inputs.web-project-path }} --no-restore --configuration Release --output ./publish
+
+      - name: "Upload build artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          if-no-files-found: error
+          path: ./publish
+          retention-days: ${{ inputs.retention-days }}
