@@ -66,5 +66,5 @@ ln -s .coding-standards/dotnet/directory-build-props/Directory.Build.props Direc
 
 ```bash
 mkdir -p .github/workflows
-cp .coding-standards/dotnet/workflows/pipeline.yml .github/workflows/
+cp .github/workflows/dotnet/pipeline-example.yml .github/workflows/
 ```

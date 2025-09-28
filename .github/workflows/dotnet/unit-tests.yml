@@ -4,7 +4,7 @@ on:
     inputs:
       dotnet-version:
         type: string
-        default: '8.0.x'
+        default: '9.0.x'
         description: '.NET SDK version to use'
       test-name:
         type: string
@@ -17,7 +17,7 @@ on:
       test-filter:
         type: string
         default: '(Category!=Integration&Category!=Acceptance)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~Acceptance.Tests)'
-        description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*E2E.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and end-to-end tests `[Trait("Category", "E2E")]`'
+        description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*Acceptance.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and acceptance tests `[Trait("Category", "Acceptance")]`'
       artifact-name:
           type: string
           default: "build-output"
@@ -25,7 +25,7 @@ on:
 
 jobs:
   unit-tests:
-    uses: "./.github/workflows/common-test-runner.yml"
+    uses: "./.github/workflows/dotnet/test-runner--common.yml"
     with:
       dotnet-version: ${{ inputs.dotnet-version }}
       test-name: ${{ inputs.test-name }}

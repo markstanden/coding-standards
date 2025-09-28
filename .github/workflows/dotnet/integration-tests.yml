@@ -4,7 +4,7 @@ on:
     inputs:
       dotnet-version:
         type: string
-        default: "8.0.x"
+        default: "9.0.x"
         description: ".NET SDK version to use"
       collect-coverage:
         type: boolean
@@ -25,7 +25,7 @@ on:
 
 jobs:
   integration-tests:
-    uses: "./.github/workflows/common-test-runner.yml"
+    uses: "./.github/workflows/dotnet/test-runner--common.yml"
     with:
       dotnet-version: ${{ inputs.dotnet-version }}
       test-name: ${{ inputs.test-name }}

@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: "Check for npm requirements"
-        id: check-npm
+        id: check-npm 
         run: |
           if [ -f "${{ inputs.web-project-path }}/package.json" ]; then
             echo "npm-required=true" >> $GITHUB_OUTPUT
