@@ -356,9 +356,56 @@ jobs:
             exit 1
           fi
 
+      - name: "List files before upload"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "Checking exact path:"
+          ls -la /home/runner/work/cicd-pipeline-rundog/cicd-pipeline-rundog/infrastructure/.tofu_outputs.json || echo "File not found at absolute path"
+          echo ""
+          echo "Checking from workspace root:"
+          ls -la ${{ github.workspace }}/infrastructure/.tofu_outputs.json || echo "File not found via workspace variable"
+          echo ""
+          echo "Directory contents:"
+          ls -la ${{ github.workspace }}/infrastructure/
+          echo "inputs.infrastructure-directory Directory contents:"
+          echo $(pwd)
+          ls -la .
+
       - name: "Upload OpenTofu Outputs"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact_name.outputs.name }}
           path: ${{ github.workspace }}/${{ inputs.infrastructure-directory }}/.tofu_outputs.json
           retention-days: ${{ inputs.retention-days }}
+
+      - name: "List files after upload"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "Checking exact path:"
+          ls -la /home/runner/work/cicd-pipeline-rundog/cicd-pipeline-rundog/infrastructure/.tofu_outputs.json || echo "File not found at absolute path"
+          echo ""
+          echo "Checking from workspace root:"
+          ls -la ${{ github.workspace }}/infrastructure/.tofu_outputs.json || echo "File not found via workspace variable"
+          echo ""
+          echo "Directory contents:"
+          ls -la ${{ github.workspace }}/infrastructure/
+          echo ""
+          echo "inputs.infrastructure-directory Directory contents:"
+          echo $(pwd)
+          ls -la .
+          
+      - name: "Verify outputs file"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "--- Verifying output file ---"
+          echo "Working directory: $(pwd)"
+          if [ -f .tofu_outputs.json ]; then
+            echo "File found. Contents:"
+            cat .tofu_outputs.json
+            echo ""
+            echo "File size: $(wc -c < .tofu_outputs.json) bytes"
+          else
+            echo "ERROR: File does not exist"
+            ls -la
+            exit 1
+          fi
