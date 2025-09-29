@@ -20,7 +20,7 @@ on:
       infrastructure-directory:
         required: false
         type: string
-        default: "./infrastructure"
+        default: "infrastructure"
       environment:
         required: false
         type: string
