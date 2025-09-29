@@ -17,6 +17,10 @@ on:
       terraform-lock-file:
         type: string
         default: ".terraform.lock.hcl"
+      output-json-filename:
+        required: false
+        type: string
+        default: "tofu_outputs.json"
       infrastructure-directory:
         required: false
         type: string
@@ -282,19 +286,16 @@ jobs:
         run: |
           echo "--- Current Workspace ---"
           tofu workspace show || true
-          echo "------------------------"
-          echo ""
+          echo " "
           echo "--- All Workspaces ---"
           tofu workspace list || true
-          echo "------------------------"
-          echo ""
+          echo " "
           echo "--- Managed Resources ---"
           tofu state list || echo "(no resources in state)"
-          echo "------------------------"
-          echo ""
+          echo " "
           echo "--- Output Keys ---"
           tofu output -json 2>/dev/null | jq -r 'keys_unsorted[]?' || echo "(no outputs)"
-          echo "------------------------"
+          echo " "
 
       - name: "Show State"
         if: always()
@@ -307,7 +308,6 @@ jobs:
         run: |
           echo "--- OpenTofu State Inspection ---"
           tofu show
-          echo "---------------------------------"
 
       - name: "Get OpenTofu Outputs"
         id: outputs
@@ -334,8 +334,8 @@ jobs:
 
           echo "Saving outputs to artifact..."
 
-          if ! tofu output -json > .tofu_outputs.json 2>/dev/null; then
-            echo '{}' > .tofu_outputs.json
+          if ! tofu output -json > ${{ inputs.output-json-filename }} 2>/dev/null; then
+            echo '{}' > ${{ inputs.output-json-filename }}
           fi
 
           echo "Artifact ready for upload."
@@ -343,69 +343,19 @@ jobs:
       - name: "Verify outputs file"
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
-          echo "--- Verifying output file ---"
-          echo "Working directory: $(pwd)"
-          if [ -f .tofu_outputs.json ]; then
+          if [ -f ${{ inputs.output-json-filename }} ]; then
             echo "File found. Contents:"
-            cat .tofu_outputs.json
+            cat ${{ inputs.output-json-filename }}
             echo ""
-            echo "File size: $(wc -c < .tofu_outputs.json) bytes"
+            echo "File size: $(wc -c < ${{ inputs.output-json-filename }}) bytes"
           else
             echo "ERROR: File does not exist"
-            ls -la
             exit 1
           fi
-
-      - name: "List files before upload"
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "Checking exact path:"
-          ls -la /home/runner/work/cicd-pipeline-rundog/cicd-pipeline-rundog/infrastructure/.tofu_outputs.json || echo "File not found at absolute path"
-          echo ""
-          echo "Checking from workspace root:"
-          ls -la ${{ github.workspace }}/infrastructure/.tofu_outputs.json || echo "File not found via workspace variable"
-          echo ""
-          echo "Directory contents:"
-          ls -la ${{ github.workspace }}/infrastructure/
-          echo "inputs.infrastructure-directory Directory contents:"
-          echo $(pwd)
-          ls -la .
 
       - name: "Upload OpenTofu Outputs"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact_name.outputs.name }}
-          path: ${{ github.workspace }}/${{ inputs.infrastructure-directory }}/.tofu_outputs.json
+          path: ${{ inputs.infrastructure-directory }}/${{ inputs.output-json-filename }}
           retention-days: ${{ inputs.retention-days }}
-
-      - name: "List files after upload"
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "Checking exact path:"
-          ls -la /home/runner/work/cicd-pipeline-rundog/cicd-pipeline-rundog/infrastructure/.tofu_outputs.json || echo "File not found at absolute path"
-          echo ""
-          echo "Checking from workspace root:"
-          ls -la ${{ github.workspace }}/infrastructure/.tofu_outputs.json || echo "File not found via workspace variable"
-          echo ""
-          echo "Directory contents:"
-          ls -la ${{ github.workspace }}/infrastructure/
-          echo ""
-          echo "inputs.infrastructure-directory Directory contents:"
-          echo $(pwd)
-          ls -la .
-          
-      - name: "Verify outputs file"
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "--- Verifying output file ---"
-          echo "Working directory: $(pwd)"
-          if [ -f .tofu_outputs.json ]; then
-            echo "File found. Contents:"
-            cat .tofu_outputs.json
-            echo ""
-            echo "File size: $(wc -c < .tofu_outputs.json) bytes"
-          else
-            echo "ERROR: File does not exist"
-            ls -la
-            exit 1
-          fi
