@@ -2,6 +2,7 @@ name: "OpenTofu Build Infrastructure"
 
 on:
   workflow_call:
+
     inputs:
       opentofu-version:
         required: false
@@ -41,6 +42,7 @@ on:
         required: false
         type: number
         default: 1
+
     secrets:
       AZURE_CREDENTIALS:
         description: |
@@ -52,13 +54,11 @@ on:
             "tenantId": "********"
           }
         required: true
+
     outputs:
-      tofu-outputs:
-        description: "A JSON string containing all OpenTofu outputs."
-        value: ${{ jobs.opentofu-apply.outputs.tofu-outputs }}
-      tofu-outputs-b64:
-        description: "Base64 of full OpenTofu outputs JSON (may contain sensitive values)."
-        value: ${{ jobs.opentofu-apply.outputs.tofu-outputs-b64 }}
+      artifact-name:
+        description: "Name of the uploaded OpenTofu outputs artifact"
+        value: ${{ jobs.opentofu-apply.outputs.artifact-name }}
 
 jobs:
   opentofu-plan:
@@ -185,9 +185,15 @@ jobs:
       TF_IN_AUTOMATION: "true"
     environment: ${{ inputs.environment }}
     outputs:
-      tofu-outputs: ${{ steps.outputs.outputs.json }}
-      tofu-outputs-b64: ${{ steps.outputs.outputs.json_b64 }}
+      artifact-name: ${{ steps.artifact_name.outputs.name }}
     steps:
+
+      - name: "Set artifact name"
+        id: artifact_name
+        run: |
+          name="opentofu-outputs-${{ inputs.project-name }}-${{ inputs.environment }}-${{ github.run_id }}"
+          echo "name=${name}" >> $GITHUB_OUTPUT
+
       - name: "Show Plan Output"
         run: |
           echo "--- OpenTofu Plan Text Output ---"
@@ -302,31 +308,30 @@ jobs:
           ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
-          echo "--- Debugging OpenTofu Outputs ---"
+          echo "--- Creating OpenTofu Output Artifact ---"
+
+          echo "Obtaining keys..."
           output_keys=$(tofu output -json | jq -r 'keys_unsorted | @sh')
+
+          echo "Masking sensitive values..."
           for key in $output_keys; do
             value=$(tofu output -raw "${key//\'/}")
             echo "::add-mask::${value}"
             echo "Output '${key//\'/}': found with length ${#value}"
           done
-          echo "-----------------------------------"
 
-          # Ensure valid JSON is always emitted even if state/outputs are absent
+          echo "Saving outputs to artifact..."
+
           if ! tofu output -json > .tofu_outputs.json 2>/dev/null; then
             echo '{}' > .tofu_outputs.json
           fi
 
-          # Redact sensitive outputs for the plain JSON output
-          jq 'to_entries
-              | map(if (.value.sensitive == true) then .value.value = "REDACTED" | . else . end)
-              | from_entries' .tofu_outputs.json > .tofu_outputs_redacted.json || cp .tofu_outputs.json .tofu_outputs_redacted.json
+          echo "Artifact ready for upload."
 
-          # Emit redacted JSON
-          delimiter=$(uuidgen)
-          echo "json<<$delimiter" >> $GITHUB_OUTPUT
-          cat .tofu_outputs_redacted.json >> $GITHUB_OUTPUT
-          echo "$delimiter" >> $GITHUB_OUTPUT
 
-          # Emit base64-encoded full JSON (no newlines)
-          json_b64=$(base64 < .tofu_outputs.json | tr -d '\n')
-          echo "json_b64=${json_b64}" >> $GITHUB_OUTPUT
+      - name: "Upload OpenTofu Outputs"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact_name.outputs.name }}
+          path: ${{ inputs.infrastructure-directory }}/.tofu_outputs.json
+          retention-days: ${{ inputs.retention-days }}
