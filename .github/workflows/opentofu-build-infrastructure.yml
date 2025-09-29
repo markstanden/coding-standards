@@ -360,5 +360,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact_name.outputs.name }}
-          path: ${{ inputs.infrastructure-directory }}/.tofu_outputs.json
+          path: ${{ github.workspace }}/${{ inputs.infrastructure-directory }}/.tofu_outputs.json
           retention-days: ${{ inputs.retention-days }}
