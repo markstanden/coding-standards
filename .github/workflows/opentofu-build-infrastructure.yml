@@ -276,13 +276,19 @@ jobs:
           ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS).tenantId }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
-          echo "--- Workspace ---"
+          echo "--- Current Workspace ---"
           tofu workspace show || true
-          echo "\n--- All Workspaces ---"
+          echo "------------------------"
+          echo ""
+          echo "--- All Workspaces ---"
           tofu workspace list || true
-          echo "\n--- State Resources ---"
+          echo "------------------------"
+          echo ""
+          echo "--- Managed Resources ---"
           tofu state list || echo "(no resources in state)"
-          echo "\n--- Output Keys ---"
+          echo "------------------------"
+          echo ""
+          echo "--- Output Keys ---"
           tofu output -json 2>/dev/null | jq -r 'keys_unsorted[]?' || echo "(no outputs)"
           echo "------------------------"
 
@@ -310,6 +316,8 @@ jobs:
         run: |
           echo "--- Creating OpenTofu Output Artifact ---"
 
+          echo "Working directory: $(pwd)"
+
           echo "Obtaining keys..."
           output_keys=$(tofu output -json | jq -r 'keys_unsorted | @sh')
 
@@ -328,6 +336,21 @@ jobs:
 
           echo "Artifact ready for upload."
 
+      - name: "Verify outputs file"
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "--- Verifying output file ---"
+          echo "Working directory: $(pwd)"
+          if [ -f .tofu_outputs.json ]; then
+            echo "File found. Contents:"
+            cat .tofu_outputs.json
+            echo ""
+            echo "File size: $(wc -c < .tofu_outputs.json) bytes"
+          else
+            echo "ERROR: File does not exist"
+            ls -la
+            exit 1
+          fi
 
       - name: "Upload OpenTofu Outputs"
         uses: actions/upload-artifact@v4
