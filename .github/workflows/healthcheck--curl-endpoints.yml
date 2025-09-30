@@ -41,20 +41,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Parse JSON array of routes
-          readarray -t ROUTES < <(echo "$ROUTES_ARRAY" | jq -r '.[]')
-
           echo "Testing endpoints at: $BASE_URL"
-          for route in "${ROUTES[@]}"; do
-            FULL_URL="${BASE_URL}${route}"
-            echo "Testing: $FULL_URL"
-            curl -fsS \
-              --max-time $MAX_TIMEOUT \
-              --retry $RETRY_ATTEMPTS \
-              --retry-all-errors \
-              --retry-delay $RETRY_DELAY \
-              -o /dev/null \
-              "$FULL_URL"
-            echo "✓ $FULL_URL is responding"
-          done
-          echo "✅ All endpoints are responding"
+            failed_routes=()
+            
+            for route in "${ROUTES[@]}"; do
+              FULL_URL="${BASE_URL}${route}"
+              
+              if curl -fsS \
+                --max-time "$MAX_TIMEOUT" \
+                --retry "$RETRY_ATTEMPTS" \
+                --retry-all-errors \
+                --retry-delay "$RETRY_DELAY" \
+                -o /dev/null \
+                "$FULL_URL"; then
+                echo "✓ $FULL_URL is responding"
+              else
+                echo "✗ $FULL_URL failed"
+                failed_routes+=("$FULL_URL")
+              fi
+            done
+            
+            if [ ${#failed_routes[@]} -gt 0 ]; then
+              echo ""
+              echo "❌ ${#failed_routes[@]} endpoint(s) failed:"
+              printf '  - %s\n' "${failed_routes[@]}"
+              exit 1
+            fi
+            
+            echo "✅ All endpoints are responding"
