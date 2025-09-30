@@ -65,6 +65,11 @@ on:
         type: number
         required: false
         default: 1
+      require-approval:
+        description: "Whether to require manual approval before apply"
+        type: boolean
+        required: false
+        default: false
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
@@ -159,20 +164,27 @@ jobs:
         id: plan
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
+          # OpenTofu plan returns exit codes:
+          #   0 = Success, no changes (infrastructure matches desired state)
+          #   1 = Error occurred (validation/configuration issues)
+          #   2 = Success, changes detected (plan created successfully)
           if tofu plan -detailed-exitcode -no-color -out=tfplan > plan.txt; then
             exit_code=0
           else
             exit_code=$?
           fi
-
+          
+          # Store exit code for downstream jobs to check
           echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
           
+          # Capture plan output for PR comments/debugging using heredoc delimiter
           delimiter=$(uuidgen)
           echo "plan_text<<$delimiter" >> $GITHUB_OUTPUT
           cat plan.txt >> $GITHUB_OUTPUT
           echo "$delimiter" >> $GITHUB_OUTPUT
-
-          # Exit with 1 if the plan had a real error
+          
+          # Fail the workflow only on genuine errors (exit code 1)
+          # Exit codes 0 and 2 are both successful plan scenarios
           if [ "${exit_code}" -eq 1 ]; then
             cat plan.txt
             exit 1
@@ -196,7 +208,8 @@ jobs:
       ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
       ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
       ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.require-approval && inputs.environment || null }}
+    if: needs.opentofu-plan.outputs.plan-exitcode == '2'
     outputs:
       artifact-name: ${{ steps.artifact_name.outputs.name }}
     steps:
