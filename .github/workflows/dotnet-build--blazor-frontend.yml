@@ -3,29 +3,35 @@ on:
   workflow_call:
     inputs:
       dotnet-version:
-        type: string
-        default: "9.0.x"
         description: ".NET SDK version to use"
+        type: string
+        required: false
+        default: "9.0.x"
       node-version:
-        type: string
-        default: "22"
         description: "Node.js version to use"
+        type: string
+        required: false
+        default: "22"
       web-project-path:
-        type: string
-        default: "src/Web"
         description: "Path to the web project directory"
+        type: string
+        required: false
+        default: "src/Web"
       artifact-name:
-        type: string
-        default: "frontend-build"
         description: "Name for the uploaded artifact"
-      retention-days:
-        type: number
-        default: 30
-        description: "Number of days to retain the artifact"
-      environment-variables:
         type: string
-        default: ""
+        required: false
+        default: "frontend-build"
+      retention-days:
+        description: "Number of days to retain the artifact"
+        type: number
+        required: false
+        default: 30
+      environment-variables:
         description: "Environment variables for the build process (JSON format: {\"KEY1\":\"value1\",\"KEY2\":\"value2\"})"
+        type: string
+        required: false
+        default: ""
 
 jobs:
   build-frontend:
