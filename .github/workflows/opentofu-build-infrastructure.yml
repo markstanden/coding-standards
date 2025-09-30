@@ -5,54 +5,70 @@ on:
 
     inputs:
       opentofu-version:
-        required: false
+        description: "OpenTofu version to use for infrastructure operations"
         type: string
+        required: false
         default: "1.7.2"
       output-artifact-name:
-        required: true
-        type: string
         description: "Name of the uploaded OpenTofu outputs artifact"
+        type: string
+        required: true
       tofu-wrapper:
+        description: "Whether to enable OpenTofu wrapper for enhanced CI/CD output"
         type: boolean
+        required: false
         default: false
       cache-key-prefix:
+        description: "Cache key prefix for OpenTofu plugin caching"
         type: string
+        required: false
         default: "tofu-plugins"
       terraform-lock-file:
+        description: "Name of the Terraform/OpenTofu lock file used in cache key generation"
         type: string
+        required: false
         default: ".terraform.lock.hcl"
       output-json-filename:
-        required: false
+        description: "Filename for the OpenTofu outputs JSON file"
         type: string
+        required: false
         default: "tofu_outputs.json"
       infrastructure-directory:
-        required: false
+        description: "Path to the infrastructure code directory from project root"
         type: string
+        required: false
         default: "infrastructure"
       environment:
-        required: false
+        description: "Target environment (e.g., staging, production, default)"
         type: string
+        required: false
         default: "default"
       project-name:
-        required: true
+        description: "Project name used throughout in resource naming and state file keys"
         type: string
+        required: true
       backend-resource-group-name:
-        required: true
+        description: "Azure resource group name containing the Terraform state storage"
         type: string
+        required: true
       backend-storage-account-name:
+        description: "Azure storage account name for Terraform state backend"
+        type: string
         required: true
-        type: string
       backend-container-name:
-        required: false
+        description: "Azure storage container name for Terraform state files"
         type: string
+        required: false
         default: "tfstate"
       retention-days:
-        required: false
+        description: "Number of days to retain workflow artifacts"
         type: number
+        required: false
         default: 1
       debug-output:
-        required: false
+        description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
+        required: false
         default: false
 
     secrets:
