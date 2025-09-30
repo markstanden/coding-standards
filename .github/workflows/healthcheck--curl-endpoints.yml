@@ -1,0 +1,57 @@
+name: "Healthcheck Endpoints"
+on:
+  workflow_call:
+    inputs:
+      base-url:
+        description: "Base URL to test"
+        type: string
+        required: true
+      routes:
+        description: "JSON array of routes to test"
+        type: string
+        required: true
+      timeout:
+        description: "Request timeout in seconds"
+        type: number
+        required: false
+        default: 30
+      retries:
+        description: "Number of retries per endpoint"
+        type: number
+        required: false
+        default: 5
+      retry-delay:
+        description: "Delay between retries in seconds"
+        type: number
+        required: false
+        default: 5
+
+jobs:
+  healthcheck:
+    name: "Healthcheck Endpoints"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: "Test endpoints"
+        env:
+          BASE_URL="${{ inputs.base-url }}"
+          ROUTES_ARRAY="${{ inputs.routes }}"
+        run: |
+          set -euo pipefail
+
+          # Parse JSON array of routes
+          readarray -t ROUTES < <(echo "$ROUTES_ARRAY" | jq -r '.[]')
+
+          echo "Testing endpoints at: $BASE_URL"
+          for route in "${ROUTES[@]}"; do
+            FULL_URL="${BASE_URL}${route}"
+            echo "Testing: $FULL_URL"
+            curl -fsS \
+              --max-time ${{ inputs.timeout }} \
+              --retry ${{ inputs.retries }} \
+              --retry-all-errors \
+              --retry-delay ${{ inputs.retry-delay }} \
+              -o /dev/null \
+              "$FULL_URL"
+            echo "✓ $FULL_URL is responding"
+          done
+          echo "✅ All endpoints are responding"
