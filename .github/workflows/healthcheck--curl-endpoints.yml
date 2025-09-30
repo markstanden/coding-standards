@@ -1,4 +1,4 @@
-name: "Healthcheck Endpoints"
+name: "Healthcheck - cURL Endpoint Check"
 on:
   workflow_call:
     inputs:
@@ -35,6 +35,9 @@ jobs:
         env:
           BASE_URL: "${{ inputs.base-url }}"
           ROUTES_ARRAY: "${{ inputs.routes }}"
+          MAX_TIMEOUT: ${{ inputs.timeout }}
+          RETRY_ATTEMPTS: ${{ inputs.retries }}
+          RETRY_DELAY: ${{ inputs.retry-delay }}
         run: |
           set -euo pipefail
 
@@ -46,10 +49,10 @@ jobs:
             FULL_URL="${BASE_URL}${route}"
             echo "Testing: $FULL_URL"
             curl -fsS \
-              --max-time ${{ inputs.timeout }} \
-              --retry ${{ inputs.retries }} \
+              --max-time $MAX_TIMEOUT \
+              --retry $RETRY_ATTEMPTS \
               --retry-all-errors \
-              --retry-delay ${{ inputs.retry-delay }} \
+              --retry-delay $RETRY_DELAY \
               -o /dev/null \
               "$FULL_URL"
             echo "✓ $FULL_URL is responding"
