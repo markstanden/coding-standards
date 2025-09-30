@@ -345,11 +345,6 @@ jobs:
             exit 1
           fi
 
-      - name: "Display artifact name"
-        run: |
-          name="${{ inputs.output-artifact-name }}"
-          echo "name=${name}"
-
       - name: "Upload OpenTofu Outputs"
         uses: actions/upload-artifact@v4
         with:
