@@ -238,6 +238,8 @@ jobs:
 
       - name: "Initialize and Select Workspace"
         working-directory: ${{ inputs.infrastructure-directory }}
+        env:
+          BUILD_ENV: ${{ inputs.environment }}
         run: |
           mkdir -p "$TF_PLUGIN_CACHE_DIR"
           rm -f .terraform/environment || true
@@ -247,8 +249,8 @@ jobs:
             -backend-config="container_name=${{ inputs.backend-container-name }}" \
             -backend-config="key=${{ inputs.project-name }}.tfstate"
           
-          if [ "${{ inputs.environment }}" != "default" ]; then
-            tofu workspace select ${{ inputs.environment }} || tofu workspace new ${{ inputs.environment }}
+          if [ "$BUILD_ENV" != "default" ]; then
+            tofu workspace select $BUILD_ENV || tofu workspace new $BUILD_ENV
           fi
 
       - name: "OpenTofu Apply"
