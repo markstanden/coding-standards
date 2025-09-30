@@ -41,6 +41,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Parse JSON routes array into bash array
+          readarray -t ROUTES < <(echo "$ROUTES_ARRAY" | jq -r '.[]')
+
           echo "Testing endpoints at: $BASE_URL"
             failed_routes=()
             
