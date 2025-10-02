@@ -154,16 +154,6 @@ jobs:
             tofu workspace select $BUILD_ENV || tofu workspace new $BUILD_ENV
           fi
 
-      - name: "Check State"
-        id: state
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          if tofu state list > /dev/null 2>&1; then
-            echo "empty=false" >> $GITHUB_OUTPUT
-          else
-            echo "empty=true" >> $GITHUB_OUTPUT
-          fi
-
       - name: "OpenTofu Validate"
         working-directory: ${{ inputs.infrastructure-directory }}
         run: tofu validate
@@ -258,6 +248,16 @@ jobs:
           name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: ${{ inputs.infrastructure-directory }}
 
+      - name: "Debug - Post-Download Check"
+        if: ${{ inputs.debug-output }}
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: |
+          echo "Downloaded files:"
+          ls -lah
+          echo ""
+          echo "Plan file details:"
+          file tfplan 2>/dev/null || echo "tfplan not found!"
+
       - name: "Initialize and Select Workspace"
         working-directory: ${{ inputs.infrastructure-directory }}
         env:
@@ -276,13 +276,9 @@ jobs:
           fi
 
       - name: "OpenTofu Apply"
-        if: needs.opentofu-plan.outputs.plan-exitcode == 2 || steps.state.outputs.empty == 'true'
-        run: |
-          if [ "${{ steps.state.outputs.empty }}" = "true" ] && [ "${{ needs.opentofu-plan.outputs.plan-exitcode }}" != "2" ]; then
-            tofu apply -input=false -auto-approve
-          else
-            tofu apply -input=false -auto-approve tfplan
-          fi
+        if: needs.opentofu-plan.outputs.plan-exitcode == 2
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: tofu apply -input=false -auto-approve tfplan
 
       - name: "Diagnose State and Outputs"
         if: always()
@@ -302,7 +298,7 @@ jobs:
           echo " "
 
       - name: "Show State"
-        if: always()
+        if: ${{ always() && inputs.debug-output }}
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
           echo "--- OpenTofu State Inspection ---"
