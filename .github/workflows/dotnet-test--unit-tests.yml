@@ -12,7 +12,7 @@ on:
         description: 'Name for the test job (e.g., "Unit Tests")'
       collect-coverage:
         type: boolean
-        default: true
+        default: false
         description: 'Whether to collect and upload code coverage.'
       test-filter:
         type: string

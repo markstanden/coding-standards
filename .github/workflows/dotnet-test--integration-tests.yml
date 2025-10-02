@@ -8,7 +8,7 @@ on:
         description: ".NET SDK version to use"
       collect-coverage:
         type: boolean
-        default: true
+        default: false
         description: "Whether to collect and upload code coverage."
       test-name:
         type: string
