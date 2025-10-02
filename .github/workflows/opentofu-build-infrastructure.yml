@@ -99,6 +99,7 @@ jobs:
       ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
       ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
       ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
+      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"
     outputs:
       plan-exitcode: ${{ steps.plan.outputs.exitcode }}
       plan-text: ${{ steps.plan.outputs.plan_text }}
@@ -193,7 +194,7 @@ jobs:
       - name: "Upload OpenTofu Plan"
         uses: actions/upload-artifact@v4
         with:
-          name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
+          name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: ${{ inputs.infrastructure-directory }}/tfplan
           retention-days: ${{ inputs.retention-days }}
 
@@ -208,6 +209,8 @@ jobs:
       ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
       ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
       ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
+      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"
+
     environment: ${{ inputs.environment }}
     steps:
       - name: "Show Plan Output"
@@ -245,7 +248,7 @@ jobs:
       - name: "Download OpenTofu Plan"
         uses: actions/download-artifact@v4
         with:
-          name: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}"
+          name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: ${{ inputs.infrastructure-directory }}
 
       - name: "Initialize and Select Workspace"
