@@ -2,74 +2,81 @@ name: "OpenTofu Build Infrastructure"
 
 on:
   workflow_call:
-
     inputs:
       opentofu-version:
         description: "OpenTofu version to use for infrastructure operations"
         type: string
         required: false
         default: "1.7.2"
-      output-artifact-name:
-        description: "Name of the uploaded OpenTofu outputs artifact"
-        type: string
-        required: true
-      tofu-wrapper:
-        description: "Whether to enable OpenTofu wrapper for enhanced CI/CD output"
-        type: boolean
-        required: false
-        default: false
-      cache-key-prefix:
-        description: "Cache key prefix for OpenTofu plugin caching"
-        type: string
-        required: false
-        default: "tofu-plugins"
-      terraform-lock-file:
-        description: "Name of the Terraform/OpenTofu lock file used in cache key generation"
-        type: string
-        required: false
-        default: ".terraform.lock.hcl"
-      output-json-filename:
-        description: "Filename for the OpenTofu outputs JSON file"
-        type: string
-        required: false
-        default: "tofu_outputs.json"
+
       infrastructure-directory:
         description: "Path to the infrastructure code directory from project root"
         type: string
         required: false
         default: "infrastructure"
+
       environment:
         description: "Target environment (e.g., staging, production, default)"
         type: string
         required: false
         default: "default"
+
       project-name:
         description: "Project name used throughout in resource naming and state file keys"
         type: string
         required: true
+
       backend-resource-group-name:
         description: "Azure resource group name containing the Terraform state storage"
         type: string
         required: true
+
       backend-storage-account-name:
         description: "Azure storage account name for Terraform state backend"
         type: string
         required: true
+
       backend-container-name:
         description: "Azure storage container name for Terraform state files"
         type: string
         required: false
         default: "tfstate"
+
+      output-artifact-name:
+        description: "Name of the uploaded OpenTofu outputs artifact"
+        type: string
+        required: true
+
+      output-json-filename:
+        description: "Filename for the OpenTofu outputs JSON file"
+        type: string
+        required: false
+        default: "tofu_outputs.json"
+
+      terraform-lock-file:
+        description: "Name of the Terraform/OpenTofu lock file used in cache key generation"
+        type: string
+        required: false
+        default: ".terraform.lock.hcl"
+
+      cache-key-prefix:
+        description: "Cache key prefix for OpenTofu plugin caching"
+        type: string
+        required: false
+        default: "tofu-plugins"
+
       retention-days:
         description: "Number of days to retain workflow artifacts"
         type: number
         required: false
         default: 1
-      require-approval:
-        description: "Whether to require manual approval before apply"
+
+      tofu-wrapper:
+        description: "Whether to enable OpenTofu wrapper for enhanced CI/CD output"
         type: boolean
         required: false
         default: false
+        
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
