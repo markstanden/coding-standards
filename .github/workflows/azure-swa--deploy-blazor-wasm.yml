@@ -146,6 +146,12 @@ jobs:
           echo "::add-mask::${token}"
           echo "token=${token}" >> $GITHUB_OUTPUT
 
+      - name: "Download Frontend Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.frontend-artifact-name }}
+          path: ./publish
+
       - name: "Debug - Verify File Structure"
         if: ${{ inputs.debug-output }}
         working-directory: ${{ inputs.app-location }}
