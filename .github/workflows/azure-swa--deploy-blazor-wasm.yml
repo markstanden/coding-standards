@@ -13,11 +13,6 @@ on:
         type: string
         required: true
 
-      swa-token:
-        description: "Azure SWA deployment token (use this OR infrastructure-outputs-artifact-name)"
-        type: string
-        required: false
-
       infrastructure-outputs-artifact-name:
         description: "Artifact containing infrastructure outputs (alternative to swa-token)"
         type: string
@@ -68,6 +63,17 @@ on:
       app-version-value:
         description: "Value to set for AppVersion in appsettings.json, defaults to github commit sha"
         type: string
+        required: false
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
+    secrets:
+      swa-token:
+        description: "Azure SWA deployment token (alternative to infrastructure outputs - if present will override infrastructure outputs)"
         required: false
 
     outputs:
@@ -128,30 +134,43 @@ jobs:
       - name: "Set SWA Token"
         id: token
         run: |
-          if [ -n "${{ inputs.swa-token }}" ]; then
-            token="${{ inputs.swa-token }}"
+          if [ -n "${{ secrets.swa-token }}" ]; then
+              token="${{ secrets.swa-token }}"
+          elif [ -n "${{ steps.parse_outputs.outputs.token }}" ]; then
+              token="${{ steps.parse_outputs.outputs.token }}"
           else
-            token="${{ steps.parse_outputs.outputs.token }}"
-          fi
-          
-          if [ -z "$token" ]; then
-            echo "ERROR: No SWA token provided (via swa-token input or infrastructure outputs)"
-            exit 1
+              echo "ERROR: No SWA token provided (via secret or infrastructure outputs)"
+              exit 1
           fi
           
           echo "::add-mask::${token}"
           echo "token=${token}" >> $GITHUB_OUTPUT
 
-      - name: "Download Frontend Artifact"
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.frontend-artifact-name }}
-          path: ./publish
+      - name: "Debug - Verify File Structure"
+        if: ${{ inputs.debug-output }}
+        working-directory: ./${{ inputs.app-location }}
+        run: |
+          echo "Current Directory..."
+          pwd
+          echo ""
+          echo "Files in app-location..."
+          ls -lah
+          echo ""
+          echo "Checking Appsettings.json..."
+          if [ -f "${{ inputs.appsettings-path }}" ]; then
+            echo "✓ Found at: ${{ inputs.appsettings-path }}"
+            echo "Size: $(wc -c < ${{ inputs.appsettings-path }}) bytes"
+            echo "Content preview:"
+            cat "${{ inputs.appsettings-path }}"
+          else
+            echo "✗ NOT FOUND at: ${{ inputs.appsettings-path }}"
+          fi
 
       - name: "Replace Tokens in appsettings.json"
+        working-directory: ./${{ inputs.app-location }}
         shell: bash
         env:
-          APPSETTINGS_PATH: "${{ inputs.app-location }}/${{ inputs.appsettings-path }}"
+          APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
           DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
           APP_VERSION: ${{ inputs.app-version-value || github.sha }}
         run: |
