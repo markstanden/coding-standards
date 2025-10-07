@@ -1,0 +1,201 @@
+name: "Deploy Blazor WASM to Azure SWA"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Deployment environment (e.g., staging, production)"
+        type: string
+        required: true
+
+      frontend-artifact-name:
+        description: "Name of the frontend build artifact"
+        type: string
+        required: true
+
+      swa-token:
+        description: "Azure SWA deployment token (use this OR infrastructure-outputs-artifact-name)"
+        type: string
+        required: false
+
+      infrastructure-outputs-artifact-name:
+        description: "Artifact containing infrastructure outputs (alternative to swa-token)"
+        type: string
+        required: false
+
+      concurrency-group:
+        description: "Concurrency group name for SWA deployment, prevents multiple deployments from running concurrently"
+        type: string
+        required: false
+        default: ""
+
+      output-json-filename:
+        description: "Filename for the infrastructure outputs JSON file"
+        type: string
+        required: false
+        default: "tofu_outputs.json"
+
+      swa-token-output-key:
+        description: "Key name in infrastructure outputs for SWA token"
+        type: string
+        required: false
+        default: "azure_static_web_app_api_token"
+
+      app-location:
+        description: "App location for SWA deployment"
+        type: string
+        required: false
+        default: "publish/wwwroot"
+
+      output-location:
+        description: "Output location for SWA deployment"
+        type: string
+        required: false
+        default: ""
+
+      swa-action:
+        description: "Static Web App action (upload/close)"
+        type: string
+        required: false
+        default: "upload"
+
+      appsettings-path:
+        description: "Path to appsettings.json relative to app-location"
+        type: string
+        required: false
+        default: "appsettings.json"
+
+      app-version-value:
+        description: "Value to set for AppVersion in appsettings.json, defaults to github commit sha"
+        type: string
+        required: false
+
+    outputs:
+      deployment-url:
+        description: "Deployed application URL"
+        value: ${{ jobs.deploy.outputs.url }}
+
+env:
+  SWA_ACTION_VERSION: "1a947af9992250f3bc2e68ad0754c0b0c11566c9"
+
+jobs:
+  deploy:
+    name: "Deploy to ${{ inputs.environment }}"
+    runs-on: "ubuntu-latest"
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      url: ${{ steps.deploy.outputs.static_web_app_url }}
+    concurrency:
+      group: "${{ inputs.concurrency-group || inputs.environment }}"
+      cancel-in-progress: true
+    steps:
+      - name: "Download Infrastructure Outputs"
+        if: inputs.infrastructure-outputs-artifact-name != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.infrastructure-outputs-artifact-name }}
+
+      - name: "Parse Infrastructure Outputs"
+        if: inputs.infrastructure-outputs-artifact-name != ''
+        id: parse_outputs
+        env:
+          OUTPUT_FILENAME: ${{ inputs.output-json-filename }}
+          TOKEN_KEY: ${{ inputs.swa-token-output-key }}
+        run: |
+          set -euo pipefail
+
+          # Verify JSON file exists and is valid
+          if ! jq -e . $OUTPUT_FILENAME > /dev/null; then
+            echo "Infrastructure outputs JSON is not valid or is empty."
+            exit 1
+          fi
+
+          token=$(jq -r ".$TOKEN_KEY.value // empty" $OUTPUT_FILENAME)
+
+          if [ -z "$token" ]; then
+            echo "$TOKEN_KEY.value not found in infrastructure outputs JSON"
+            echo "Available top-level keys:"
+            jq -r 'paths | select(length==1) | join(".")' $OUTPUT_FILENAME || true
+            exit 1
+          fi
+
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> $GITHUB_OUTPUT
+
+      - name: "Set SWA Token"
+        id: token
+        run: |
+          if [ -n "${{ inputs.swa-token }}" ]; then
+            token="${{ inputs.swa-token }}"
+          else
+            token="${{ steps.parse_outputs.outputs.token }}"
+          fi
+          
+          if [ -z "$token" ]; then
+            echo "ERROR: No SWA token provided (via swa-token input or infrastructure outputs)"
+            exit 1
+          fi
+          
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> $GITHUB_OUTPUT
+
+      - name: "Download Frontend Artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.frontend-artifact-name }}
+          path: ./publish
+
+      - name: "Replace Tokens in appsettings.json"
+        shell: bash
+        env:
+          APPSETTINGS_PATH: "${{ inputs.app-location }}/${{ inputs.appsettings-path }}"
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          APP_VERSION: ${{ inputs.app-version-value || github.sha }}
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA=$(echo "$APP_VERSION" | cut -c1-8)
+
+          echo "Verifying appsettings.json exists and is non-empty..."
+          if [[ ! -f "$APPSETTINGS_PATH" ]]; then
+            echo "ERROR: appsettings.json not found at $APPSETTINGS_PATH"
+            exit 1
+          fi
+
+          if [[ ! -s "$APPSETTINGS_PATH" ]]; then
+            echo "ERROR: appsettings.json is empty at $APPSETTINGS_PATH"
+            exit 1
+          fi
+
+          echo "Processing appsettings.json at: $APPSETTINGS_PATH"
+
+          echo "Updating JSON values..."
+          jq --arg env "$DEPLOY_ENVIRONMENT" \
+            --arg ver "$SHORT_SHA" \
+            '.DeployEnvironment = $env | .AppVersion = $ver' \
+            "$APPSETTINGS_PATH" > temp.json
+
+          echo "Atomically replacing the original file..."
+          mv temp.json "$APPSETTINGS_PATH"
+
+          echo "Verifying the JSON is still valid after changes..."
+          if ! jq empty "$APPSETTINGS_PATH" 2>/dev/null; then
+            echo "ERROR: Generated JSON is invalid"
+            exit 1
+          fi
+
+          echo "✅ Successfully updated appsettings.json for $DEPLOY_ENVIRONMENT environment"
+
+      - name: "Deploy to Azure Static Web App"
+        uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9
+        id: deploy
+        with:
+          azure_static_web_apps_api_token: ${{ steps.token.outputs.token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: ${{ inputs.swa-action }}
+          app_location: ${{ inputs.app-location }}
+          output_location: ${{ inputs.output-location }}
+          skip_app_build: true
