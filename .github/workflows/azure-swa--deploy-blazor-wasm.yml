@@ -148,7 +148,7 @@ jobs:
 
       - name: "Debug - Verify File Structure"
         if: ${{ inputs.debug-output }}
-        working-directory: ./${{ inputs.app-location }}
+        working-directory: ${{ inputs.app-location }}
         run: |
           echo "Current Directory..."
           pwd
@@ -167,7 +167,7 @@ jobs:
           fi
 
       - name: "Replace Tokens in appsettings.json"
-        working-directory: ./${{ inputs.app-location }}
+        working-directory: ${{ inputs.app-location }}
         shell: bash
         env:
           APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
