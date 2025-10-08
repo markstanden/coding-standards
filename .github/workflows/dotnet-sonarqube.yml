@@ -7,20 +7,31 @@ on:
         type: string
         default: "9.0.x"
         description: ".NET SDK version to use"
+
       sonar-project-key:
         required: true
         type: string
         description: "SonarQube project key"
+
       sonar-org:
         required: true
         type: string
         description: "SonarQube organization"
+
       sonar-exclusions:
         required: false
         type: string
         default: "**/.playwright/**,**/test-results/**,**/playwright-report/**,**/playwright/.cache/**,**/bin/**,**/obj/**"
         description: "Files/directories to exclude from analysis"
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
     secrets:
+
       SONAR_TOKEN:
         required: true
         description: "SonarQube token"

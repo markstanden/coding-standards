@@ -2,36 +2,48 @@ name: "Build Blazor Frontend"
 on:
   workflow_call:
     inputs:
+
       dotnet-version:
         description: ".NET SDK version to use"
         type: string
         required: false
         default: "9.0.x"
+
       node-version:
         description: "Node.js version to use"
         type: string
         required: false
         default: "22"
+
       web-project-path:
         description: "Path to the web project directory"
         type: string
         required: false
         default: "src/Web"
+
       artifact-name:
         description: "Name for the uploaded artifact"
         type: string
         required: false
         default: "frontend-build"
+
       retention-days:
         description: "Number of days to retain the artifact"
         type: number
         required: false
         default: 30
+
       environment-variables:
         description: "Environment variables for the build process (JSON format: {\"KEY1\":\"value1\",\"KEY2\":\"value2\"})"
         type: string
         required: false
         default: ""
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build-frontend:

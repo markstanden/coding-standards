@@ -2,11 +2,20 @@ name: Build
 on:
   workflow_call:
     inputs:
+
       dotnet-version:
         type: string
         default: '9.0.x'
         description: '.NET SDK version to use'
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
     outputs:
+
       build_success:
         description: "Indicates if the project builds successfully"
         value: ${{ jobs.build.outputs.success }}

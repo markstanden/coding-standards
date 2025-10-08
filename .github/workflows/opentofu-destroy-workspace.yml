@@ -7,37 +7,54 @@ on:
         required: false
         type: string
         default: "1.7.2"
+
       tofu-wrapper:
         type: boolean
         default: false
+
       cache-key-prefix:
         type: string
         default: "tofu-plugins"
+
       terraform-lock-file:
         type: string
         default: ".terraform.lock.hcl"
+
       infrastructure-directory:
         required: false
         type: string
-        default: "./infrastructure"
+        default: "infrastructure"
+
       environment:
         required: false
         type: string
         default: "default"
+
       project-name:
         required: true
         type: string
+
       backend-resource-group-name:
         required: true
         type: string
+
       backend-storage-account-name:
         required: true
         type: string
+        
       backend-container-name:
         required: false
         type: string
         default: "tfstate"
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
     secrets:
+      
       AZURE_CREDENTIALS:
         description: |
           A JSON object containing Azure Service Principal credentials.

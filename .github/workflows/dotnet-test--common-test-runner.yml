@@ -7,26 +7,36 @@ on:
         required: false
         default: "9.0.x"
         description: ".NET SDK version to use"
+
       test-filter:
         type: string
         required: false
         default: "FullyQualifiedName~Tests"
         description: "Filter for selecting which tests to run."
+
       test-name:
         type: string
         required: false
         default: "All Tests"
         description: "Name for the test job (e.g., 'All Tests')"
+
       collect-coverage:
         type: boolean
         required: false
         default: false
         description: "Whether to collect and upload code coverage."
+
       artifact-name:
         type: string
         required: false
         default: "build-output"
         description: "Name of the build artifact to download."
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   run-tests:
@@ -54,6 +64,26 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ inputs.artifact-name }}
+
+    - name: "Output debug information"
+      if: inputs.debug-output == true
+      run: |
+        echo "--- Debug Information ---"
+        echo "Test filter: ${{ inputs.test-filter }}"
+        echo "Test name: ${{ inputs.test-name }}"
+        echo "Collect coverage: ${{ inputs.collect-coverage }}"
+        echo "Artifact name: ${{ inputs.artifact-name }}"
+        echo "Dotnet version: ${{ inputs.dotnet-version }}"
+        echo ""
+        echo "--- Downloaded Artifact Contents ---"
+        pwd
+        ls -laR
+        echo ""
+        echo "--- .NET Info ---"
+        dotnet --info
+        echo ""
+        echo "--- Solution/Project Files ---"
+        find . -name "*.sln" -o -name "*.csproj" | head -20
 
     - name: "Restore dependencies"
       run: dotnet restore

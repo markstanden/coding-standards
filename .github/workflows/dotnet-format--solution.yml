@@ -2,10 +2,17 @@ name: "Code Formatting"
 on:
   workflow_call:
     inputs:
+
       dotnet-version:
         type: string
         default: "9.0.x"
         description: "The .NET SDK version to use"
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   format:

@@ -2,26 +2,37 @@ name: "Unit Tests"
 on:
   workflow_call:
     inputs:
+
       dotnet-version:
         type: string
         default: '9.0.x'
         description: '.NET SDK version to use'
+
       test-name:
         type: string
         default: 'Unit Tests'
         description: 'Name for the test job (e.g., "Unit Tests")'
+
       collect-coverage:
         type: boolean
         default: false
         description: 'Whether to collect and upload code coverage.'
+      
       test-filter:
         type: string
         default: '(Category!=Integration&Category!=Acceptance)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~Acceptance.Tests)'
         description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*Acceptance.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and acceptance tests `[Trait("Category", "Acceptance")]`'
+      
       artifact-name:
-          type: string
-          default: "build-output"
-          description: "Name of the build artifact to download."
+        type: string
+        default: "build-output"
+        description: "Name of the build artifact to download."
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   unit-tests:
@@ -32,3 +43,4 @@ jobs:
       test-filter: ${{ inputs.test-filter }}
       artifact-name: ${{ inputs.artifact-name }}
       collect-coverage: ${{ inputs.collect-coverage }}
+      debug-output: ${{ inputs.debug-output }}

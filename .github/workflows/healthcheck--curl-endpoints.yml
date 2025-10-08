@@ -2,29 +2,40 @@ name: "Healthcheck - cURL Endpoint Check"
 on:
   workflow_call:
     inputs:
+      
       base-url:
         description: "Base URL to test"
         type: string
         required: true
+
       routes:
         description: "JSON array of routes to test"
         type: string
         required: true
+
       timeout:
         description: "Request timeout in seconds"
         type: number
         required: false
         default: 30
+
       retries:
         description: "Number of retries per endpoint"
         type: number
         required: false
         default: 5
+
       retry-delay:
         description: "Delay between retries in seconds"
         type: number
         required: false
         default: 5
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   healthcheck:

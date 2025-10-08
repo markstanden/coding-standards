@@ -7,20 +7,30 @@ on:
         required: false
         default: "9.0.x"
         description: ".NET SDK version to use"
+
       test-filter:
         type: string
         required: false
         default: "FullyQualifiedName~Tests"
         description: "Filter for selecting which tests to run."
+
       test-name:
         type: string
         required: false
         default: "End-to-End Tests"
         description: "Name for the test job (e.g., 'End-to-End Tests')"
+
       test-project-path:
         type: string
         required: true
         description: "Path to the test project directory for Playwright Tests."
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
       base-url:
         type: string
         required: true
@@ -59,6 +69,7 @@ jobs:
       run: dotnet tool install --global Microsoft.Playwright.CLI
 
     - name: "Verify Playwright CLI installation"
+      if: inputs.debug-output == true
       run: playwright --version
       working-directory: ${{ inputs.test-project-path }}
 
@@ -96,6 +107,7 @@ jobs:
       working-directory: ${{ inputs.test-project-path }}
 
     - name: "Output BASE_URL for debugging"
+      if: inputs.debug-output == true
       run: echo "BASE_URL=${{ inputs.base-url }}"
 
     - name: "Run Tests"

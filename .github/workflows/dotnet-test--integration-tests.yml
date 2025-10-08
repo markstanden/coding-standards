@@ -2,26 +2,37 @@ name: "Integration Tests"
 on:
   workflow_call:
     inputs:
+
       dotnet-version:
         type: string
         default: "9.0.x"
         description: ".NET SDK version to use"
+        
       collect-coverage:
         type: boolean
         default: false
         description: "Whether to collect and upload code coverage."
+
       test-name:
         type: string
         default: "Integration Tests"
         description: "Name for the test job (e.g., 'Integration Tests')"
+
       test-filter:
         type: string
         default: "Category=Integration|FullyQualifiedName~Integration.Tests"
         description: "Filter for selecting which tests to run."
+
       artifact-name:
         type: string
         default: "build-output"
         description: "Name of the build artifact to download."
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   integration-tests:
@@ -32,3 +43,4 @@ jobs:
       test-filter: ${{ inputs.test-filter }}
       artifact-name: ${{ inputs.artifact-name }}
       collect-coverage: ${{ inputs.collect-coverage }}
+      debug-output: ${{ inputs.debug-output }}
