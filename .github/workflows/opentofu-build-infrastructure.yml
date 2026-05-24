@@ -112,7 +112,6 @@ jobs:
       PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"
     outputs:
       plan-exitcode: ${{ steps.plan.outputs.exitcode }}
-      plan-text: ${{ steps.plan.outputs.plan_text }}
     steps:
       - name: "Checkout"
         uses: actions/checkout@v6
@@ -178,12 +177,6 @@ jobs:
           # Store exit code for downstream jobs to check
           echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
           
-          # Capture plan output for PR comments/debugging using heredoc delimiter
-          delimiter=$(uuidgen)
-          echo "plan_text<<$delimiter" >> $GITHUB_OUTPUT
-          cat plan.txt >> $GITHUB_OUTPUT
-          echo "$delimiter" >> $GITHUB_OUTPUT
-          
           # Fail the workflow only on genuine errors (exit code 1)
           # Exit codes 0 and 2 are both successful plan scenarios
           if [ "${exit_code}" -eq 1 ]; then
@@ -191,11 +184,18 @@ jobs:
             exit 1
           fi
 
+      - name: "Show plan (debug)"
+        if: inputs.debug-output
+        working-directory: ${{ inputs.infrastructure-directory }}
+        run: cat plan.txt
+
       - name: "Upload OpenTofu Plan"
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.PLAN_ARTIFACT_NAME }}
-          path: ${{ inputs.infrastructure-directory }}/tfplan
+          path: |
+            ${{ inputs.infrastructure-directory }}/tfplan
+            ${{ inputs.infrastructure-directory }}/plan.txt
           retention-days: ${{ inputs.retention-days }}
 
   opentofu-apply:
@@ -213,12 +213,6 @@ jobs:
 
     environment: ${{ inputs.environment }}
     steps:
-      - name: "Show Plan Output"
-        run: |
-          echo "--- OpenTofu Plan Text Output ---"
-          echo "${{ needs.opentofu-plan.outputs.plan-text }}"
-          echo "---------------------------------"
-
       - name: "Checkout"
         uses: actions/checkout@v6
 
@@ -252,7 +246,7 @@ jobs:
           path: ${{ inputs.infrastructure-directory }}
 
       - name: "Debug - Post-Download Check"
-        if: ${{ inputs.debug-output }}
+        if: inputs.debug-output
         working-directory: ${{ inputs.infrastructure-directory }}
         run: |
           echo "Downloaded files:"
@@ -260,6 +254,11 @@ jobs:
           echo ""
           echo "Plan file details:"
           file tfplan 2>/dev/null || echo "tfplan not found!"
+          if [ -f plan.txt ]; then
+            echo ""
+            echo "--- plan.txt ---"
+            cat plan.txt
+          fi
 
       - name: "Initialize and Select Workspace"
         working-directory: ${{ inputs.infrastructure-directory }}
