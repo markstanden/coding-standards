@@ -1,0 +1,91 @@
+name: "Node Quality Check"
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version"
+        type: string
+        required: false
+        default: "22"
+
+      project-path:
+        description: "Path to the npm project directory (relative to repository root)"
+        type: string
+        required: false
+        default: "frontend"
+
+      install-command:
+        description: "Shell command to install dependencies"
+        type: string
+        required: false
+        default: "npm ci"
+
+      format-check-command:
+        description: "Shell command to verify formatting (must exit non-zero on failure)"
+        type: string
+        required: false
+        default: "npm run format:check"
+
+      lint-check-command:
+        description: "Shell command to verify linting (must exit non-zero on failure)"
+        type: string
+        required: false
+        default: "npm run lint:check"
+
+      run-format-check:
+        description: "Whether to run the format check command"
+        type: boolean
+        required: false
+        default: true
+
+      run-lint-check:
+        description: "Whether to run the lint check command"
+        type: boolean
+        required: false
+        default: true
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  quality-check:
+    name: "Node Quality Check"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.project-path }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.project-path }}
+        run: ${{ inputs.install-command }}
+
+      - name: Format check
+        if: inputs.run-format-check
+        working-directory: ${{ inputs.project-path }}
+        run: ${{ inputs.format-check-command }}
+
+      - name: Lint check
+        if: inputs.run-lint-check
+        working-directory: ${{ inputs.project-path }}
+        run: ${{ inputs.lint-check-command }}
+
+      - name: Debug package scripts
+        if: inputs.debug-output
+        working-directory: ${{ inputs.project-path }}
+        run: npm run
