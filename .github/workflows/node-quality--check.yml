@@ -45,6 +45,18 @@ on:
         required: false
         default: true
 
+      test-check-command:
+        description: "Shell command to run unit/component tests (must exit non-zero on failure)"
+        type: string
+        required: false
+        default: "npm run test:check"
+
+      run-test-check:
+        description: "Whether to run the test check command"
+        type: boolean
+        required: false
+        default: true
+
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
@@ -84,6 +96,11 @@ jobs:
         if: inputs.run-lint-check
         working-directory: ${{ inputs.project-path }}
         run: ${{ inputs.lint-check-command }}
+
+      - name: Test check
+        if: inputs.run-test-check
+        working-directory: ${{ inputs.project-path }}
+        run: ${{ inputs.test-check-command }}
 
       - name: Debug package scripts
         if: inputs.debug-output
