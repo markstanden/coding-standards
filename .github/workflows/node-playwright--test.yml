@@ -1,0 +1,88 @@
+name: "Node Playwright Test"
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version"
+        type: string
+        required: false
+        default: "22"
+
+      project-path:
+        description: "Path to the Playwright/npm project (relative to repository root)"
+        type: string
+        required: false
+        default: "e2e"
+
+      base-url:
+        description: "Site base URL (no trailing slash)"
+        type: string
+        required: true
+
+      install-command:
+        description: "Shell command to install dependencies"
+        type: string
+        required: false
+        default: "npm ci"
+
+      test-check-command:
+        description: "Shell command to run Playwright tests"
+        type: string
+        required: false
+        default: "npm run test:check"
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  playwright:
+    name: "Playwright"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.project-path }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.project-path }}
+        run: ${{ inputs.install-command }}
+
+      - name: Install Playwright browsers
+        working-directory: ${{ inputs.project-path }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: ${{ inputs.project-path }}
+        env:
+          BASE_URL: ${{ inputs.base-url }}
+          CI: true
+        run: ${{ inputs.test-check-command }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ inputs.project-path }}/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Debug package scripts
+        if: inputs.debug-output
+        working-directory: ${{ inputs.project-path }}
+        run: npm run
