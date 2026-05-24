@@ -63,6 +63,12 @@ on:
         required: false
         default: "package-lock.json"
 
+      job-name:
+        description: "Display name for the quality job in the Actions UI"
+        type: string
+        required: false
+        default: "Node Quality Check"
+
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
@@ -74,7 +80,7 @@ env:
 
 jobs:
   quality-check:
-    name: "Node Quality Check"
+    name: ${{ inputs.job-name }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
