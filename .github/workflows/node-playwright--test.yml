@@ -16,9 +16,10 @@ on:
         default: "e2e"
 
       base-url:
-        description: "Site base URL (no trailing slash)"
+        description: "Site base URL (no trailing slash). Leave empty to use Playwright webServer (build + preview)."
         type: string
-        required: true
+        required: false
+        default: ""
 
       install-command:
         description: "Shell command to install dependencies"
