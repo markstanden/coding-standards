@@ -57,6 +57,12 @@ on:
         required: false
         default: true
 
+      cache-dependency-path:
+        description: "Path to package-lock.json for npm cache (workspace repos use package-lock.json at root)"
+        type: string
+        required: false
+        default: "package-lock.json"
+
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
@@ -81,7 +87,7 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
-          cache-dependency-path: ${{ inputs.project-path }}/package-lock.json
+          cache-dependency-path: ${{ inputs.cache-dependency-path }}
 
       - name: Install dependencies
         working-directory: ${{ inputs.project-path }}
