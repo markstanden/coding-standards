@@ -95,6 +95,9 @@ on:
           }
         required: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   opentofu-plan:
     name: "OpenTofu Plan"
@@ -112,7 +115,7 @@ jobs:
       plan-text: ${{ steps.plan.outputs.plan_text }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "Setup OpenTofu"
         uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b
@@ -189,7 +192,7 @@ jobs:
           fi
 
       - name: "Upload OpenTofu Plan"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: ${{ inputs.infrastructure-directory }}/tfplan
@@ -217,7 +220,7 @@ jobs:
           echo "---------------------------------"
 
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "Setup OpenTofu"
         uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b
@@ -243,7 +246,7 @@ jobs:
             ${{ inputs.cache-key-prefix }}-
 
       - name: "Download OpenTofu Plan"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: ${{ inputs.infrastructure-directory }}
@@ -344,7 +347,7 @@ jobs:
           fi
 
       - name: "Upload OpenTofu Outputs"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ inputs.output-artifact-name }}
           path: ${{ inputs.infrastructure-directory }}/${{ inputs.output-json-filename }}

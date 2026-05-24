@@ -54,7 +54,7 @@ jobs:
       actions: write  # needed to save caches
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "Set environment variables"
         if: inputs.environment-variables != ''
@@ -75,7 +75,7 @@ jobs:
   
       - name: "Setup Node.js"
         if: steps.check-npm.outputs.npm-required == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version }}
           cache: "npm"
@@ -110,7 +110,7 @@ jobs:
         run: dotnet publish ${{ inputs.web-project-path }} --no-restore --configuration Release --output ./publish
 
       - name: "Upload build artifacts"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ inputs.artifact-name }}
           if-no-files-found: error

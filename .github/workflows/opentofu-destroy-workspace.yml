@@ -66,6 +66,9 @@ on:
           }
         required: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   opentofu-destroy:
     name: "OpenTofu Destroy"
@@ -79,7 +82,7 @@ jobs:
       ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: "Setup OpenTofu"
         uses: opentofu/setup-opentofu@v1

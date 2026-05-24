@@ -1,0 +1,156 @@
+name: "Deploy static site to Azure SWA"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Deployment environment (e.g. staging, production)"
+        type: string
+        required: true
+
+      frontend-artifact-name:
+        description: "Name of the frontend build artifact"
+        type: string
+        required: true
+
+      infrastructure-outputs-artifact-name:
+        description: "Artifact containing infrastructure outputs"
+        type: string
+        required: true
+
+      concurrency-group:
+        description: "Concurrency group for SWA deployment"
+        type: string
+        required: false
+        default: ""
+
+      output-json-filename:
+        description: "Filename for the infrastructure outputs JSON file"
+        type: string
+        required: false
+        default: "tofu_outputs.json"
+
+      swa-token-output-key:
+        description: "Key name in infrastructure outputs for SWA token"
+        type: string
+        required: false
+        default: "azure_static_web_app_api_token"
+
+      app-location:
+        description: "Folder containing the prebuilt static site (relative to workspace root)"
+        type: string
+        required: false
+        default: "dist"
+
+      config-file-location:
+        description: "Folder containing staticwebapp.config.json (relative to workspace root)"
+        type: string
+        required: false
+        default: "swa"
+
+      swa-action:
+        description: "Static Web App action (upload/close)"
+        type: string
+        required: false
+        default: "upload"
+
+      debug-output:
+        description: "Enable verbose debug output to aid troubleshooting"
+        type: boolean
+        required: false
+        default: false
+
+    outputs:
+      deployment-url:
+        description: "Deployed application URL"
+        value: ${{ jobs.deploy.outputs.url }}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  deploy:
+    name: "Deploy to ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      url: ${{ steps.parse_url.outputs.url }}
+    concurrency:
+      group: "${{ inputs.concurrency-group || inputs.environment }}"
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download infrastructure outputs
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ inputs.infrastructure-outputs-artifact-name }}
+
+      - name: Parse infrastructure outputs
+        id: parse_outputs
+        env:
+          OUTPUT_FILENAME: ${{ inputs.output-json-filename }}
+          TOKEN_KEY: ${{ inputs.swa-token-output-key }}
+        run: |
+          set -euo pipefail
+
+          if ! jq -e . "$OUTPUT_FILENAME" > /dev/null; then
+            echo "Infrastructure outputs JSON is not valid or is empty."
+            exit 1
+          fi
+
+          token=$(jq -r ".$TOKEN_KEY.value // empty" "$OUTPUT_FILENAME")
+          url=$(jq -r '.static_web_app_url.value // empty' "$OUTPUT_FILENAME")
+
+          if [ -z "$token" ]; then
+            echo "$TOKEN_KEY.value not found in infrastructure outputs JSON"
+            jq -r 'paths | select(length==1) | join(".")' "$OUTPUT_FILENAME" || true
+            exit 1
+          fi
+
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> "$GITHUB_OUTPUT"
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ inputs.frontend-artifact-name }}
+          path: ${{ inputs.app-location }}
+
+      - name: Debug build folder
+        if: inputs.debug-output
+        working-directory: ${{ inputs.app-location }}
+        run: |
+          pwd
+          ls -lah
+          find . -maxdepth 2 -type f | head -40
+
+      - name: Deploy to Azure Static Web App
+        id: deploy
+        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.parse_outputs.outputs.token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: ${{ inputs.swa-action }}
+          app_location: ${{ inputs.app-location }}
+          config_file_location: ${{ inputs.config-file-location }}
+          output_location: ""
+          skip_app_build: true
+
+      - name: Resolve deployment URL
+        id: parse_url
+        run: |
+          url="${{ steps.deploy.outputs.static_web_app_url }}"
+          if [ -z "$url" ]; then
+            url="${{ steps.parse_outputs.outputs.url }}"
+          fi
+          if [ -z "$url" ]; then
+            echo "No deployment URL from SWA action or infrastructure outputs"
+            exit 1
+          fi
+          echo "url=${url}" >> "$GITHUB_OUTPUT"

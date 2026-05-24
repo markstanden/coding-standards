@@ -82,7 +82,7 @@ on:
         value: ${{ jobs.deploy.outputs.url }}
 
 env:
-  SWA_ACTION_VERSION: "1a947af9992250f3bc2e68ad0754c0b0c11566c9"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -100,7 +100,7 @@ jobs:
     steps:
       - name: "Download Infrastructure Outputs"
         if: inputs.infrastructure-outputs-artifact-name != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ inputs.infrastructure-outputs-artifact-name }}
 
@@ -147,7 +147,7 @@ jobs:
           echo "token=${token}" >> $GITHUB_OUTPUT
 
       - name: "Download Frontend Artifact"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ inputs.frontend-artifact-name }}
           path: ./publish
@@ -215,7 +215,7 @@ jobs:
           echo "✅ Successfully updated appsettings.json for $DEPLOY_ENVIRONMENT environment"
 
       - name: "Deploy to Azure Static Web App"
-        uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9
+        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
         id: deploy
         with:
           azure_static_web_apps_api_token: ${{ steps.token.outputs.token }}
