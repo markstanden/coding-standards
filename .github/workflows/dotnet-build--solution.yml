@@ -20,6 +20,9 @@ on:
         description: "Indicates if the project builds successfully"
         value: ${{ jobs.build.outputs.success }}
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build Solution
@@ -31,12 +34,12 @@ jobs:
       uses: actions/checkout@v6
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
 
     - name: "Cache NuGet packages"
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       continue-on-error: true
       with:
         path: ~/.nuget/packages
@@ -51,7 +54,7 @@ jobs:
 
     - name: Upload build artifacts
       if: steps.build_step.outcome == 'success'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: build-output
         path: |

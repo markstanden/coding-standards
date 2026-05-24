@@ -86,7 +86,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download infrastructure outputs
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.infrastructure-outputs-artifact-name }}
 
@@ -117,7 +117,7 @@ jobs:
           echo "url=${url}" >> "$GITHUB_OUTPUT"
 
       - name: Download frontend artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.frontend-artifact-name }}
           path: ${{ inputs.app-location }}

@@ -100,7 +100,7 @@ jobs:
     steps:
       - name: "Download Infrastructure Outputs"
         if: inputs.infrastructure-outputs-artifact-name != ''
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.infrastructure-outputs-artifact-name }}
 
@@ -147,7 +147,7 @@ jobs:
           echo "token=${token}" >> $GITHUB_OUTPUT
 
       - name: "Download Frontend Artifact"
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.frontend-artifact-name }}
           path: ./publish

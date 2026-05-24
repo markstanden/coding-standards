@@ -36,6 +36,9 @@ on:
         required: true
         description: "SonarQube token"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: "Build and analyze"
@@ -53,12 +56,12 @@ jobs:
           fetch-depth: 0
       
       - name: "Setup .NET"
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
   
       - name: "Cache NuGet packages"
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         continue-on-error: true
         with:
           path: ~/.nuget/packages
@@ -67,7 +70,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: "Cache SonarQube Cloud packages"
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         continue-on-error: true
         with:
           path: ~/.sonar/cache
@@ -76,7 +79,7 @@ jobs:
 
       - name: "Cache SonarQube Cloud scanner"
         id: cache-sonar-scanner
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         continue-on-error: true
         with:
           path: ./.sonar/scanner
