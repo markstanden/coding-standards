@@ -45,6 +45,18 @@ on:
         required: false
         default: true
 
+      compile-check-command:
+        description: "Shell command to verify the project compiles (e.g. tsc --noEmit, dotnet build)"
+        type: string
+        required: false
+        default: "npm run compile:check"
+
+      run-compile-check:
+        description: "Whether to run the compile check command"
+        type: boolean
+        required: false
+        default: false
+
       test-check-command:
         description: "Shell command to run unit/component tests (must exit non-zero on failure)"
         type: string
@@ -108,6 +120,11 @@ jobs:
         if: inputs.run-lint-check
         working-directory: ${{ inputs.project-path }}
         run: ${{ inputs.lint-check-command }}
+
+      - name: Compile check
+        if: inputs.run-compile-check
+        working-directory: ${{ inputs.project-path }}
+        run: ${{ inputs.compile-check-command }}
 
       - name: Test check
         if: inputs.run-test-check
