@@ -73,6 +73,55 @@ Mine these for patterns worth stealing (gates, hooks, CI templates):
 
 Output of research: notes appended below, then a step inventory before any code moves.
 
+### Research findings (2026-08-23)
+
+**The same idea evolved independently at least four times** — every repo
+converges on "one verify entry point", but with drifted implementations:
+
+| Repo | Local entry point | CI | Ecosystem | Maturity |
+| --- | --- | --- | --- | --- |
+| `system-config` | `quality/verify.sh` (+ `--fix/--silent`, raises-only floor) | same script in `verify.yml` | node+shell+yaml+workflows | highest — repo-wide prettier, workflow gate |
+| `rdd-astro` | `code-quality-checks/all.sh` (`npm run check/fix`, `--e2e`) | 16 per-area workflows | astro/node+shell+yaml | high — but CI is fragmented into many small workflows |
+| `template`, `simple-greeter` | `scripts/verify.sh` (shellcheck → dotnet-format → build → test) | identical `verify.yml` ×2 | dotnet+shell | medium — one monolithic script, no --fix/--silent |
+| `dev-tools` | `tools/check.sh` (lint → validate, `--workspace` discovery) | `check.yml` | dotnet+shell | medium — best-in-show workspace/solution discovery |
+| `cv-server--ts` | none (npm scripts called directly by CI) | `run-tests.yml` | node | gap — no local/CI parity |
+| `eph-db` | none | none | dotnet+bicep? | gap — nothing |
+
+**Reusable patterns worth uniting on:**
+
+1. **`lib.sh` helper lineage** — `check_run` / `check_section` /
+   `check_init_silent` exist in three repos with visible drift
+   (system-config and rdd-astro share ancestry). This becomes the shared core;
+   one implementation, symlink/submodule-delivered.
+2. **dev-tools' workspace discovery** (`discover_workspace`: explicit flag →
+   env → single `.slnx`/`.sln` at root → repo root) — adopt verbatim for
+   `gate.d/dotnet.sh`.
+3. **system-config's skip semantics** (shfmt optional-but-loud,
+   sonar probe-degrade) and **raises-only severity floors** — the default
+   posture for all steps.
+4. **template/simple-greeter's identical CI** proves the "one verify job"
+   template works across repos — the drip-feed target shape for CI.
+
+**Ruleset divergences that must be united (decisions, not preferences):**
+
+Guiding principle (Mark, 2026-08-23): **hard rules, autofixing, stay close to
+global standards** — prefer pre-accepted sensible defaults so prompt fatigue
+never turns into rubber-stamping. Where repos disagree, the fix is mechanical
+(`--fix` + commit the diff), never a debate.
+
+- **DECIDED — Indentation: 4 spaces everywhere** (no tabs). rdd-astro's
+  tab-formatted tree gets reformatted when the gate drip-feeds into it;
+  `.editorconfig` ↔ `prettier.config.mjs` ↔ `SHFMT_INDENT` move in lockstep.
+- **DECIDED — Shellcheck floor `error` universally**, raises-only per run
+  (system-config's model).
+- **DECIDED — Prettier scope is repo-wide** (markdown, JSONC, YAML, CSS),
+  with `quality/config/prettierignore` travelling in the gate.
+- **DECIDED — `.editorconfig` at each repo root is installed by gate setup**,
+  not hand-maintained per repo (editors only read it from the project root).
+
+**Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
+parity; eph-db gets any gating at all.
+
 ## Delivery mechanism
 
 [NEEDS DECISION] Submodule vs package-manager dependency vs installer copy:
@@ -98,7 +147,9 @@ anything shared or CI-only. Decide after the research pass.
 ## Status
 
 - [x] Audit current couplings (2026-08-23)
-- [ ] Research pass over ~/code/*
+- [x] Research pass over ~/code/* (2026-08-23 — findings above)
+- [x] Ruleset decisions (2026-08-23: 4-space, shellcheck floor `error`,
+      prettier repo-wide, .editorconfig installed by gate setup)
 - [ ] Step inventory + manifest design
 - [ ] Extract lib.sh path resolution
 - [ ] Port steps to gate.d/
