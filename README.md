@@ -2,6 +2,9 @@
 
 A single source of truth for my development project configuration files, workflow templates, and development tools to ensure consistency across projects.
 
+In progress: a portable, drop-in quality gate (`quality/`) that detects any
+project's stack and runs the right checks — see [PLAN.md](PLAN.md).
+
 ## Project Structure
 
 ```bash
