@@ -183,12 +183,14 @@ Risks / mitigations:
 - Parity with system-config's bash gate still verified by running both on the
   same tree during migration (results diff, not code diff).
 
-Cross-platform note (2026-08-23): the TS core *increases* portability, not
-less — Node ≥ 26 goes LTS within two months and runs natively on Linux,
-macOS and Windows. Only the launcher shim is platform-specific:
+Cross-platform note (2026-08-23, corrected): the TS core *increases*
+portability, not less — Node ≥ 26 goes LTS within two months and runs natively
+on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 
-- `verify.sh` — POSIX sh (not bash): macOS ships bash 3.2 forever; keeping the
-  shim POSIX-`sh`-clean means one script covers Linux + mac.
+- `verify.sh` — `#!/usr/bin/env bash`, keeping house style (`[[ ]]`). macOS's
+  bash 3.2 handles `[[ ]]` fine (it predates 3.x); the shim merely avoids
+  post-3.2 features (`mapfile`, associative arrays, `${var,,}`). Never
+  `#!/bin/sh` — that is dash on Debian/Ubuntu, which lacks `[[ ]]`.
 - `verify.ps1` — same logic for Windows, added only if/when a Windows project
   actually needs it.
 - Everything above the shim is identical everywhere. This also suits a public
