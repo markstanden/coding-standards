@@ -144,12 +144,52 @@ anything shared or CI-only. Decide after the research pass.
 - New-repo smoke tests: drop into a node-only project, a shell-only project,
   a dotnet project, an empty dir — expect clean skips, no false failures.
 
+## Architecture decision: TypeScript core, bash shim
+
+[DECIDED 2026-08-23, pending first green] The gate is **TypeScript end to end**
+(Node ≥ 26 strip-types, zero dependencies), tested with the experimental
+`node --test` runner. Bash shrinks to a single locator shim.
+
+```text
+quality/
+├── verify.sh          # ~15 lines: locate node >= 26, exec verify.mts; loud
+│                      # failure with install guidance when absent
+├── verify.mts         # orchestrator: step manifest, detection, skip semantics
+├── lib/*.mts          # path/symlink resolution, workspace discovery, config
+│                      # parsing — the testable core
+├── steps/*.mts        # one module per check; linters invoked via child_process
+└── *.test.mts         # node --test, colocated, zero-dep
+```
+
+Why:
+
+- The bug-prone surface (path resolution, auto-detection, ignore parsing,
+  severity maths) is exactly what bash cannot unit-test cheaply. In TS each
+  rule gets a table-driven test.
+- `node --test` over vitest for this repo: zero dependencies keeps the
+  "drop in anywhere" promise honest — no `npm ci` to run the tests.
+- Portability contract restated honestly: *any project on a machine with
+  node ≥ 26*. Satisfied by bootstrap (dev group) locally and `setup-node`
+  in CI; the shim fails loudly otherwise instead of silently skipping.
+- Fresh build in mts beats porting working bash later — no translation step,
+  no untested-shell-logic inheritance.
+
+Risks / mitigations:
+
+- Type-stripping constraints apply (no enums/namespaces, extensioned imports)
+  — same rules as system-config `lib/`.
+- External tools remain external binaries; steps assert presence up front and
+  skip loudly (never silently) when absent.
+- Parity with system-config's bash gate still verified by running both on the
+  same tree during migration (results diff, not code diff).
+
 ## Status
 
 - [x] Audit current couplings (2026-08-23)
 - [x] Research pass over ~/code/* (2026-08-23 — findings above)
 - [x] Ruleset decisions (2026-08-23: 4-space, shellcheck floor `error`,
       prettier repo-wide, .editorconfig installed by gate setup)
+- [x] Architecture: TypeScript core (strip-types, node --test), bash shim only
 - [ ] Step inventory + manifest design
 - [ ] Extract lib.sh path resolution
 - [ ] Port steps to gate.d/
