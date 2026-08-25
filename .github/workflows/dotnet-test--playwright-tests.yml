@@ -44,92 +44,96 @@ jobs:
     name: ${{ inputs.test-name }}
     runs-on: "ubuntu-latest"
     steps:
-    - name: "Checkout repository"
-      uses: actions/checkout@v6
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
 
-    - name: "Setup .NET"
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ inputs.dotnet-version }}
+      - name: "Setup .NET"
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
 
-    - name: "Cache NuGet packages"
-      uses: actions/cache@v5
-      continue-on-error: true
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: "Cache NuGet packages"
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: "Restore dependencies"
-      run: dotnet restore
+      - name: "Restore dependencies"
+        run: dotnet restore
 
-    - name: "Build test project for Playwright"
-      run: dotnet build
-      working-directory: ${{ inputs.test-project-path }}
+      - name: "Build test project for Playwright"
+        run: dotnet build
+        working-directory: ${{ inputs.test-project-path }}
 
-    - name: "Install Playwright CLI"
-      run: dotnet tool install --global Microsoft.Playwright.CLI
+      - name: "Install Playwright CLI"
+        run: dotnet tool install --global Microsoft.Playwright.CLI
 
-    - name: "Verify Playwright CLI installation"
-      if: inputs.debug-output == true
-      run: playwright --version
-      working-directory: ${{ inputs.test-project-path }}
+      - name: "Verify Playwright CLI installation"
+        if: inputs.debug-output == true
+        run: playwright --version
+        working-directory: ${{ inputs.test-project-path }}
 
-    - name: "Compute Playwright cache key"
-      id: pwver
-      working-directory: ${{ inputs.test-project-path }}
-      run: |
-        version=""
-        if [ -f packages.lock.json ]; then
-          version=$(jq -r '.dependencies["Microsoft.Playwright"].resolved // .dependencies["Microsoft.Playwright"].version // empty' packages.lock.json 2>/dev/null || true)
-        fi
-        if [ -z "$version" ]; then
-          assets=$(find . -maxdepth 3 -path '*/obj/project.assets.json' | head -n1)
-          if [ -n "$assets" ]; then
-            version=$(jq -r '.libraries | to_entries | map(select(.key|startswith("microsoft.playwright/"))) | .[0].key | split("/") | .[1]' "$assets" 2>/dev/null || true)
+      - name: "Compute Playwright cache key"
+        id: pwver
+        working-directory: ${{ inputs.test-project-path }}
+        run: |
+          version=""
+          if [ -f packages.lock.json ]; then
+            version=$(jq -r '.dependencies["Microsoft.Playwright"].resolved //
+              .dependencies["Microsoft.Playwright"].version // empty'
+              packages.lock.json 2>/dev/null || true)
           fi
-        fi
-        if [ -z "$version" ]; then
-          version=$(playwright --version 2>/dev/null | awk '{print $NF}' || true)
-        fi
-        echo "Detected Microsoft.Playwright version: ${version}"
-        echo "version=${version}" >> $GITHUB_OUTPUT
+          if [ -z "$version" ]; then
+            assets=$(find . -maxdepth 3 -path '*/obj/project.assets.json' | head -n1)
+            if [ -n "$assets" ]; then
+              version=$(jq -r '.libraries | to_entries |
+                map(select(.key|startswith("microsoft.playwright/"))) |
+                .[0].key | split("/") | .[1]' "$assets" 2>/dev/null || true)
+            fi
+          fi
+          if [ -z "$version" ]; then
+            version=$(playwright --version 2>/dev/null | awk '{print $NF}' || true)
+          fi
+          echo "Detected Microsoft.Playwright version: ${version}"
+          echo "version=${version}" >> $GITHUB_OUTPUT
 
-    - name: "Cache Playwright browsers"
-      uses: actions/cache@v5
-      continue-on-error: true
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-ms-playwright-${{ steps.pwver.outputs.version || hashFiles(format('{0}/packages.lock.json', inputs.test-project-path), format('{0}/**/*.csproj', inputs.test-project-path)) }}
-        restore-keys: |
-          ${{ runner.os }}-ms-playwright-
+      - name: "Cache Playwright browsers"
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-ms-playwright-${{ steps.pwver.outputs.version || hashFiles(format('{0}/packages.lock.json', inputs.test-project-path), format('{0}/**/*.csproj', inputs.test-project-path)) }}  # yamllint disable-line rule:line-length
+          restore-keys: |
+            ${{ runner.os }}-ms-playwright-
 
-    - name: "Install Playwright browsers"
-      run: playwright install --with-deps
-      working-directory: ${{ inputs.test-project-path }}
+      - name: "Install Playwright browsers"
+        run: playwright install --with-deps
+        working-directory: ${{ inputs.test-project-path }}
 
-    - name: "Output BASE_URL for debugging"
-      if: inputs.debug-output == true
-      run: echo "BASE_URL=${{ inputs.base-url }}"
+      - name: "Output BASE_URL for debugging"
+        if: inputs.debug-output == true
+        run: echo "BASE_URL=${{ inputs.base-url }}"
 
-    - name: "Run Tests"
-      id: run_tests
-      env:
-        BASE_URL: ${{ inputs.base-url }}
-      continue-on-error: true
-      run: dotnet test ${{ inputs.test-project-path }} --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
+      - name: "Run Tests"
+        id: run_tests
+        env:
+          BASE_URL: ${{ inputs.base-url }}
+        continue-on-error: true
+        run: dotnet test ${{ inputs.test-project-path }} --filter '${{ inputs.test-filter }}' --no-build --verbosity normal  # yamllint disable-line rule:line-length
 
-    - name: "Add test summary"
-      if: always()
-      run: |
-        echo "### ${{ inputs.test-name }} Results" >> $GITHUB_STEP_SUMMARY
-        if [ ${{ steps.run_tests.outcome }} == 'success' ]; then
-          echo "All tests passed" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Tests failed" >> $GITHUB_STEP_SUMMARY
-        fi
-    
-    - name: "Check for test failures"
-      if: steps.run_tests.outcome == 'failure'
-      run: exit 1
+      - name: "Add test summary"
+        if: always()
+        run: |
+          echo "### ${{ inputs.test-name }} Results" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ steps.run_tests.outcome }} == 'success' ]; then
+            echo "All tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Tests failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: "Check for test failures"
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1

@@ -76,7 +76,7 @@ on:
         type: boolean
         required: false
         default: false
-        
+
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
@@ -109,7 +109,7 @@ jobs:
       ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
       ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
       ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
-      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"
+      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"  # yamllint disable-line rule:line-length
     outputs:
       plan-exitcode: ${{ steps.plan.outputs.exitcode }}
     steps:
@@ -135,7 +135,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}
+          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}  # yamllint disable-line rule:line-length
           restore-keys: |
             ${{ inputs.cache-key-prefix }}-
 
@@ -151,7 +151,7 @@ jobs:
             -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
             -backend-config="container_name=${{ inputs.backend-container-name }}" \
             -backend-config="key=${{ inputs.project-name }}.tfstate"
-          
+
           if [ "$BUILD_ENV" != "default" ]; then
             tofu workspace select $BUILD_ENV || tofu workspace new $BUILD_ENV
           fi
@@ -173,10 +173,10 @@ jobs:
           else
             exit_code=$?
           fi
-          
+
           # Store exit code for downstream jobs to check
           echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
-          
+
           # Fail the workflow only on genuine errors (exit code 1)
           # Exit codes 0 and 2 are both successful plan scenarios
           if [ "${exit_code}" -eq 1 ]; then
@@ -199,7 +199,7 @@ jobs:
           retention-days: ${{ inputs.retention-days }}
 
   opentofu-apply:
-    needs: [ "opentofu-plan" ]
+    needs: ["opentofu-plan"]
     name: "OpenTofu Apply"
     runs-on: "ubuntu-latest"
     env:
@@ -209,7 +209,7 @@ jobs:
       ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
       ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
       ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
-      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"
+      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"  # yamllint disable-line rule:line-length
 
     environment: ${{ inputs.environment }}
     steps:
@@ -235,7 +235,7 @@ jobs:
         continue-on-error: true
         with:
           path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}
+          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}  # yamllint disable-line rule:line-length
           restore-keys: |
             ${{ inputs.cache-key-prefix }}-
 
@@ -272,7 +272,7 @@ jobs:
             -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
             -backend-config="container_name=${{ inputs.backend-container-name }}" \
             -backend-config="key=${{ inputs.project-name }}.tfstate"
-          
+
           if [ "$BUILD_ENV" != "default" ]; then
             tofu workspace select $BUILD_ENV || tofu workspace new $BUILD_ENV
           fi

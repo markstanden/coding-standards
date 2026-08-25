@@ -17,12 +17,15 @@ on:
         type: boolean
         default: false
         description: 'Whether to collect and upload code coverage.'
-      
+
       test-filter:
         type: string
-        default: '(Category!=Integration&Category!=Acceptance)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~Acceptance.Tests)'
-        description: 'Filter for selecting which tests to run. Defaults to excluding all test projects named `*Integration.Tests` and `*Acceptance.Tests` and excluding all individual tests marked as integration tests `[Trait("Category", "Integration")]` and acceptance tests `[Trait("Category", "Acceptance")]`'
-      
+        default: '(Category!=Integration&Category!=Acceptance)&(FullyQualifiedName!~Integration.Tests&FullyQualifiedName!~Acceptance.Tests)'  # yamllint disable-line rule:line-length
+        description: >-
+          Filter selecting which tests to run. Defaults exclude projects named
+          `*Integration.Tests`/`*Acceptance.Tests` and individual tests marked
+          `[Trait("Category", "Integration")]` or `[Trait("Category", "Acceptance")]`
+
       artifact-name:
         type: string
         default: "build-output"

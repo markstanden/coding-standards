@@ -19,7 +19,8 @@ on:
         required: false
 
       concurrency-group:
-        description: "Concurrency group name for SWA deployment, prevents multiple deployments from running concurrently"
+        description: >-
+          Concurrency group for SWA deployment; prevents concurrent deployments
         type: string
         required: false
         default: ""
@@ -73,7 +74,8 @@ on:
 
     secrets:
       swa-token:
-        description: "Azure SWA deployment token (alternative to infrastructure outputs - if present will override infrastructure outputs)"
+        description: >-
+          Azure SWA deployment token; when present, overrides infrastructure outputs
         required: false
 
     outputs:
@@ -142,7 +144,7 @@ jobs:
               echo "ERROR: No SWA token provided (via secret or infrastructure outputs)"
               exit 1
           fi
-          
+
           echo "::add-mask::${token}"
           echo "token=${token}" >> $GITHUB_OUTPUT
 

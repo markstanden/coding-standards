@@ -22,33 +22,34 @@ jobs:
     name: "Code Formatting Standards Compliance Check"
     runs-on: "ubuntu-latest"
     steps:
-    - name: "Checkout repo"
-      uses: actions/checkout@v6
+      - name: "Checkout repo"
+        uses: actions/checkout@v6
 
-    - name: "Setup .NET"
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ inputs.dotnet-version }}
+      - name: "Setup .NET"
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
 
-    - name: "Cache NuGet packages"
-      uses: actions/cache@v5
-      continue-on-error: true
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: "Cache NuGet packages"
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: "Check .NET format"
-      run: dotnet format --verify-no-changes --verbosity detailed
+      - name: "Check .NET format"
+        run: dotnet format --verify-no-changes --verbosity detailed
 
-    - name: "Add format summary"
-      if: always()
-      run: |
-        echo "### Format Check Results" >> $GITHUB_STEP_SUMMARY
-        if [ ${{ job.status }} == 'success' ]; then
-          echo "Code meets formatting standards" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Code formatting issues detected" >> $GITHUB_STEP_SUMMARY
-          echo "Run `dotnet format` locally to with the correct `.editorconfig` to meet required standards." >> $GITHUB_STEP_SUMMARY
-        fi
+      - name: "Add format summary"
+        if: always()
+        run: |
+          echo "### Format Check Results" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "Code meets formatting standards" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Code formatting issues detected" >> $GITHUB_STEP_SUMMARY
+            echo "Run \`dotnet format\` locally with the correct \`.editorconfig\`" >> $GITHUB_STEP_SUMMARY
+            echo "to meet required standards." >> $GITHUB_STEP_SUMMARY
+          fi

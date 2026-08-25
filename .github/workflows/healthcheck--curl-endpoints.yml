@@ -2,7 +2,7 @@ name: "Healthcheck - cURL Endpoint Check"
 on:
   workflow_call:
     inputs:
-      
+
       base-url:
         description: "Base URL to test"
         type: string
@@ -57,10 +57,10 @@ jobs:
 
           echo "Testing endpoints at: $BASE_URL"
             failed_routes=()
-            
+
             for route in "${ROUTES[@]}"; do
               FULL_URL="${BASE_URL}${route}"
-              
+
               if curl -fsS \
                 --max-time "$MAX_TIMEOUT" \
                 --retry "$RETRY_ATTEMPTS" \
@@ -74,12 +74,12 @@ jobs:
                 failed_routes+=("$FULL_URL")
               fi
             done
-            
+
             if [ ${#failed_routes[@]} -gt 0 ]; then
               echo ""
               echo "❌ ${#failed_routes[@]} endpoint(s) failed:"
               printf '  - %s\n' "${failed_routes[@]}"
               exit 1
             fi
-            
+
             echo "✅ All endpoints are responding"

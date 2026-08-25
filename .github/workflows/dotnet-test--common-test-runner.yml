@@ -46,78 +46,80 @@ jobs:
     name: ${{ inputs.test-name }}
     runs-on: "ubuntu-latest"
     steps:
-    - name: "Checkout repository"
-      uses: actions/checkout@v6
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
 
-    - name: "Setup .NET"
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ inputs.dotnet-version }}
+      - name: "Setup .NET"
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
 
-    - name: "Cache NuGet packages"
-      uses: actions/cache@v5
-      continue-on-error: true
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: "Cache NuGet packages"
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: "Download build artifacts"
-      uses: actions/download-artifact@v8
-      with:
-        name: ${{ inputs.artifact-name }}
+      - name: "Download build artifacts"
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact-name }}
 
-    - name: "Output debug information"
-      if: inputs.debug-output == true
-      run: |
-        echo "--- Debug Information ---"
-        echo "Test filter: ${{ inputs.test-filter }}"
-        echo "Test name: ${{ inputs.test-name }}"
-        echo "Collect coverage: ${{ inputs.collect-coverage }}"
-        echo "Artifact name: ${{ inputs.artifact-name }}"
-        echo "Dotnet version: ${{ inputs.dotnet-version }}"
-        echo ""
-        echo "--- Downloaded Artifact Contents ---"
-        pwd
-        ls -laR
-        echo ""
-        echo "--- .NET Info ---"
-        dotnet --info
-        echo ""
-        echo "--- Solution/Project Files ---"
-        find . -name "*.sln" -o -name "*.csproj" | head -20
+      - name: "Output debug information"
+        if: inputs.debug-output == true
+        run: |
+          echo "--- Debug Information ---"
+          echo "Test filter: ${{ inputs.test-filter }}"
+          echo "Test name: ${{ inputs.test-name }}"
+          echo "Collect coverage: ${{ inputs.collect-coverage }}"
+          echo "Artifact name: ${{ inputs.artifact-name }}"
+          echo "Dotnet version: ${{ inputs.dotnet-version }}"
+          echo ""
+          echo "--- Downloaded Artifact Contents ---"
+          pwd
+          ls -laR
+          echo ""
+          echo "--- .NET Info ---"
+          dotnet --info
+          echo ""
+          echo "--- Solution/Project Files ---"
+          find . -name "*.sln" -o -name "*.csproj" | head -20
 
-    - name: "Restore dependencies"
-      run: dotnet restore
+      - name: "Restore dependencies"
+        run: dotnet restore
 
-    - name: "Run Tests"
-      id: run_tests
-      continue-on-error: true
-      run: |
-          if [ "${{ inputs.collect-coverage }}" == "true" ]; then
-            dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+      - name: "Run Tests"
+        id: run_tests
+        continue-on-error: true
+        run: |
+            if [ "${{ inputs.collect-coverage }}" == "true" ]; then
+              dotnet test --filter '${{ inputs.test-filter }}' --no-build \
+                --verbosity normal --collect:"XPlat Code Coverage" \
+                --results-directory ./coverage
+            else
+              dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
+            fi
+
+      - name: "Upload coverage reports to Codecov"
+        if: inputs.collect-coverage == true && steps.run_tests.outcome == 'success'
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./coverage
+          fail_ci_if_error: false
+
+      - name: "Add test summary"
+        if: always()
+        run: |
+          echo "### ${{ inputs.test-name }} Results" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ steps.run_tests.outcome }} == 'success' ]; then
+            echo "All tests passed" >> $GITHUB_STEP_SUMMARY
           else
-            dotnet test --filter '${{ inputs.test-filter }}' --no-build --verbosity normal
+            echo "Tests failed" >> $GITHUB_STEP_SUMMARY
           fi
 
-    - name: "Upload coverage reports to Codecov"
-      if: inputs.collect-coverage == true && steps.run_tests.outcome == 'success'
-      uses: codecov/codecov-action@v3
-      with:
-        directory: ./coverage
-        fail_ci_if_error: false
-
-    - name: "Add test summary"
-      if: always()
-      run: |
-        echo "### ${{ inputs.test-name }} Results" >> $GITHUB_STEP_SUMMARY
-        if [ ${{ steps.run_tests.outcome }} == 'success' ]; then
-          echo "All tests passed" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Tests failed" >> $GITHUB_STEP_SUMMARY
-        fi
-    
-    - name: "Check for test failures"
-      if: steps.run_tests.outcome == 'failure'
-      run: exit 1
+      - name: "Check for test failures"
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1
