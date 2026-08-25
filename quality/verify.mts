@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
 import { trackedFiles } from "./lib/git.mts";
 import { runShellStep } from "./steps/shell.mts";
+import { runYamlStep } from "./steps/yaml.mts";
 import { failed, passed, skipped, type StepResult } from "./lib/step-result.mts";
 
 interface StepInput {
@@ -46,7 +47,10 @@ const STEPS: Step[] = [
   { id: "dotnet", run: skippedStep({ id: "dotnet" }) },
   { id: "shell", run: ({ ctx, files }) => runShellStep({ ctx, trackedFiles: files }) },
   { id: "smoke", run: runSmoke },
-  { id: "yaml", run: skippedStep({ id: "yaml" }) },
+  {
+    id: "yaml",
+    run: ({ ctx, files }) => runYamlStep({ ctx, trackedFiles: files }),
+  },
   { id: "workflow", run: skippedStep({ id: "workflow" }) },
   { id: "tofu", run: skippedStep({ id: "tofu" }) },
 ];
