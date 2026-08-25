@@ -294,7 +294,9 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       — first green container run (2026-08-25: podman-first shim, pinhash
       tag from tool-versions.env, node 26 tarball with build-time sha
       verification, smoke step proves in-container exec)
-- [ ] lib/ core via TDD: paths, ctx, proc, severities
+- [x] lib/ core via TDD: paths, ctx, proc, severities
+      (2026-08-25: 20 table-driven tests; proc throws loudly naming missing
+      binaries; severities is the sole owner of ranking maths)
 - [ ] Step modules + manifest wiring in naming → … → tofu order
 - [ ] config/ migration from prototype (incl. prettierignore CWD fix)
 - [ ] Bootstrap/install step: configs into repo root + AGENTS.md managed block (decisions #13–14)
