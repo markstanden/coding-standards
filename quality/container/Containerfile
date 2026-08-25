@@ -1,0 +1,31 @@
+# Quality gate runtime image.
+#
+# Official node slim base, digest-pinned via tool-versions.env (multi-arch
+# manifest list, so arm64 works unmodified). The gate's TypeScript code is
+# NOT baked in — verify.sh bind-mounts quality/ read-only at /opt/quality so
+# local edits run without a rebuild. Only tool pins change this image; the
+# shim tags it from tool-versions.env's content hash.
+# Base image pins arrive as build args from verify.sh (which sources
+# tool-versions.env) so that file remains the single source of truth.
+ARG NODE_IMAGE_TAG
+ARG NODE_IMAGE_DIGEST
+
+FROM docker.io/library/node:${NODE_IMAGE_TAG}@${NODE_IMAGE_DIGEST}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY tool-versions.env /usr/local/share/quality/tool-versions.env
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        git \
+    ; \
+    rm -rf /var/lib/apt/lists/*; \
+    . /usr/local/share/quality/tool-versions.env; \
+    npm install --global "typescript@${TYPESCRIPT_VERSION}"; \
+    tsc --version; \
+    node --version
+
+WORKDIR /repo
+ENTRYPOINT ["node", "/opt/quality/verify.mts"]
