@@ -1,0 +1,20 @@
+# YAML lint — yamllint defaults plus the few overrides below.
+# Travels inside the gate (quality/config/) and is passed explicitly with
+# -c, so it applies regardless of the target repo's own files.
+# Change conventions here, then run the gate; yamllint has no --fix.
+
+extends: default
+
+rules:
+    # GitHub Actions and compose files often need longer lines than 80.
+    line-length:
+        max: 120
+    # Conventional for workflow / config snippets without ---.
+    document-start: disable
+    # GitHub Actions uses the key `on:` (YAML 1.1 would treat bare `on` as true).
+    truthy:
+        allowed-values: ["true", "false", "on"]
+    # Prettier (which formats YAML once the node step lands) emits one space
+    # before inline comments; align the linter so both tools agree.
+    comments:
+        min-spaces-from-content: 1
