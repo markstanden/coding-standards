@@ -41,6 +41,7 @@ daily but is coupled to that one repo. This plan extracts it.
 | 14 | **Agent instructions are seeded, not owned** — gate setup writes a marker-delimited managed block (`<!-- quality-gate:start -->…<!-- quality-gate:end -->`) into consumer `AGENTS.md`: house standards summary + pointer home to this repo's README as canonical index. Idempotent re-runs rewrite the block only; project content outside it is never clobbered (raises-only) |
 | 15 | **Distribution end-state: two channels only** — the pinned image (configs + bootstrap) and gitsha-pinned reusable-workflow `uses:` refs. Symlinks, submodules and release artifacts all retired; no release pipeline needed since the image tag *is* the release |
 | 16 | **Standalone lint/security workflow templates dropped** — shellcheck/yamllint/gitleaks arrive via the image's `shell`/`yaml`/`workflow` steps consumed through a single `quality-gate--verify.yml`; thin wrapper templates would be immediate deletion work |
+| 17 | **Base image: official `node:<ver>-slim`, digest-pinned** (2026-08-25, supersedes the "Ubuntu image" wording of #1) — multi-arch manifest digest gives arm64 free, deletes hand-maintained Node install code, Node team handles base patching. Digest lives in `tool-versions.env` and reaches `FROM` via build args so that file stays the single source of truth. Global pinned `tsc` is baked in for typechecking the gate's own code; the gate still *runs* on strip-types with no build step |
 
 ## Roadmap (2026-08-25 brainstorm)
 
@@ -289,8 +290,10 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 - [x] Design review: manifest shape, naming/modularity conventions,
       container-native runtime, delivery mechanism, override file
       (2026-08-24 — decisions log above)
-- [ ] Scaffold quality/ (verify.sh shim, Containerfile, empty orchestrator)
-      — first green container run on the Arch host
+- [x] Scaffold quality/ (verify.sh shim, Containerfile, empty orchestrator)
+      — first green container run (2026-08-25: podman-first shim, pinhash
+      tag from tool-versions.env, node 26 tarball with build-time sha
+      verification, smoke step proves in-container exec)
 - [ ] lib/ core via TDD: paths, ctx, proc, severities
 - [ ] Step modules + manifest wiring in naming → … → tofu order
 - [ ] config/ migration from prototype (incl. prettierignore CWD fix)

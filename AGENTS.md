@@ -27,8 +27,9 @@ means shell/YAML sanity checks, not builds.
 `PLAN.md` before touching anything gate-related — its decisions log is law
 and exists so choices aren't relitigated:
 
-- Container-native runtime (pinned Ubuntu image); only host surface is a
-  ~30-line bash shim.
+- Container-native runtime (official `node:<ver>-slim` base, digest-pinned
+  via `tool-versions.env`; global pinned `tsc` for typechecking gate code);
+  only host surface is a ~30-line bash shim.
 - TypeScript core, Node ≥26 strip-types: **no enums/namespaces** (bare string
   literal unions), extensioned imports, zero dependencies, tested with
   `node --test` colocated as `*.test.mts`.
