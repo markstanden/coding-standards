@@ -6,18 +6,13 @@
 // step skips with a notice; the smoke step proves end-to-end container
 // execution and will be removed once real steps land.
 //
-// Flags: --fix | --no-fix | --silent | -h/--help
+// Flags are parsed and context assembled by lib/ctx.mts.
 
 import { spawnSync } from "node:child_process";
 
-type StepMode = "fix" | "no-fix";
-type StepStatus = "pass" | "fail" | "skip";
+import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
 
-interface RunContext {
-  mode: StepMode;
-  silent: boolean;
-  repoRoot: string;
-}
+type StepStatus = "pass" | "fail" | "skip";
 
 interface StepResult {
   status: StepStatus;
@@ -27,19 +22,6 @@ interface StepResult {
 interface Step {
   id: string;
   run: { (ctx: RunContext): Promise<StepResult> };
-}
-
-function parseArgs({ argv }: { argv: string[] }): { ctx: RunContext; help: boolean } {
-  let mode: StepMode = "no-fix";
-  let silent = false;
-  for (const arg of argv) {
-    if (arg === "--fix") mode = "fix";
-    else if (arg === "--no-fix") mode = "no-fix";
-    else if (arg === "--silent") silent = true;
-    else if (arg === "-h" || arg === "--help") return { ctx: { mode, silent, repoRoot: process.cwd() }, help: true };
-    else throw new Error(`unknown flag: ${arg}`);
-  }
-  return { ctx: { mode, silent, repoRoot: process.cwd() }, help: false };
 }
 
 async function runSmoke({ ctx }: { ctx: RunContext }): Promise<StepResult> {
@@ -67,40 +49,52 @@ const STEPS: Step[] = [
   { id: "tofu", run: skippedStep({ id: "tofu" }) },
 ];
 
-function main(): void {
-  let parsed: ReturnType<typeof parseArgs>;
+function printUsage(): void {
+  console.log("usage: verify.sh [--fix] [--no-fix] [--silent] [-h]");
+}
+
+async function main(): Promise<void> {
+  // Phase 1 — pure flag parsing; exits early on help or bad input.
+  let args: ReturnType<typeof parseArgs>;
   try {
-    parsed = parseArgs({ argv: process.argv.slice(2) });
+    args = parseArgs({ argv: process.argv.slice(2) });
   } catch (err) {
     console.error(String(err));
     process.exit(2);
   }
-  if (parsed.help) {
-    console.log("usage: verify.sh [--fix] [--no-fix] [--silent] [-h]");
+  if (args!.help) {
+    printUsage();
     return;
   }
 
+  // Phase 2 — async context assembly (repo-root derivation).
+  const ctx = await createRunContext({
+    argv: process.argv.slice(2),
+    startDir: process.cwd(),
+  });
+
+  // Phase 3 — sequential execution; every step starts marked fail so a
+  // crash mid-run cannot be mistaken for success.
   const results = new Map<string, StepResult>();
   for (const step of STEPS) {
     results.set(step.id, { status: "fail", notice: "not started" });
   }
+  for (const step of STEPS) {
+    const result = await step.run({ ctx });
+    results.set(step.id, result);
+  }
 
-  (async () => {
-    for (const step of STEPS) {
-      const result = await step.run({ ctx: parsed.ctx });
-      results.set(step.id, result);
+  // Summary: silent mode still prints passes (and the smoke line) so a
+  // quiet green run is never fully mute.
+  for (const [id, r] of results) {
+    if (!ctx.silent || id === "smoke") {
+      console.log(`${r.status.padEnd(4)} ${id}${r.notice ? ` — ${r.notice}` : ""}`);
     }
+  }
 
-    const failed = [...results.entries()].filter(([, r]) => r.status === "fail");
-    for (const [id, r] of results) {
-      if (!parsed.silent || r.status !== "skip" || id === "smoke") {
-        console.log(`${r.status.padEnd(4)} ${id}${r.notice ? ` — ${r.notice}` : ""}`);
-      }
-    }
-    if (failed.length > 0) {
-      process.exit(1);
-    }
-  })();
+  if ([...results.values()].some((r) => r.status === "fail")) {
+    process.exit(1);
+  }
 }
 
-main();
+await main();
