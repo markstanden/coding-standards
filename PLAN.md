@@ -42,6 +42,7 @@ daily but is coupled to that one repo. This plan extracts it.
 | 15 | **Distribution end-state: two channels only** — the pinned image (configs + bootstrap) and gitsha-pinned reusable-workflow `uses:` refs. Symlinks, submodules and release artifacts all retired; no release pipeline needed since the image tag *is* the release |
 | 16 | **Standalone lint/security workflow templates dropped** — shellcheck/yamllint/gitleaks arrive via the image's `shell`/`yaml`/`workflow` steps consumed through a single `quality-gate--verify.yml`; thin wrapper templates would be immediate deletion work |
 | 17 | **Base image: official `node:<ver>-slim`, digest-pinned** (2026-08-25, supersedes the "Ubuntu image" wording of #1) — multi-arch manifest digest gives arm64 free, deletes hand-maintained Node install code, Node team handles base patching. Digest lives in `tool-versions.env` and reaches `FROM` via build args so that file stays the single source of truth. Global pinned `tsc` is baked in for typechecking the gate's own code; the gate still *runs* on strip-types with no build step |
+| 18 | **Shellcheck floor raised `error` → `style`** (2026-08-25, supersedes the 2026-08-23 "floor error universally" rule) — every shellcheck finding gates; inconsistencies are forced away, not tolerated. Raises-only means floors move up, never down. First run at this floor found 4 real findings, all fixed mechanically rather than suppressed |
 
 ## Roadmap (2026-08-25 brainstorm)
 

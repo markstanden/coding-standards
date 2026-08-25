@@ -30,7 +30,7 @@ FORMAT_EXIT_CODE=$?
 echo ""
 if [ $FORMAT_EXIT_CODE -eq 0 ]; then
 	echo "Format successful, re-adding the formatted files to the staging area"
-	git add $STAGED_FILES
+	echo "$STAGED_FILES" | tr '\n' '\0' | xargs -0 git add --
 else
 	echo "dotnet format failed with exit code $FORMAT_EXIT_CODE"
 fi

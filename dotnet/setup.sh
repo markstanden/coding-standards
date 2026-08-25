@@ -6,7 +6,7 @@ echo "Setting up .NET coding-standards within project..."
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 
 echo "Determining setup script location..."
-SCRIPT_DIR="$(cd "$(dirname $SCRIPT_PATH)" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 echo "Setup script Directory: $SCRIPT_DIR"
 
 echo "Calculating project root directory..."

@@ -38,7 +38,7 @@ IMAGE="localhost/quality-gate:${PINHASH}"
 
 # Base image pins come from tool-versions.env — the single source of truth —
 # and are injected as build args because FROM needs them before COPY.
-# shellcheck source=SCRIPTDIR/container/tool-versions.env
+# shellcheck source=quality/container/tool-versions.env
 source "${CONTAINER_DIR}/tool-versions.env"
 
 if ! "${ENGINE}" image inspect "${IMAGE}" >/dev/null 2>&1; then

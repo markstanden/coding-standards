@@ -6,7 +6,7 @@ echo "Setting up git hooks within project..."
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 
 echo "Determining hooks install script location..."
-SCRIPT_DIR="$(cd "$(dirname $SCRIPT_PATH)" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 echo "Hooks install script Directory: $SCRIPT_DIR"
 
 echo "Calculating git hooks directory..."
