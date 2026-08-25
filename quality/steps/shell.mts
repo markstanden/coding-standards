@@ -14,7 +14,10 @@ import { failed, passed, skipped, type StepResult } from "../lib/step-result.mts
 import { run } from "../lib/proc.mts";
 import type { Severity } from "../lib/severities.mts";
 
-export const SHELLCHECK_DEFAULT_FLOOR: Severity = "error";
+// Floor 'style' = every shellcheck finding gates (error < warning < info
+// < style). Raised from the original 'error' default per decision #18;
+// floors only ever move up.
+export const SHELLCHECK_DEFAULT_FLOOR: Severity = "style";
 const SHELL_SCRIPT = /\.sh$/u;
 
 export interface ShellRunContext {
@@ -58,7 +61,7 @@ export async function runShellStep({
     return failed({ notice: `shell: shfmt found formatting diffs (${scripts.length} files)` });
   }
 
-  const lint = runner({ cmd: "shellcheck", args: ["-S", floor, ...scripts] });
+  const lint = runner({ cmd: "shellcheck", args: ["-x", "-S", floor, ...scripts] });
   if (lint.status !== 0) {
     return failed({
       notice: `shell: shellcheck violations at or above '${floor}'`,

@@ -79,12 +79,12 @@ test("shellcheck violations at or above the floor fail the step", async () => {
   assert.ok((result.notice ?? "").includes("shellcheck"));
 });
 
-test("default floor is error; a raised project floor is honoured via -S", async () => {
+test("default floor is style; a raised project floor is honoured via -S", async () => {
   const { runner, calls } = fakeRunner({});
   await runShellStep({ ctx: baseCtx, trackedFiles: ["ok.sh"], runner });
   const floorArg = calls.find((c) => c[0] === "shellcheck")?.[
     calls.find((c) => c[0] === "shellcheck")!.indexOf("-S") + 1
   ];
-  assert.equal(SHELLCHECK_DEFAULT_FLOOR, "error");
-  assert.equal(floorArg, "error");
+  assert.equal(SHELLCHECK_DEFAULT_FLOOR, "style");
+  assert.equal(floorArg, "style");
 });
