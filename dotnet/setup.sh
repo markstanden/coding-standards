@@ -6,7 +6,7 @@ echo "Setting up .NET coding-standards within project..."
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 
 echo "Determining setup script location..."
-SCRIPT_DIR="$(cd "$(dirname $SCRIPT_PATH)" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 echo "Setup script Directory: $SCRIPT_DIR"
 
 echo "Calculating project root directory..."
@@ -34,8 +34,8 @@ mkdir -p "$PROJECT_DIR/.github/workflows"
 
 echo "checking for existing .github/workflows/pipeline.yml file..."
 if [ ! -f "$PROJECT_DIR/.github/workflows/pipeline.yml" ]; then
-    echo "Creating GitHub workflow from example template"
-    cp "$SCRIPT_DIR/workflows/pipeline.yml.example" "$PROJECT_DIR/.github/workflows/pipeline.yml"
+	echo "Creating GitHub workflow from example template"
+	cp "$SCRIPT_DIR/workflows/pipeline.yml.example" "$PROJECT_DIR/.github/workflows/pipeline.yml"
 else
-    echo "GitHub workflow (.github/workflows/pipeline.yml) already exists, aborting copy operation"
+	echo "GitHub workflow (.github/workflows/pipeline.yml) already exists, aborting copy operation"
 fi

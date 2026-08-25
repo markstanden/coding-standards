@@ -30,46 +30,46 @@ jobs:
     outputs:
       success: ${{ steps.build_step.outcome == 'success' }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ inputs.dotnet-version }}
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
 
-    - name: "Cache NuGet packages"
-      uses: actions/cache@v5
-      continue-on-error: true
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+      - name: "Cache NuGet packages"
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
-    - name: Build
-      id: build_step
-      continue-on-error: true
-      run: dotnet build
+      - name: Build
+        id: build_step
+        continue-on-error: true
+        run: dotnet build
 
-    - name: Upload build artifacts
-      if: steps.build_step.outcome == 'success'
-      uses: actions/upload-artifact@v7
-      with:
-        name: build-output
-        path: |
-          **/bin
+      - name: Upload build artifacts
+        if: steps.build_step.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-output
+          path: |
+            **/bin
 
-    - name: Add build summary
-      if: always()
-      run: |
-        echo "### Build Results" >> $GITHUB_STEP_SUMMARY
-        if [ ${{ steps.build_step.outcome }} == 'success' ]; then
-          echo "Build successful" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "Build failed" >> $GITHUB_STEP_SUMMARY
-        fi
-        
-    - name: "Check for build failures"
-      if: steps.build_step.outcome == 'failure'
-      run: exit 1
+      - name: Add build summary
+        if: always()
+        run: |
+          echo "### Build Results" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ steps.build_step.outcome }} == 'success' ]; then
+            echo "Build successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Build failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: "Check for build failures"
+        if: steps.build_step.outcome == 'failure'
+        run: exit 1

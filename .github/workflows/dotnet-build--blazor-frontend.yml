@@ -34,7 +34,9 @@ on:
         default: 30
 
       environment-variables:
-        description: "Environment variables for the build process (JSON format: {\"KEY1\":\"value1\",\"KEY2\":\"value2\"})"
+        description: >-
+          Environment variables for the build process
+          (JSON format: {"KEY1":"value1","KEY2":"value2"})
         type: string
         required: false
         default: ""
@@ -68,14 +70,14 @@ jobs:
           fi
 
       - name: "Check for npm requirements"
-        id: check-npm 
+        id: check-npm
         run: |
           if [ -f "${{ inputs.web-project-path }}/package.json" ]; then
             echo "npm-required=true" >> $GITHUB_OUTPUT
           else
             echo "npm-required=false" >> $GITHUB_OUTPUT
           fi
-  
+
       - name: "Setup Node.js"
         if: steps.check-npm.outputs.npm-required == 'true'
         uses: actions/setup-node@v6
