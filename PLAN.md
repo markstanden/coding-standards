@@ -92,6 +92,9 @@ quality/
 │   ├── yaml.mts           # default-on  yamllint over tracked YAML
 │   ├── workflow.mts       # default-on* actionlint + zizmor + gitleaks (*needs .github/)
 │   └── tofu.mts           # default-on* tofu fmt + init/validate (*needs tracked *.tf)
+│                          #   [NEEDS DECISION 2026-08-25] also tflint —
+│                          #   sonarqube-compatible; decide pin/delivery
+│                          #   (apt vs release tarball) when the step lands
 ├── config/                # prettier.config.mjs prettierignore yamllint.yml schema
 ├── container/
 │   ├── Containerfile      # ubuntu base, node 26, apt-pinned tools
