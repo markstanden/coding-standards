@@ -19,18 +19,18 @@ CONTAINER_DIR="${QUALITY_DIR}/container"
 # Repo root comes from the invocation CWD's git root — never from where this
 # script lives — so the gate can run against any checkout.
 REPO_ROOT="$(git -C "${PWD}" rev-parse --show-toplevel)" || {
-    echo "ERROR: not inside a git repository (run from within the target project)" >&2
-    exit 1
+	echo "ERROR: not inside a git repository (run from within the target project)" >&2
+	exit 1
 }
 
 if command -v podman >/dev/null 2>&1; then
-    ENGINE="podman"
+	ENGINE="podman"
 elif command -v docker >/dev/null 2>&1; then
-    ENGINE="docker"
+	ENGINE="docker"
 else
-    echo "ERROR: no container engine found. Install podman or docker:" >&2
-    echo "  see quality/container/Containerfile for the supported base" >&2
-    exit 1
+	echo "ERROR: no container engine found. Install podman or docker:" >&2
+	echo "  see quality/container/Containerfile for the supported base" >&2
+	exit 1
 fi
 
 PINHASH="$(sha256sum "${CONTAINER_DIR}/tool-versions.env" | cut -c1-12)"
@@ -42,15 +42,15 @@ IMAGE="localhost/quality-gate:${PINHASH}"
 source "${CONTAINER_DIR}/tool-versions.env"
 
 if ! "${ENGINE}" image inspect "${IMAGE}" >/dev/null 2>&1; then
-    echo "Building ${IMAGE} ..."
-    "${ENGINE}" build \
-        --build-arg "NODE_IMAGE_TAG=${NODE_IMAGE_TAG}" \
-        --build-arg "NODE_IMAGE_DIGEST=${NODE_IMAGE_DIGEST}" \
-        -t "${IMAGE}" "${CONTAINER_DIR}"
+	echo "Building ${IMAGE} ..."
+	"${ENGINE}" build \
+		--build-arg "NODE_IMAGE_TAG=${NODE_IMAGE_TAG}" \
+		--build-arg "NODE_IMAGE_DIGEST=${NODE_IMAGE_DIGEST}" \
+		-t "${IMAGE}" "${CONTAINER_DIR}"
 fi
 
 exec "${ENGINE}" run --rm \
-    -v "${REPO_ROOT}:/repo" \
-    -v "${QUALITY_DIR}:/opt/quality:ro" \
-    --workdir /repo \
-    "${IMAGE}" "$@"
+	-v "${REPO_ROOT}:/repo" \
+	-v "${QUALITY_DIR}:/opt/quality:ro" \
+	--workdir /repo \
+	"${IMAGE}" "$@"

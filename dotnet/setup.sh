@@ -34,8 +34,8 @@ mkdir -p "$PROJECT_DIR/.github/workflows"
 
 echo "checking for existing .github/workflows/pipeline.yml file..."
 if [ ! -f "$PROJECT_DIR/.github/workflows/pipeline.yml" ]; then
-    echo "Creating GitHub workflow from example template"
-    cp "$SCRIPT_DIR/workflows/pipeline.yml.example" "$PROJECT_DIR/.github/workflows/pipeline.yml"
+	echo "Creating GitHub workflow from example template"
+	cp "$SCRIPT_DIR/workflows/pipeline.yml.example" "$PROJECT_DIR/.github/workflows/pipeline.yml"
 else
-    echo "GitHub workflow (.github/workflows/pipeline.yml) already exists, aborting copy operation"
+	echo "GitHub workflow (.github/workflows/pipeline.yml) already exists, aborting copy operation"
 fi
