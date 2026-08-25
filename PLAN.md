@@ -1,4 +1,4 @@
-<!-- update: agent=opencode | date=2026-08-24 | scope=PLAN.md -->
+<!-- update: agent=opencode | date=2026-08-25 | scope=PLAN.md -->
 
 # PLAN — portable quality gate ("pick up and drop")
 
@@ -37,6 +37,32 @@ daily but is coupled to that one repo. This plan extracts it.
 | 10 | **Scanning**: git-tracked files only (`git ls-files -co --exclude-standard`); per-tool ignores travel in `quality/config/` for committed-but-generated exceptions |
 | 11 | **Detection**: sync only (`fs` existence checks); execution strictly sequential — `--fix` writes files, and ordered output keeps `--silent` log-dumps trustworthy |
 | 12 | **Overrides**: `.qualityrc.json` at target repo root; raises-only; unknown step ids or lowered floors are config errors |
+| 13 | **Gate is the bootstrap** — gate setup installs shared configs (`.editorconfig`, `Directory.Build.props`) into the repo root from versions baked into the image; `verify` fails loudly on drift. Editors read these files only from the project root, so install is part of setup, not verify |
+| 14 | **Agent instructions are seeded, not owned** — gate setup writes a marker-delimited managed block (`<!-- quality-gate:start -->…<!-- quality-gate:end -->`) into consumer `AGENTS.md`: house standards summary + pointer home to this repo's README as canonical index. Idempotent re-runs rewrite the block only; project content outside it is never clobbered (raises-only) |
+| 15 | **Distribution end-state: two channels only** — the pinned image (configs + bootstrap) and gitsha-pinned reusable-workflow `uses:` refs. Symlinks, submodules and release artifacts all retired; no release pipeline needed since the image tag *is* the release |
+| 16 | **Standalone lint/security workflow templates dropped** — shellcheck/yamllint/gitleaks arrive via the image's `shell`/`yaml`/`workflow` steps consumed through a single `quality-gate--verify.yml`; thin wrapper templates would be immediate deletion work |
+
+## Roadmap (2026-08-25 brainstorm)
+
+Three stages, strictly sequential — stage 1 unblocks everything else because
+until first green nothing distributes configs or instructions.
+
+1. **Gate to first green** — scaffold → lib/ via TDD → step modules →
+   config/ migration → container dep volumes → ghcr CI template → golden-test
+   parity. Includes the bootstrap/install step (decisions #13–14): shared
+   configs into repo roots + AGENTS.md managed block seeding.
+2. **Pipelines consume the gate** — `quality-gate--verify.yml` pulls the
+   pinned ghcr image against consumer repos (local green = merge green by
+   construction). Remaining genuinely pipeline-specific inline scripts
+   (~65 `run:` blocks today; heaviest: opentofu-build-infrastructure ×13,
+   dotnet-test--playwright-tests ×10) extract to zero-dep `scripts/pipelines/*.mts`
+   modules with `node --test` coverage — same strip-types conventions,
+   deliberately outside `quality/`, run on plain Node in the runner.
+3. **Single static entrypoint** — this repo's README becomes the canonical
+   human+agent index linking standards docs, pipeline catalogue and gate
+   usage; expand standards docs (dotnet/testing/unit-testing.md, node
+   equivalents, architecture preferences). Consumer adoption = pin a sha;
+   `dotnet/setup.sh` symlink logic stays working but legacy until retired.
 
 ## Current couplings to remove (audit of system-config `quality/`, 2026-08-23)
 
@@ -162,7 +188,13 @@ submodule/symlink/package-manager trilemma dissolves:
   construction.
 - **Target projects vendor nothing.** A project may install a ~5-line shim
   that invokes the image (setup scripts can drop it alongside the dotnet
-  standards) plus its own `.qualityrc.json`.
+  standards) plus its own `.qualityrc.json`. The shim's first-run bootstrap
+  also installs shared configs into the repo root and seeds `AGENTS.md`
+  (decisions #13–14) — one wiring step covers configs, instructions and docs.
+- End-state (decision #15): this image plus gitsha-pinned workflow refs are
+  the *only* distribution channels; the submodule/symlink model in
+  `dotnet/setup.sh` is legacy during transition, retired once the gate's
+  bootstrap lands.
 
 ## Verification of the migration itself
 
@@ -262,6 +294,7 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 - [ ] lib/ core via TDD: paths, ctx, proc, severities
 - [ ] Step modules + manifest wiring in naming → … → tofu order
 - [ ] config/ migration from prototype (incl. prettierignore CWD fix)
+- [ ] Bootstrap/install step: configs into repo root + AGENTS.md managed block (decisions #13–14)
 - [ ] In-container deps: shadow volumes + restore behaviour
 - [ ] CI template: publish/consume ghcr image tagged from pin hash
 - [ ] Golden-test parity on system-config
