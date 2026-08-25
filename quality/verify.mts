@@ -11,30 +11,32 @@
 import { spawnSync } from "node:child_process";
 
 import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
+import { trackedFiles } from "./lib/git.mts";
+import { runShellStep } from "./steps/shell.mts";
+import { failed, passed, skipped, type StepResult } from "./lib/step-result.mts";
 
-type StepStatus = "pass" | "fail" | "skip";
-
-interface StepResult {
-  status: StepStatus;
-  notice?: string;
+interface StepInput {
+  ctx: RunContext;
+  /** Git-tracked files relative to repoRoot (lib/git.mts). */
+  files: string[];
 }
 
 interface Step {
   id: string;
-  run: { (ctx: RunContext): Promise<StepResult> };
+  run: { (input: StepInput): Promise<StepResult> };
 }
 
 async function runSmoke({ ctx }: { ctx: RunContext }): Promise<StepResult> {
   const probe = spawnSync("git", ["--version"], { encoding: "utf8" });
   if (probe.status !== 0) {
-    return { status: "fail", notice: "git not available in container" };
+    return failed({ notice: "git not available in container" });
   }
-  return { status: "pass", notice: `container exec ok (${probe.stdout.trim()})` };
+  return passed({ notice: `container exec ok (${probe.stdout.trim()})` });
 }
 
 function skippedStep({ id }: { id: string }) {
-  return async function run(_ctx: RunContext): Promise<StepResult> {
-    return { status: "skip", notice: `${id}: not yet wired` };
+  return async function run(_input: StepInput): Promise<StepResult> {
+    return skipped({ notice: `${id}: not yet wired` });
   };
 }
 
@@ -42,7 +44,7 @@ const STEPS: Step[] = [
   { id: "naming", run: skippedStep({ id: "naming" }) },
   { id: "node", run: skippedStep({ id: "node" }) },
   { id: "dotnet", run: skippedStep({ id: "dotnet" }) },
-  { id: "shell", run: skippedStep({ id: "shell" }) },
+  { id: "shell", run: ({ ctx, files }) => runShellStep({ ctx, trackedFiles: files }) },
   { id: "smoke", run: runSmoke },
   { id: "yaml", run: skippedStep({ id: "yaml" }) },
   { id: "workflow", run: skippedStep({ id: "workflow" }) },
@@ -75,12 +77,13 @@ async function main(): Promise<void> {
 
   // Phase 3 — sequential execution; every step starts marked fail so a
   // crash mid-run cannot be mistaken for success.
+  const files = trackedFiles({ repoRoot: ctx.repoRoot });
   const results = new Map<string, StepResult>();
   for (const step of STEPS) {
-    results.set(step.id, { status: "fail", notice: "not started" });
+    results.set(step.id, failed({ notice: "not started" }));
   }
   for (const step of STEPS) {
-    const result = await step.run({ ctx });
+    const result = await step.run({ ctx, files });
     results.set(step.id, result);
   }
 

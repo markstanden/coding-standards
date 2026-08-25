@@ -20,9 +20,13 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         git \
+        shellcheck \
+        shfmt \
     ; \
     rm -rf /var/lib/apt/lists/*; \
     . /usr/local/share/quality/tool-versions.env; \
+    test "$(shellcheck --version | sed -n 's/^version: //p')" = "${SHELLCHECK_VERSION}"; \
+    test "$(shfmt --version)" = "${SHFMT_VERSION}"; \
     npm install --global "typescript@${TYPESCRIPT_VERSION}"; \
     tsc --version; \
     node --version
