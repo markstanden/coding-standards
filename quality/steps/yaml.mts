@@ -12,9 +12,9 @@
 
 import { failed, passed, skipped, type StepResult } from "../lib/step-result.mts";
 import { run } from "../lib/proc.mts";
+import { gateConfigPath } from "../lib/paths.mts";
 
 export const YAML_EXTENSIONS = [".yml", ".yaml"] as const;
-const GATE_CONFIG = "quality/config/yamllint.yml";
 
 export interface YamlRunContext {
   mode: "fix" | "no-fix";
@@ -45,9 +45,11 @@ export async function runYamlStep({
   }
 
   // -f parsable gives one finding per line, machine-countable.
+  // Config resolves from the gate's own directory (lib/paths.mts), never
+  // the CWD — consumer repos have no quality/ of their own.
   const result = runner({
     cmd: "yamllint",
-    args: ["-c", GATE_CONFIG, "-f", "parsable", ...files],
+    args: ["-c", await gateConfigPath({ name: "yamllint.yml" }), "-f", "parsable", ...files],
   });
   if (result.status !== 0) {
     const violations = result.stdout.split("\n").filter((line) => line !== "").length;

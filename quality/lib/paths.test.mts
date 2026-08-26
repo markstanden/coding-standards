@@ -2,12 +2,13 @@
 // Run: node --test quality/lib/paths.test.mts
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { deriveRepoRoot, resolveRealPath } from "./paths.mts";
+import { deriveRepoRoot, gateConfigPath, resolveRealPath } from "./paths.mts";
 
 async function makeTempTree(): Promise<string> {
   return mkdtemp(join(tmpdir(), "quality-paths-"));
@@ -87,4 +88,10 @@ test("deriveRepoRoot resolves symlinks in the start path first", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("gateConfigPath resolves under the gate's own config directory", async () => {
+  const path = await gateConfigPath({ name: "yamllint.yml" });
+  assert.match(path, /\/config\/yamllint\.yml$/u);
+  assert.equal(existsSync(path), true);
 });
