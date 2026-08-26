@@ -16,6 +16,7 @@ import { runDotNetStep } from "./steps/dotnet.mts";
 import { runNamingStep } from "./steps/naming.mts";
 import { runNodeStep } from "./steps/node.mts";
 import { runShellStep } from "./steps/shell.mts";
+import { runWorkflowStep } from "./steps/workflow.mts";
 import { runYamlStep } from "./steps/yaml.mts";
 import { failed, passed, skipped, type StepResult } from "./lib/step-result.mts";
 
@@ -60,7 +61,7 @@ const STEPS: Step[] = [
     id: "yaml",
     run: ({ ctx, files }) => runYamlStep({ ctx, trackedFiles: files }),
   },
-  { id: "workflow", run: skippedStep({ id: "workflow" }) },
+  { id: "workflow", run: ({ ctx, files }) => runWorkflowStep({ ctx, trackedFiles: files }) },
   { id: "tofu", run: skippedStep({ id: "tofu" }) },
 ];
 
