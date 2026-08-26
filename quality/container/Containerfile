@@ -47,6 +47,8 @@ RUN set -eux; \
     zizmor --version >/dev/null; \
     curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz" | tar -xz -C /usr/local/bin gitleaks; \
     gitleaks --version >/dev/null; \
+    curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin tofu; \
+    tofu --version >/dev/null; \
     node --version
 
 WORKDIR /repo
