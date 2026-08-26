@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 
 import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
 import { trackedFiles } from "./lib/git.mts";
+import { runDotNetStep } from "./steps/dotnet.mts";
 import { runNamingStep } from "./steps/naming.mts";
 import { runNodeStep } from "./steps/node.mts";
 import { runShellStep } from "./steps/shell.mts";
@@ -49,7 +50,10 @@ const STEPS: Step[] = [
     id: "node",
     run: ({ ctx, files }) => runNodeStep({ ctx, trackedFiles: files }),
   },
-  { id: "dotnet", run: skippedStep({ id: "dotnet" }) },
+  {
+    id: "dotnet",
+    run: ({ ctx, files }) => runDotNetStep({ ctx, trackedFiles: files }),
+  },
   { id: "shell", run: ({ ctx, files }) => runShellStep({ ctx, trackedFiles: files }) },
   { id: "smoke", run: runSmoke },
   {
