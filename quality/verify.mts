@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 
 import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
 import { trackedFiles } from "./lib/git.mts";
+import { runNamingStep } from "./steps/naming.mts";
 import { runNodeStep } from "./steps/node.mts";
 import { runShellStep } from "./steps/shell.mts";
 import { runYamlStep } from "./steps/yaml.mts";
@@ -43,7 +44,7 @@ function skippedStep({ id }: { id: string }) {
 }
 
 const STEPS: Step[] = [
-  { id: "naming", run: skippedStep({ id: "naming" }) },
+  { id: "naming", run: ({ ctx, files }) => runNamingStep({ ctx, trackedFiles: files, enabled: false }) },
   {
     id: "node",
     run: ({ ctx, files }) => runNodeStep({ ctx, trackedFiles: files }),
