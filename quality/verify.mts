@@ -12,7 +12,13 @@ import { spawnSync } from "node:child_process";
 
 import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
 import { trackedFiles } from "./lib/git.mts";
+import { runSetup } from "./setup.mts";
+import { runDotNetStep } from "./steps/dotnet.mts";
+import { runNamingStep } from "./steps/naming.mts";
+import { runNodeStep } from "./steps/node.mts";
 import { runShellStep } from "./steps/shell.mts";
+import { runTofuStep } from "./steps/tofu.mts";
+import { runWorkflowStep } from "./steps/workflow.mts";
 import { runYamlStep } from "./steps/yaml.mts";
 import { failed, passed, skipped, type StepResult } from "./lib/step-result.mts";
 
@@ -42,17 +48,23 @@ function skippedStep({ id }: { id: string }) {
 }
 
 const STEPS: Step[] = [
-  { id: "naming", run: skippedStep({ id: "naming" }) },
-  { id: "node", run: skippedStep({ id: "node" }) },
-  { id: "dotnet", run: skippedStep({ id: "dotnet" }) },
+  { id: "naming", run: ({ ctx, files }) => runNamingStep({ ctx, trackedFiles: files, enabled: false }) },
+  {
+    id: "node",
+    run: ({ ctx, files }) => runNodeStep({ ctx, trackedFiles: files }),
+  },
+  {
+    id: "dotnet",
+    run: ({ ctx, files }) => runDotNetStep({ ctx, trackedFiles: files }),
+  },
   { id: "shell", run: ({ ctx, files }) => runShellStep({ ctx, trackedFiles: files }) },
   { id: "smoke", run: runSmoke },
   {
     id: "yaml",
     run: ({ ctx, files }) => runYamlStep({ ctx, trackedFiles: files }),
   },
-  { id: "workflow", run: skippedStep({ id: "workflow" }) },
-  { id: "tofu", run: skippedStep({ id: "tofu" }) },
+  { id: "workflow", run: ({ ctx, files }) => runWorkflowStep({ ctx, trackedFiles: files }) },
+  { id: "tofu", run: ({ ctx, files }) => runTofuStep({ ctx, trackedFiles: files }) },
 ];
 
 function printUsage(): void {
@@ -60,10 +72,20 @@ function printUsage(): void {
 }
 
 async function main(): Promise<void> {
+  const positional = process.argv.slice(2);
+
+  // Setup is the gate's bootstrap (decisions #13–14): install shared configs
+  // and seed AGENTS.md. Delegate before flag parsing so verify flags never
+  // apply to it.
+  if (positional[0] === "setup") {
+    await runSetup({ startDir: process.cwd() });
+    return;
+  }
+
   // Phase 1 — pure flag parsing; exits early on help or bad input.
   let args: ReturnType<typeof parseArgs>;
   try {
-    args = parseArgs({ argv: process.argv.slice(2) });
+    args = parseArgs({ argv: positional });
   } catch (err) {
     console.error(String(err));
     process.exit(2);
@@ -75,7 +97,7 @@ async function main(): Promise<void> {
 
   // Phase 2 — async context assembly (repo-root derivation).
   const ctx = await createRunContext({
-    argv: process.argv.slice(2),
+    argv: positional,
     startDir: process.cwd(),
   });
 

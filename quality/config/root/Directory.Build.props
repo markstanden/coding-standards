@@ -1,0 +1,38 @@
+<Project>
+  <PropertyGroup>
+    <!-- Common build properties -->
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Enables debugging into NuGet packages by linking back to the original source code on GitHub -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <!-- Includes source from non-tracked files (helpful for debugging modified but uncommitted code) -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Generates symbol files alongside assemblies -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <!-- Uses the modern symbol package format that's more compatible with NuGet -->
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Analysis settings -->
+    <!-- Uses the latest available analysis rules -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Enables all code analyzers rather than just the recommended subset -->
+    <AnalysisMode>All</AnalysisMode>
+    <!-- Activates the built-in .NET code analyzers -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+
+    <!-- Documentation -->
+    <!-- Generates XML documentation files for all projects (required for SDK-style API documentation) -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppresses warnings about missing XML comments while still generating docs for the comments that exist -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn> <!-- Missing XML comments -->
+  </PropertyGroup>
+
+  <!-- Development dependency packages -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
+  </ItemGroup>
+</Project>

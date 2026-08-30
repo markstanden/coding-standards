@@ -43,7 +43,17 @@ async function makeRepo({
     run({ cmd: "git", args: ["add", ...committed], cwd: root });
     run({
       cmd: "git",
-      args: ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init"],
+      args: [
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "init",
+      ],
       cwd: root,
     });
   }

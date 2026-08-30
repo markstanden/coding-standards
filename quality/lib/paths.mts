@@ -8,6 +8,7 @@
 import { existsSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** Resolve symlinks in a path, returning the real filesystem location. */
 export async function resolveRealPath({ path }: { path: string }): Promise<string> {
@@ -34,4 +35,15 @@ export async function deriveRepoRoot({ startDir }: { startDir: string }): Promis
     }
     current = parent;
   }
+}
+
+/**
+ * Resolve a config file by name under the gate's own config directory,
+ * derived from this module's location — never the CWD. Works identically
+ * when quality/ is bind-mounted at /opt/quality in the container or run
+ * from a host checkout, and keeps configs travelling with the gate code.
+ */
+export async function gateConfigPath({ name }: { name: string }): Promise<string> {
+  const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+  return join(gateRoot, "config", name);
 }

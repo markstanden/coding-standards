@@ -1,4 +1,4 @@
-<!-- update: agent=opencode | date=2026-08-25 | scope=PLAN.md -->
+<!-- update: agent=opencode | date=2026-08-30 | scope=PLAN.md -->
 
 # PLAN — portable quality gate ("pick up and drop")
 
@@ -83,8 +83,10 @@ until first green nothing distributes configs or instructions.
 ```text
 quality/
 ├── verify.sh              # bash shim: engine detect → ensure image → mount rw → exec
-├── verify.mts             # orchestrator: step manifest, flags, summary
-├── lib/                   # testable core: paths, ctx, proc, severities (+ tests)
+├── verify.mts             # orchestrator: step manifest, flags, summary; `setup` dispatch
+├── setup.mts              # bootstrap (verify.sh setup): root configs + AGENTS.md block
+├── lib/                   # testable core: paths, ctx, proc, severities, git,
+│   │                      #   step-result, agents-block, config-install (+ tests)
 ├── steps/                 # filename == step id; one module per ecosystem
 │   ├── naming.mts         # opt-in      semantic renames BEFORE any formatting
 │   ├── node.mts           # auto-detect prettier + eslint + tsc + vitest
@@ -97,8 +99,10 @@ quality/
 │                          #   sonarqube-compatible; decide pin/delivery
 │                          #   (apt vs release tarball) when the step lands
 ├── config/                # prettier.config.mjs prettierignore yamllint.yml schema
+│   │                      #   agents-block.md root/ (installed to repo root)
 ├── container/
-│   ├── Containerfile      # ubuntu base, node 26, apt-pinned tools
+│   ├── Containerfile      # node 26 slim base, apt/tarball/npm-pinned tools,
+│   │                      #   MS dotnet-10 feed, bakes gate code at /opt/quality
 │   └── tool-versions.env  # single source of tool version pins
 └── README.md              # usage, house conventions, add-a-step checklist
 ```
@@ -117,7 +121,7 @@ quality/
 
 Mine these for patterns worth stealing (gates, hooks, CI templates):
 
-- [ ] `~/code/system-config` — the prototype (source of the audit above)
+- [ ] `~/bin/system-config` — the prototype (source of the audit above)
 - [ ] `~/code/rdd-astro` — original inspiration for the verify gate
 - [ ] `~/code/template` — project template; likely CI skeleton to replace
 - [ ] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
@@ -180,6 +184,34 @@ never turns into rubber-stamping. Where repos disagree, the fix is mechanical
 **Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
 parity; eph-db gets any gating at all.
 
+### Confirmed: prettier resolves ignore patterns relative to the ignore file, not CWD (2026-08-30)
+
+Experiment (golden-test debug against system-config, prettier 3.9.6 in the
+gate image) overturned the prototype's "resolves relative to CWD" assumption:
+
+- Prettier source (`index.mjs`, `createSingleIsIgnoredFunction`):
+  `ignore.checkIgnore(slash(getRelativePath(file, ignoreFile)))` — the matched
+  path is computed **relative to the ignore file's location**, then tested
+  against the ignore patterns.
+- Consequence: a travelling ignore file at `/opt/quality/config/prettierignore`
+  (or a merged temp file in `/tmp`) yields `../../…`-prefixed relative paths,
+  so repo-root-relative patterns like `dotfiles/nvim` **never match**. Only
+  patterns that match against *any* path segment (`coverage/`, `*.toml`,
+  `**/lazy-lock.json`) survive.
+- The prototype "worked" only because its `.prettierignore` sat at the repo
+  root **and** prettier ran from the repo root — ignore file and CWD
+  coincided, so `getRelativePath` produced repo-relative paths.
+- Design consequence (RESOLVED 2026-08-30): prettier's CLI accepts *repeated*
+  `--ignore-path` (its `ignorePath` is an array), each file's patterns
+  resolving against its own location. The node step now passes both the
+  travelling ignore AND the host's own `.prettierignore` — no merged temp file
+  needed, and host directory patterns (e.g. `dotfiles/nvim/`) match correctly
+  because the host file sits at the repo root. Verified on system-config and
+  in the broken-fixture integration test.
+
+**Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
+parity; eph-db gets any gating at all.
+
 ## Delivery mechanism
 
 [DECIDED 2026-08-24] The container image **is** the delivery mechanism — the
@@ -188,9 +220,12 @@ submodule/symlink/package-manager trilemma dissolves:
 - **Local**: `verify.sh` builds `localhost/quality-gate:<pinhash>` on first
   run (layer-cached; rebuilds only when pins change) and runs it against the
   mounted repo.
-- **CI**: workflows pull `ghcr.io/markstanden/quality-gate:<tag>`; an
-  identical tag means identical toolchain, so local green = merge green by
-  construction.
+- **CI**: workflows pull `ghcr.io/markstanden/quality-gate:<tag>`; the image
+  is self-contained (gate code baked at /opt/quality), so consumers vendor
+  nothing. Two tags are pushed: `<pinhash>` (stable toolchain) and
+  `:<shortsha>` (pinned release) — consumers pin the shortsha for full
+  reproducibility. An identical tag means identical toolchain, so local green
+  = merge green by construction.
 - **Target projects vendor nothing.** A project may install a ~5-line shim
   that invokes the image (setup scripts can drop it alongside the dotnet
   standards) plus its own `.qualityrc.json`. The shim's first-run bootstrap
@@ -301,9 +336,124 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 - [x] lib/ core via TDD: paths, ctx, proc, severities
       (2026-08-25: 20 table-driven tests; proc throws loudly naming missing
       binaries; severities is the sole owner of ranking maths)
-- [ ] Step modules + manifest wiring in naming → … → tofu order
-- [ ] config/ migration from prototype (incl. prettierignore CWD fix)
-- [ ] Bootstrap/install step: configs into repo root + AGENTS.md managed block (decisions #13–14)
-- [ ] In-container deps: shadow volumes + restore behaviour
+- [x] Step modules + manifest wiring in naming → … → tofu order
+      (2026-08-30: all seven steps landed with colocated tests — naming,
+      node, dotnet, shell, yaml, workflow, tofu; fixed order enforced in
+      verify.mts; 69 tests green)
+- [x] config/ migration from prototype (incl. prettierignore CWD fix)
+      (2026-08-30: prettier configs migrated and resolved from gate root;
+      yamllint config baked into image — gate configs travel with the image)
+- [x] Bootstrap/install step: configs into repo root + AGENTS.md managed block
+      (decisions #13–14) (2026-08-30: `verify.sh setup` → setup.mts dispatches
+      through verify.mts; config/root/ installs .editorconfig + DBP with
+      raises-only no-clobber; config/agents-block.md seeds a marker-delimited
+      block, idempotent; podman smoke on a throwaway repo: install, preserve,
+      conflict-fail all verified. Drift note: config/root/ copies the canonical
+      dotnet/ files — consolidate when the dotnet/ symlink surface retires)
+- [x] In-container deps: shadow volumes + restore behaviour
+      (2026-08-30: verify.sh mounts named volumes — node_modules keyed
+      pinhash+repo, npm/nuget caches repo-keyed; dotnet step restores first
+      into the shadowed NuGet cache, then format/build/test with --no-restore;
+      podman smoke on throwaway node + dotnet repos: volumes mount, host
+      node_modules/nuget cache stay untouched, writes land in the volumes.
+      DECIDED 2026-08-30: dotnet SDK 10 lands via apt from Microsoft's
+      Debian-13 feed (Debian main ships no dotnet; MS feed is x64+arm64) —
+      `DOTNET_SDK_VERSION` pin + build-time assertion + first-run priming
+      (`dotnet --info`) so the first real invocation is clean. Also fixed
+      workspace discovery: a lone nested .csproj is passed by path, since the
+      CLI cannot operate on a bare directory that merely contains a project;
+      multiple projects with no solution now fail loudly)
 - [ ] CI template: publish/consume ghcr image tagged from pin hash
-- [ ] Golden-test parity on system-config
+      (2026-08-30: image made self-contained — build context is now quality/
+      and the gate code is baked at /opt/quality, so CI consumers vendor
+      nothing; local verify.sh still bind-mounts quality/ ro, shadowing the
+      baked copy for live edits. Publish workflow
+      `.github/workflows/quality-gate--publish.yml` (main push on quality/**
+      + dispatch) builds linux/amd64+arm64 via buildx and pushes
+      `ghcr.io/markstanden/quality-gate:<pinhash>` + `:<shortsha>`. Consumer
+      template `quality-gate--verify.yml` is a reusable workflow_call taking
+      `image-tag`/`fix`/`silent`/`working-directory`. Verified: baked image
+      runs a dotnet repo with zero host mounts/tools; new workflows clean
+      under the gate's own actionlint + yamllint; gate stays red only on the
+      deferred workflow findings. DECIDED: tag scheme is pinhash (stable
+      toolchain) AND shortsha (pinned release) — consumers pin shortsha for
+      full reproducibility. CI shadow volumes intentionally omitted: a fresh
+      runner has no host deps to leak, and the NuGet cache volume is pointless
+      on ephemeral runners. 2026-08-30: added `quality-gate--test.yml` —
+      fires on PRs + main merges, sets up Node 26, pre-pulls the published
+      image (falls back to verify.sh building), runs `node --test` including
+      the broken-fixture integration test. Consumer template
+      `quality-gate--verify.yml` tightened: `image-tag` is now REQUIRED (the
+      publish workflow never pushes `latest`; consumers pin shortsha),
+      misleading `working-directory` input removed (the gate scans the whole
+      repo regardless of cwd), usage comment added. Verified the consumer
+      invocation end-to-end (podman run, repo mounted, no quality/ mount).
+      NOTE: the local shim's image tag keys only on tool-versions.env, so a
+      Containerfile change without a pin change leaves a stale cached local
+      image — CI is immune (always fresh build); dev must rm the tag)
+- [x] Golden-test parity on system-config
+      (2026-08-30: ran the new gate in-container against ~/bin/system-config
+      (the prototype repo — plan's `~/code/system-config` path corrected, it
+      lives at ~/bin). Result: node/yaml/workflow pass identically to the
+      prototype's bash gate; shell flags 2 SC2129 style findings in
+      bootstrap.sh:233/238 that the prototype's lenient `-S info` floor hid —
+      the intended decision #18 raise, not a regression. The run exposed
+      prettier's ignore-file-relative resolution (see "Confirmed:" note above);
+      resolved by passing both the travelling ignore AND the host's own
+      `.prettierignore` via repeated --ignore-path. Parity verdict: gate
+      detects and gates the same ecosystems on the real tree; divergences are
+      raises-only by design. Remaining divergence is a mechanical `--fix` on
+      the prototype, not a gate defect)
+- [x] Broken-fixture integration test
+      (2026-08-30: quality/fixture.test.mts + lib/fixture.mts build a
+      deliberately-broken git repo at test time (never stored in the gate's
+      tracked tree, which would poison the coding-standards repo's own gate)
+      and drive the real gate in-container: check mode fails on every broken
+      ecosystem (node/shell/yaml/workflow/tofu), --fix repairs the
+      auto-fixable ones (workflow stays red — actionlint is check-only), and a
+      file behind the host .prettierignore is proven untouched. Skips cleanly
+      without a container engine)
+- [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
+      deliberately parked so the red gate keeps flagging them — see
+      "Continuous verification" below). First in-container run of
+      `./quality/verify.sh` went red; `workflow` step findings only:
+
+      - SC2086 unquoted `$VAR` in 28 `run:` blocks (split across
+        azure-swa--deploy-blazor-wasm, dotnet-build--blazor-frontend,
+        dotnet-build--solution, dotnet-format--solution,
+        dotnet-test--common-test-runner, dotnet-test--playwright-tests,
+        opentofu-build-infrastructure, opentofu-destroy-workspace)
+      - SC2129 merge redirects in dotnet-format--solution.yml:47
+      - actionlint: `codecov/codecov-action@v3` too old for GitHub Actions
+        (dotnet-test--common-test-runner.yml:108) — bump to v4
+
+## Local workflow testing (2026-08-30)
+
+Three ways to test `.github/workflows/*.yml` before merge; trade-offs:
+
+| Approach | Offline? | Fidelity | Gate-in-container | Verdict |
+| --- | --- | --- | --- | --- |
+| `act` (nektos/act) | yes — runs working tree, any branch | good for unit steps, weak for actions needing GitHub context | ❌ impossible — step runs in act's runner container; the gate nests a container via `verify.sh`, and the fixture's temp repo lives in the runner's namespace, invisible to the host engine (even with `--container-daemon-socket`) | daily iteration + syntax checks |
+| Real self-hosted runner (`actions/runner` in podman) | no — registers with GitHub, polls for jobs; workflow must be on a remote ref, triggered via `gh workflow run` | highest — actual runner, real `actions/` execution | ✅ possible in principle (socket mount) but runner label must match `runs-on` (self-hosted ≠ `ubuntu-latest` without relabelling) | final pre-merge fidelity check on main |
+| Direct podman / `verify.sh` | yes | exact for the gate's own steps | ✅ the gate itself | the gate's own suite (unit + fixture) |
+
+Notes from the `act` experiment on this box:
+
+- `act` connects to podman via `DOCKER_HOST=unix:///run/user/1000/podman/podman.sock`
+  (podman exposes a Docker-compatible API). `--container-daemon-socket` mounts
+  it into the runner container, so `docker` CLI inside acts against the host
+  engine — but the fixture still can't work (namespace boundary, see table).
+- The broken-fixture integration test therefore skips under `act`
+  (`ACT=true`), and runs for real under host podman / the real runner. The
+  skip is deliberate and documented in `quality/fixture.test.mts`.
+- `act` used Node 24.19.0 (setup-node resolved the workflow's `26` to a
+  cached 24 on the box) — another reason real CI is the authority on tool
+  versions, not `act`.
+
+Host `node --test` green does not mean the gate is green: on 2026-08-30 the
+unit suite passed 69/69 while the first in-container run went red on real
+workflow-template findings. Run the full suite continuously — the host test
+suite **and** the podman end-to-end gate (`./quality/verify.sh`) — so
+deviations surface as they land, not at release time. Keeping the deferred
+fixes above unfixed is deliberate: the failing `workflow` step is the tripwire
+that proves the gate still catches these class of errors.
