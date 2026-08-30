@@ -1,0 +1,66 @@
+name: "Quality Gate"
+
+on:
+  workflow_call:
+    inputs:
+      image-tag:
+        description: >-
+          Tag of the ghcr.io/markstanden/quality-gate image to run. Defaults
+          to the tool-pin hash (stable toolchain); pin to a specific commit
+          short-sha for a fully pinned release.
+        type: string
+        required: false
+        default: "latest"
+
+      fix:
+        description: "Run the gate in --fix mode (rewrites files in the checkout)."
+        type: boolean
+        required: false
+        default: false
+
+      silent:
+        description: "Pass --silent to the gate for log-style output."
+        type: boolean
+        required: false
+        default: false
+
+      working-directory:
+        description: "Subdirectory of the checkout to gate (default: repository root)."
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run quality gate
+        env:
+          IMAGE: ghcr.io/markstanden/quality-gate:${{ inputs.image-tag }}
+          FIX: ${{ inputs.fix }}
+          SILENT: ${{ inputs.silent }}
+          GATE_DIR: ${{ inputs.working-directory }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARGS=()
+          if [[ "${FIX}" == "true" ]]; then
+            ARGS+=("--fix")
+          fi
+          if [[ "${SILENT}" == "true" ]]; then
+            ARGS+=("--silent")
+          fi
+
+          REPO_ROOT="$(git -C "${GITHUB_WORKSPACE}" rev-parse --show-toplevel)"
+
+          docker run --rm \
+            -v "${REPO_ROOT}:/repo" \
+            -e "NUGET_PACKAGES=/root/.nuget/packages" \
+            --workdir "/repo/${GATE_DIR}" \
+            "${IMAGE}" "${ARGS[@]}"
