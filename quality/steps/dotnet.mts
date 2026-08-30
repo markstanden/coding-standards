@@ -1,10 +1,13 @@
-// steps/dotnet.mts — .NET projects: format, build, test via dotnet CLI.
+// steps/dotnet.mts — .NET projects: restore, format, build, test via dotnet CLI.
 //
-// Tools:    dotnet SDK (format, build, test)
+// Tools:    dotnet SDK (restore, format, build, test)
 // Config:   .editorconfig, Directory.Build.props installed by gate setup;
 //           projects may add stricter rules via .qualityrc.json
 // Fix:      dotnet format rewrites, then step re-verifies — a fix that
 //           leaves diffs can never read as success
+// Restore:  always runs first into the container-shadowed NuGet cache
+//           (decision #3) — build/test use --no-restore so a failed restore
+//           fails here, loudly, before anything builds.
 //
 // Detection is sync and data-driven: activation = at least one tracked
 // *.csproj, *.sln, or *.slnx file. Workspace discovery follows
@@ -73,6 +76,8 @@ async function runDotNetCommand(
 
 /**
  * Run dotnet format, build, test over the discovered workspace.
+ * Restore always runs first: the container's NuGet cache is shadowed by a
+ * named volume (decision #3), so build/test cannot assume a host restore.
  * Returns skip when no .NET files tracked; fail naming the failing phase.
  */
 export async function runDotNetStep({
@@ -97,6 +102,13 @@ export async function runDotNetStep({
     slnxFiles,
     slnFiles,
   });
+
+  // Restore inside the container into the shadowed NuGet cache; later
+  // --no-restore phases assume this succeeded.
+  const restore = await runDotNetCommand(runner, ["restore", workspace], ctx.repoRoot);
+  if (restore.status !== 0) {
+    return failed({ notice: `dotnet: restore failed: ${restore.stderr.trim()}` });
+  }
 
   // Fix mode: format (write) then verify; check mode: verify only.
   if (ctx.mode === "fix") {

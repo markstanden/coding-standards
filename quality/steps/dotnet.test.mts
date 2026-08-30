@@ -64,7 +64,7 @@ test("runDotNetStep skips cleanly when no .NET files tracked", async () => {
   assert.equal(calls.length, 0);
 });
 
-test("check mode runs format --verify-no-changes, build, test", async () => {
+test("check mode runs restore, format --verify-no-changes, build, test", async () => {
   const { runner, calls } = fakeRunner({});
   const result = await runDotNetStep({
     ctx: baseCtx,
@@ -73,24 +73,34 @@ test("check mode runs format --verify-no-changes, build, test", async () => {
   });
   assert.equal(result.status, "pass");
   const cmds = calls.map((c) => c[0]);
-  assert.deepEqual(cmds, ["dotnet", "dotnet", "dotnet"]);
-  assert.equal(calls[0]![1], "format");
-  assert.equal(calls[0]![2], "--verify-no-changes");
-  assert.equal(calls[1]![1], "build");
-  assert.equal(calls[2]![1], "test");
-});
-
-test("fix mode runs format then re-verify, build, test", async () => {
-  const { runner, calls } = fakeRunner({});
-  const result = await runDotNetStep({ ctx: { ...baseCtx, mode: "fix" }, trackedFiles: ["src/MyProj.csproj"], runner });
-  assert.equal(result.status, "pass");
-  const cmds = calls.map((c) => c[0]);
   assert.deepEqual(cmds, ["dotnet", "dotnet", "dotnet", "dotnet"]);
-  assert.equal(calls[0]![1], "format");
+  assert.equal(calls[0]![1], "restore");
   assert.equal(calls[1]![1], "format");
   assert.equal(calls[1]![2], "--verify-no-changes");
   assert.equal(calls[2]![1], "build");
   assert.equal(calls[3]![1], "test");
+});
+
+test("fix mode runs restore then format then re-verify, build, test", async () => {
+  const { runner, calls } = fakeRunner({});
+  const result = await runDotNetStep({ ctx: { ...baseCtx, mode: "fix" }, trackedFiles: ["src/MyProj.csproj"], runner });
+  assert.equal(result.status, "pass");
+  const cmds = calls.map((c) => c[0]);
+  assert.deepEqual(cmds, ["dotnet", "dotnet", "dotnet", "dotnet", "dotnet"]);
+  assert.equal(calls[0]![1], "restore");
+  assert.equal(calls[1]![1], "format");
+  assert.equal(calls[2]![1], "format");
+  assert.equal(calls[2]![2], "--verify-no-changes");
+  assert.equal(calls[3]![1], "build");
+  assert.equal(calls[4]![1], "test");
+});
+
+test("restore failure fails the step before any build", async () => {
+  const { runner, calls } = fakeRunner({ "dotnet restore": { status: 1, stderr: "restore error" } });
+  const result = await runDotNetStep({ ctx: baseCtx, trackedFiles: ["src/MyProj.csproj"], runner });
+  assert.equal(result.status, "fail");
+  assert.ok((result.notice ?? "").includes("dotnet: restore"));
+  assert.equal(calls.length, 1);
 });
 
 test("format failure in fix mode fails the step", async () => {

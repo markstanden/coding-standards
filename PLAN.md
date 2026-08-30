@@ -318,7 +318,14 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       block, idempotent; podman smoke on a throwaway repo: install, preserve,
       conflict-fail all verified. Drift note: config/root/ copies the canonical
       dotnet/ files — consolidate when the dotnet/ symlink surface retires)
-- [ ] In-container deps: shadow volumes + restore behaviour
+- [x] In-container deps: shadow volumes + restore behaviour
+      (2026-08-30: verify.sh mounts named volumes — node_modules keyed
+      pinhash+repo, npm/nuget caches repo-keyed; dotnet step restores first
+      into the shadowed NuGet cache, then format/build/test with --no-restore;
+      podman smoke on a throwaway node repo: volumes mount, host node_modules
+      stays empty, writes land in the volume. [NEEDS DECISION] the dotnet SDK
+      is NOT in the image — the dotnet step fails loudly on a real .NET repo
+      until it is (size/pin choice: apt vs dotnet-install, which channel))
 - [ ] CI template: publish/consume ghcr image tagged from pin hash
 - [ ] Golden-test parity on system-config
 - [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
