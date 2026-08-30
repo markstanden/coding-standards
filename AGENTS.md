@@ -11,9 +11,12 @@ means shell/YAML sanity checks, not builds.
 
 ## Non-obvious structure
 
-- Root `.github/workflows/*.yml` are **reusable `workflow_call` templates**
+- Root `.github/workflows/*.yml` are mostly **reusable `workflow_call` templates**
   for consumer repos, NOT CI for this repo. Naming convention:
   `<tool>--<purpose>.yml` (double hyphen), inputs parameterise paths/versions.
+  Exceptions that ARE CI for this repo: `quality-gate--publish.yml` (builds +
+  pushes the gate image to ghcr on main) and `quality-gate--test.yml` (runs
+  the gate's own unit + broken-fixture suite on PRs and merges).
 - `dotnet/workflows/pipeline.yml.example` — the `.example` suffix is
   deliberate: `setup.sh` copies it into consumer repos as `pipeline.yml`
   (README calls it `pipeline-example.yml`; the script is authoritative).

@@ -379,7 +379,10 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       toolchain) AND shortsha (pinned release) — consumers pin shortsha for
       full reproducibility. CI shadow volumes intentionally omitted: a fresh
       runner has no host deps to leak, and the NuGet cache volume is pointless
-      on ephemeral runners)
+      on ephemeral runners. 2026-08-30: added `quality-gate--test.yml` —
+      fires on PRs + main merges, sets up Node 26, pre-pulls the published
+      image (falls back to verify.sh building), runs `node --test` including
+      the broken-fixture integration test)
 - [x] Golden-test parity on system-config
       (2026-08-30: ran the new gate in-container against ~/bin/system-config
       (the prototype repo — plan's `~/code/system-config` path corrected, it
