@@ -3,7 +3,7 @@
 #
 # Locates a container engine, ensures the pinned image exists (builds it on
 # first run or when tool pins change), mounts the target repo rw and
-# runtime/ + lib/ ro, then execs verify.mts inside the container.
+# runtime/ + lib/ + standards/ ro, then execs verify.mts inside the container.
 #
 # Usage: ./runtime/verify.sh [--fix] [--silent] [step flags...]
 #
@@ -16,6 +16,7 @@ set -euo pipefail
 RUNTIME_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 GATE_ROOT="$(dirname "${RUNTIME_DIR}")"
 LIB_DIR="${GATE_ROOT}/lib"
+STANDARDS_DIR="${GATE_ROOT}/standards"
 
 # Repo root comes from the invocation CWD's git root — never from where this
 # script lives — so the gate can run against any checkout.
@@ -61,6 +62,7 @@ exec "${ENGINE}" run --rm \
 	-v "${REPO_ROOT}:/repo" \
 	-v "${RUNTIME_DIR}:/opt/defined/runtime:ro" \
 	-v "${LIB_DIR}:/opt/defined/lib:ro" \
+	-v "${STANDARDS_DIR}:/opt/defined/standards:ro" \
 	-v "defined-node-${PINHASH}-${REPO_HASH}:/repo/node_modules" \
 	-v "defined-npm-${REPO_HASH}:/root/.npm" \
 	-v "defined-nuget-${REPO_HASH}:/root/.nuget/packages" \

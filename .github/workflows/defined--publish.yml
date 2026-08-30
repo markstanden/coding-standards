@@ -6,6 +6,7 @@ on:
     paths:
       - "runtime/**"
       - "lib/**"
+      - "standards/**"
   workflow_dispatch:
 
 concurrency:

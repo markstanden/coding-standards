@@ -19,3 +19,14 @@ export async function gateConfigPath({ name }: { name: string }): Promise<string
   const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
   return join(gateRoot, "config", name);
 }
+
+/**
+ * Resolve the standards directory (sibling of runtime/) — the single source
+ * of truth for shared root configs installed by setup. Derived from this
+ * module's location like gateConfigPath: works baked at /opt/defined/standards
+ * in the container or from a host checkout.
+ */
+export async function standardsDir(): Promise<string> {
+  const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+  return join(dirname(gateRoot), "standards");
+}

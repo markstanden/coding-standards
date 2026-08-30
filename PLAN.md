@@ -351,11 +351,11 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       yamllint config baked into image — gate configs travel with the image)
 - [x] Bootstrap/install step: configs into repo root + AGENTS.md managed block
       (decisions #13–14) (2026-08-30: `verify.sh setup` → setup.mts dispatches
-      through verify.mts; config/root/ installs .editorconfig + DBP with
+      through verify.mts; installs .editorconfig + DBP from the single-source
+      standards/ dir (config/root/ copies retired, decision #19) with
       raises-only no-clobber; config/agents-block.md seeds a marker-delimited
       block, idempotent; podman smoke on a throwaway repo: install, preserve,
-      conflict-fail all verified. Drift note: config/root/ copies the canonical
-      dotnet/ files — consolidate when the dotnet/ symlink surface retires)
+      conflict-fail all verified)
 - [x] In-container deps: shadow volumes + restore behaviour
       (2026-08-30: verify.sh mounts named volumes — node_modules keyed
       pinhash+repo, npm/nuget caches repo-keyed; dotnet step restores first
@@ -441,6 +441,14 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       .editorconfig ancestor after the flatten) — fixed mechanically via
       --fix (tabs → 4-space, whitespace only); gate still red on the
       workflow tripwire only. 91/91 unit + fixture green
+- [x] Retire legacy setup.sh + config/root drift (2026-08-30, decision #15/#19)
+      — `standards/setup.sh` + `standards/git-hooks/setup-hooks.sh` deleted
+      (submodule/symlink distribution retired); `runtime/config/root/` copies
+      deleted — setup.mts now installs `.editorconfig` + `Directory.Build.props`
+      from the single-source `standards/` dir (installRootConfigs takes an
+      explicit names list), baked into the image at /opt/defined/standards and
+      mounted ro by verify.sh; publish workflow triggers on standards/**;
+      README/AGENTS submodule instructions removed
 
 ## Local workflow testing (2026-08-30)
 

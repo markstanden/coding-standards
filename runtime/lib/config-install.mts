@@ -1,11 +1,14 @@
-// lib/config-install.mts — decision #13: shared configs into the repo root.
+// runtime/lib/config-install.mts — decision #13: shared configs into the repo root.
 //
-// Copies every file in a gate config directory into the target repo root.
-// Raises-only: an identical existing file is a no-op; a *different* existing
-// file is a loud failure — the repo may have tightened its own rules and is
-// never silently downgraded. Absent files are installed.
+// Installs a named set of shared config files from a source directory (the
+// standards/ dir) into the target repo root. Raises-only: an identical
+// existing file is a no-op; a *different* existing file is a loud failure —
+// the repo may have tightened its own rules and is never silently downgraded.
+// Absent files are installed. Only the files in `names` are copied, so the
+// standards dir stays the single source of truth and unrelated files never
+// leak into a consumer repo root.
 
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { readContentsOrEmpty } from "./agents-block.mts";
@@ -18,25 +21,21 @@ export interface InstalledConfig {
 }
 
 /**
- * Install root configs from sourceDir into repoRoot. Subdirectories are
- * ignored (root configs are flat files only). Throws on the first conflict;
- * earlier installs in the same pass are already written.
+ * Install the named root configs from sourceDir into repoRoot. Throws on the
+ * first conflict; earlier installs in the same pass are already written.
  */
 export async function installRootConfigs({
   sourceDir,
+  names,
   repoRoot,
 }: {
   sourceDir: string;
+  names: string[];
   repoRoot: string;
 }): Promise<InstalledConfig[]> {
-  const entries = await readdir(sourceDir);
   const results: InstalledConfig[] = [];
-  for (const name of entries) {
-    const source = join(sourceDir, name);
-    if ((await stat(source)).isDirectory()) {
-      continue;
-    }
-    const desired = await readFile(source, "utf8");
+  for (const name of names) {
+    const desired = await readFile(join(sourceDir, name), "utf8");
     const target = join(repoRoot, name);
     const existing = await readContentsOrEmpty({ filePath: target });
     if (existing === "") {

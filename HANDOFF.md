@@ -7,10 +7,11 @@ decision log and conventions.
 
 > STATUS UPDATE (2026-08-30, same session): **Phase 1 is DONE** — the repo is
 > rebranded and flattened (runtime/, lib/, pipelines/, practices/, standards/).
-> 91/91 tests green, gate green except the intended workflow tripwire. Phase 2
-> (retire setup.sh + config/root) and Phase 3 (pipelines/*.mts + option B)
-> remain. Sections below marked Phase 1 are historical context; proceed to
-> "Execution phases" Phase 2.
+> 91/91 tests green, gate green except the intended workflow tripwire.
+> **Phase 2 is DONE** — legacy setup.sh/setup-hooks.sh + config/root/ copies
+> deleted; setup installs from the single-source standards/ (baked + mounted).
+> Phase 3 (pipelines/*.mts + option B) remains. Sections below marked
+> Phase 1/2 are historical context; proceed to "Execution phases" Phase 3.
 
 ## What the repo is (and is becoming)
 

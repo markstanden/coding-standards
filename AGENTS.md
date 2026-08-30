@@ -5,11 +5,10 @@
 ## What this repo is
 
 A source of truth for **other projects'** configuration, delivered as one
-container image (`defined`, built from `runtime/` + shared `lib/`). There is
-no application here: no solution, no `package.json`. Verification is the
-gate's own suite (`node --test`) plus the podman end-to-end gate. The legacy
-submodule + symlink flow (`standards/setup.sh`) is being retired (decision
-#15).
+container image (`defined`, built from `runtime/` + shared `lib/` +
+`standards/`). There is no application here: no solution, no `package.json`.
+Verification is the gate's own suite (`node --test`) plus the podman
+end-to-end gate.
 
 ## Non-obvious structure
 
@@ -20,14 +19,10 @@ submodule + symlink flow (`standards/setup.sh`) is being retired (decision
   pushes the gate image to ghcr on main) and `defined--test.yml` (runs
   the gate's own unit + broken-fixture suite on PRs and merges).
 - `standards/workflows/pipeline.yml.example` — the `.example` suffix is
-  deliberate: the legacy `setup.sh` copies it into consumer repos as
-  `pipeline.yml` (README calls it `pipeline-example.yml`; the script is
-  authoritative).
-- `setup.sh` and hook scripts assume this repo is checked out as
-  `.coding-standards/` inside the consumer project; path maths depends on it.
-- `standards/.editorconfig` and
-  `standards/Directory.Build.props` are symlink *targets* —
-  edits propagate to every consumer project on next checkout.
+  deliberate: it is a template for consumer pipelines, not run here.
+- `standards/.editorconfig` and `standards/Directory.Build.props` are the
+  single source of truth for shared root configs — the gate's `setup`
+  installs them into consumer repo roots (raises-only) from the baked image.
 
 ## Active work: portable quality gate
 
