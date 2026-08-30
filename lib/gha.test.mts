@@ -24,5 +24,7 @@ test("appendToFile writes key=value lines when the env file exists", async () =>
 
 test("appendToFile is a no-op when the env file is absent", async () => {
   delete process.env.GITHUB_OUTPUT_TEST2;
-  await appendToFile({ envName: "GITHUB_OUTPUT_TEST2", lines: { a: "1" } }); // must not throw
+  await assert.doesNotReject(() =>
+    appendToFile({ envName: "GITHUB_OUTPUT_TEST2", lines: { a: "1" } }),
+  );
 });

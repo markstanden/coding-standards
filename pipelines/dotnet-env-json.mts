@@ -16,9 +16,12 @@ export function envLinesFromJson(raw: string): string[] {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("ENV_JSON must be a JSON object of key/value strings");
   }
-  return Object.entries(parsed as Record<string, unknown>).map(
-    ([k, v]) => `${k}=${String(v)}`,
-  );
+  return Object.entries(parsed as Record<string, unknown>).map(([k, v]) => {
+    if (v !== null && typeof v === "object") {
+      throw new Error(`ENV_JSON value for '${k}' must be a scalar, got ${typeof v}`);
+    }
+    return `${k}=${String(v)}`;
+  });
 }
 
 async function main(): Promise<void> {

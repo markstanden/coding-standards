@@ -53,7 +53,7 @@ export async function detectPlaywrightVersion({ projectDir }: PlaywrightVersionI
       };
       const lib = Object.keys(data.libraries ?? {})
         .filter((k) => k.toLowerCase().startsWith("microsoft.playwright/"))
-        .sort()[0];
+        .sort((a, b) => a.localeCompare(b))[0];
       if (lib) {
         return lib.split("/")[1] ?? "";
       }

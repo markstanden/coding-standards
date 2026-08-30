@@ -39,6 +39,10 @@ test("envLinesFromJson rejects non-object input", () => {
   assert.throws(() => envLinesFromJson("[1,2]"), /object of key\/value strings/u);
 });
 
+test("envLinesFromJson rejects object values (would stringify as [object Object])", () => {
+  assert.throws(() => envLinesFromJson('{"A":{"nested":1}}'), /must be a scalar/u);
+});
+
 test("hasPackageJson detects package.json presence", async () => {
   const dir = await mkdtemp(join(tmpdir(), "quality-check-npm-"));
   try {
