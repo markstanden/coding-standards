@@ -14,7 +14,7 @@ import { scriptedRunner } from "./test-helpers.mts";
 test("collects keys and writes the raw outputs JSON to the artifact", async () => {
   const dir = await mkdtemp(join(tmpdir(), "tofu-out-"));
   try {
-    const raw = '{"url":{"value":"https://x"},"token":{"value":"t"}}';
+    const raw = '{"url":{"value":"https://site.example.com"},"token":{"value":"s3cr3t-t0ken-value"}}';
     const { runner, calls } = scriptedRunner({ "tofu output -json": { stdout: raw } });
     const { keys, artifactPath } = await collectTofuOutputs({ infraDir: dir, runner });
     assert.deepEqual(keys, ["url", "token"]);
