@@ -1,5 +1,7 @@
 # Coding Standards
 
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=markstanden_coding-standards)](https://sonarcloud.io/summary/new_code?id=markstanden_coding-standards)
+
 A single source of truth for my development project configuration files, workflow templates, and development tools to ensure consistency across projects.
 
 **defined** — a portable, drop-in quality gate and workflow runtime base. A
@@ -45,6 +47,25 @@ the image.
 
     The image tag IS the release: pin the workflow ref and image tag to the
     same commit so local green = merge green by construction.
+
+## Quality badges
+
+SonarQube Cloud exposes quality-gate badges for the repo README. The badge
+reflects the gate on the default branch; the link goes to the new-code
+summary.
+
+```markdown
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=<org>_<repo>)](https://sonarcloud.io/summary/new_code?id=<org>_<repo>)
+```
+
+- **Project key**: `<org>_<repo>` (the SonarQube Cloud project key — visible
+  on the project dashboard).
+- The badge works only once SonarQube Cloud has analysed the default branch
+  at least once (a blank badge means no analysis yet).
+- Add the same badge to client-project READMEs that run
+  `dotnet--analyse--sonarqube.yml` — it is the public "is it green?" signal
+  for a repo, and points reviewers at the new-code summary where the gate
+  conditions are explained.
 
 ## Workflow template catalogue
 
