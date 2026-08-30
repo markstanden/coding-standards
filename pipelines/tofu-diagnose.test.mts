@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { diagnoseTofu } from "./tofu-diagnose.mts";
-import { scriptedRunner } from "./test-helpers.mts";
+import { captureLogs, scriptedRunner } from "./test-helpers.mts";
 
 test("never throws when every probe fails", () => {
   const { runner } = scriptedRunner({
@@ -20,27 +20,13 @@ test("never throws when every probe fails", () => {
 
 test("lists output keys from tofu output -json", () => {
   const { runner } = scriptedRunner({ "tofu output -json": { status: 0, stdout: '{"url":{"value":"https://x"},"token":{"value":"t"}}' } });
-  const logged: string[] = [];
-  const orig = console.log;
-  console.log = (...parts: string[]) => { logged.push(parts.join(" ")); };
-  try {
-    diagnoseTofu({ showOutputKeys: true, runner });
-  } finally {
-    console.log = orig;
-  }
+  const logged = captureLogs(() => diagnoseTofu({ showOutputKeys: true, runner }));
   assert.ok(logged.some((l) => l.includes("url")));
   assert.ok(logged.some((l) => l.includes("token")));
 });
 
 test("prints (no outputs) when output JSON is unparseable", () => {
   const { runner } = scriptedRunner({ "tofu output -json": { status: 0, stdout: "not json" } });
-  const logged: string[] = [];
-  const orig = console.log;
-  console.log = (...parts: string[]) => { logged.push(parts.join(" ")); };
-  try {
-    diagnoseTofu({ showOutputKeys: true, runner });
-  } finally {
-    console.log = orig;
-  }
+  const logged = captureLogs(() => diagnoseTofu({ showOutputKeys: true, runner }));
   assert.ok(logged.includes("(no outputs)"));
 });

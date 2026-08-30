@@ -26,3 +26,19 @@ export function scriptedRunner(
   }) as Runner;
   return { runner, calls };
 }
+
+/**
+ * Run a function with console.log captured, returning the lines it printed.
+ * Restores the original console.log afterwards (including on throw).
+ */
+export function captureLogs(fn: () => void): string[] {
+  const logged: string[] = [];
+  const orig = console.log;
+  console.log = (...parts: string[]) => { logged.push(parts.join(" ")); };
+  try {
+    fn();
+  } finally {
+    console.log = orig;
+  }
+  return logged;
+}
