@@ -41,10 +41,12 @@ relitigated:
 - **Run the full suite continuously**: host `node --test` *and* the podman
   end-to-end gate (`./quality/verify.sh`) — host-green does not mean
   gate-green (2026-08-30: unit suite passed 69/69 while the gate went red on
-  real workflow-template findings). The gate is currently red on purpose
-  (deferred workflow fixes, see PLAN.md status) and must stay that way until
-  the fixes land — the failing `workflow` step is the tripwire that flags
-  deviations.
+  real workflow-template findings). `node --test` also runs the broken-fixture
+  integration test (`quality/fixture.test.mts`), which drives the real gate
+  against a deliberately-broken repo and skips cleanly without a container
+  engine. The gate is currently red on purpose (deferred workflow fixes, see
+  PLAN.md status) and must stay that way until the fixes land — the failing
+  `workflow` step is the tripwire that flags deviations.
 
 ## Conventions
 

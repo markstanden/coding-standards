@@ -201,10 +201,13 @@ gate image) overturned the prototype's "resolves relative to CWD" assumption:
 - The prototype "worked" only because its `.prettierignore` sat at the repo
   root **and** prettier ran from the repo root — ignore file and CWD
   coincided, so `getRelativePath` produced repo-relative paths.
-- Design consequence for the additive host-ignore feature: the merged ignore
-  file must be materialised **at the repo root** (e.g. `.prettierignore` next
-  to the tree), not in a tmp dir, or directory-pattern host ignores silently
-  no-op. Pending: rework `lib/ignore.mts` + `steps/node.mts` accordingly.
+- Design consequence (RESOLVED 2026-08-30): prettier's CLI accepts *repeated*
+  `--ignore-path` (its `ignorePath` is an array), each file's patterns
+  resolving against its own location. The node step now passes both the
+  travelling ignore AND the host's own `.prettierignore` — no merged temp file
+  needed, and host directory patterns (e.g. `dotfiles/nvim/`) match correctly
+  because the host file sits at the repo root. Verified on system-config and
+  in the broken-fixture integration test.
 
 **Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
 parity; eph-db gets any gating at all.
@@ -383,13 +386,22 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       lives at ~/bin). Result: node/yaml/workflow pass identically to the
       prototype's bash gate; shell flags 2 SC2129 style findings in
       bootstrap.sh:233/238 that the prototype's lenient `-S info` floor hid —
-      the intended decision #18 raise, not a regression. One travelling-config
-      fix from the run: `**/lazy-lock.json` added to quality/config/prettierignore
-      (machine-generated nvim plugin lockfile, same churn rationale as
-      package-lock.json; the prototype's repo-local ignore had covered it).
-      Parity verdict: gate detects and gates the same ecosystems on the real
-      tree; divergences are raises-only by design. Remaining divergence is a
-      mechanical `--fix` on the prototype, not a gate defect)
+      the intended decision #18 raise, not a regression. The run exposed
+      prettier's ignore-file-relative resolution (see "Confirmed:" note above);
+      resolved by passing both the travelling ignore AND the host's own
+      `.prettierignore` via repeated --ignore-path. Parity verdict: gate
+      detects and gates the same ecosystems on the real tree; divergences are
+      raises-only by design. Remaining divergence is a mechanical `--fix` on
+      the prototype, not a gate defect)
+- [x] Broken-fixture integration test
+      (2026-08-30: quality/fixture.test.mts + lib/fixture.mts build a
+      deliberately-broken git repo at test time (never stored in the gate's
+      tracked tree, which would poison the coding-standards repo's own gate)
+      and drive the real gate in-container: check mode fails on every broken
+      ecosystem (node/shell/yaml/workflow/tofu), --fix repairs the
+      auto-fixable ones (workflow stays red — actionlint is check-only), and a
+      file behind the host .prettierignore is proven untouched. Skips cleanly
+      without a container engine)
 - [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
       deliberately parked so the red gate keeps flagging them — see
       "Continuous verification" below). First in-container run of
