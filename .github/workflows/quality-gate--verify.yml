@@ -1,16 +1,27 @@
 name: "Quality Gate"
 
+# Reusable consumer template: run the portable quality gate against any repo.
+# Consumer repos call this via a gitsha-pinned ref:
+#
+#   jobs:
+#     quality:
+#       uses: markstanden/coding-standards/.github/workflows/quality-gate--verify.yml@<shortsha>
+#       with:
+#         image-tag: <shortsha>   # match the pinned ref for full reproducibility
+#
+# The image tag IS the release: publish the image and pin this workflow to the
+# same commit short-sha so local green = merge green by construction.
+
 on:
   workflow_call:
     inputs:
       image-tag:
         description: >-
-          Tag of the ghcr.io/markstanden/quality-gate image to run. Defaults
-          to the tool-pin hash (stable toolchain); pin to a specific commit
-          short-sha for a fully pinned release.
+          Tag of the ghcr.io/markstanden/quality-gate image to run. Pin to the
+          commit short-sha of the workflow ref (or a published tool-pin hash
+          for a stable toolchain with the current gate code).
         type: string
-        required: false
-        default: "latest"
+        required: true
 
       fix:
         description: "Run the gate in --fix mode (rewrites files in the checkout)."
@@ -23,12 +34,6 @@ on:
         type: boolean
         required: false
         default: false
-
-      working-directory:
-        description: "Subdirectory of the checkout to gate (default: repository root)."
-        type: string
-        required: false
-        default: ""
 
 jobs:
   quality-gate:
@@ -44,7 +49,6 @@ jobs:
           IMAGE: ghcr.io/markstanden/quality-gate:${{ inputs.image-tag }}
           FIX: ${{ inputs.fix }}
           SILENT: ${{ inputs.silent }}
-          GATE_DIR: ${{ inputs.working-directory }}
         shell: bash
         run: |
           set -euo pipefail
@@ -62,5 +66,5 @@ jobs:
           docker run --rm \
             -v "${REPO_ROOT}:/repo" \
             -e "NUGET_PACKAGES=/root/.nuget/packages" \
-            --workdir "/repo/${GATE_DIR}" \
+            --workdir /repo \
             "${IMAGE}" "${ARGS[@]}"

@@ -382,7 +382,15 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       on ephemeral runners. 2026-08-30: added `quality-gate--test.yml` —
       fires on PRs + main merges, sets up Node 26, pre-pulls the published
       image (falls back to verify.sh building), runs `node --test` including
-      the broken-fixture integration test)
+      the broken-fixture integration test. Consumer template
+      `quality-gate--verify.yml` tightened: `image-tag` is now REQUIRED (the
+      publish workflow never pushes `latest`; consumers pin shortsha),
+      misleading `working-directory` input removed (the gate scans the whole
+      repo regardless of cwd), usage comment added. Verified the consumer
+      invocation end-to-end (podman run, repo mounted, no quality/ mount).
+      NOTE: the local shim's image tag keys only on tool-versions.env, so a
+      Containerfile change without a pin change leaves a stale cached local
+      image — CI is immune (always fresh build); dev must rm the tag)
 - [x] Golden-test parity on system-config
       (2026-08-30: ran the new gate in-container against ~/bin/system-config
       (the prototype repo — plan's `~/code/system-config` path corrected, it
