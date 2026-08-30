@@ -50,9 +50,10 @@ source "${CONTAINER_DIR}/tool-versions.env"
 if ! "${ENGINE}" image inspect "${IMAGE}" >/dev/null 2>&1; then
 	echo "Building ${IMAGE} ..."
 	"${ENGINE}" build \
+		-f "${CONTAINER_DIR}/Containerfile" \
 		--build-arg "NODE_IMAGE_TAG=${NODE_IMAGE_TAG}" \
 		--build-arg "NODE_IMAGE_DIGEST=${NODE_IMAGE_DIGEST}" \
-		-t "${IMAGE}" "${CONTAINER_DIR}"
+		-t "${IMAGE}" "${QUALITY_DIR}"
 fi
 
 exec "${ENGINE}" run --rm \

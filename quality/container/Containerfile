@@ -1,12 +1,14 @@
 # Quality gate runtime image.
 #
 # Official node slim base, digest-pinned via tool-versions.env (multi-arch
-# manifest list, so arm64 works unmodified). The gate's TypeScript code is
-# NOT baked in — verify.sh bind-mounts quality/ read-only at /opt/quality so
-# local edits run without a rebuild. Only tool pins change this image; the
-# shim tags it from tool-versions.env's content hash.
-# Base image pins arrive as build args from verify.sh (which sources
-# tool-versions.env) so that file remains the single source of truth.
+# manifest list, so arm64 works unmodified). Build context is quality/ so the
+# gate itself can be baked in: the published image is fully self-contained
+# (code + configs + tools) for CI consumers who vendor nothing. Locally,
+# verify.sh bind-mounts quality/ read-only at /opt/quality — shadowing the
+# baked copy — so local edits run without a rebuild; only tool pins change
+# this image's local tag. Base image pins arrive as build args from verify.sh
+# (which sources tool-versions.env) so that file remains the single source
+# of truth.
 ARG NODE_IMAGE_TAG
 ARG NODE_IMAGE_DIGEST
 
@@ -14,7 +16,7 @@ FROM docker.io/library/node:${NODE_IMAGE_TAG}@${NODE_IMAGE_DIGEST}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY tool-versions.env /usr/local/share/quality/tool-versions.env
+COPY container/tool-versions.env /usr/local/share/quality/tool-versions.env
 
 RUN set -eux; \
     apt-get update; \
@@ -72,6 +74,11 @@ RUN set -eux; \
     . /usr/local/share/quality/tool-versions.env; \
     test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}"; \
     dotnet --info >/dev/null
+
+# Bake the gate itself in so the published image is self-contained. Local
+# runs still bind-mount quality/ ro over this path (live edits, no rebuild);
+# CI consumers use the baked copy and vendor nothing.
+COPY . /opt/quality
 
 WORKDIR /repo
 ENTRYPOINT ["node", "/opt/quality/verify.mts"]
