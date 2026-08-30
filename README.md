@@ -67,6 +67,24 @@ summary.
   for a repo, and points reviewers at the new-code summary where the gate
   conditions are explained.
 
+## SonarQube Cloud project artifacts
+
+Two small files pin the SonarQube Cloud project identity so IDE analysis and
+standalone scanning target the same project as CI. Neither contains secrets —
+tokens live in CI secrets, never in the repo.
+
+- `sonar-project.properties` — `sonar.projectKey` / `sonar.organization` /
+  `sonar.sources` for the standalone scanner.
+- `.sonarlint/connectedMode.json` — SonarLint connected mode (org, project
+  key, region). No credentials: SonarLint keeps them in the IDE's secret
+  store.
+
+Client projects running `dotnet--analyse--sonarqube.yml` should add both,
+substituting their own `<org>_<repo>` key, so IDE and CLI analysis agree with
+CI by construction. Keep the `sonar.projectKey` in this repo's
+`sonar-project.properties`, `.sonarlint/connectedMode.json` and the README
+badge in step.
+
 ## Workflow template catalogue
 
 Reusable `workflow_call` templates under `.github/workflows/`. Call any of
