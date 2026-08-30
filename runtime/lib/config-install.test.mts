@@ -9,19 +9,27 @@ import { test } from "node:test";
 
 import { installRootConfigs } from "./config-install.mts";
 
-async function makeTempTree(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "quality-config-install-"));
+/** Create a temp source dir + repo root pair for an install run. */
+async function makeFixture(): Promise<{ src: string; repo: string; root: string }> {
+  const root = await mkdtemp(join(tmpdir(), "quality-config-install-"));
+  const src = join(root, "config");
+  const repo = join(root, "repo");
+  await mkdir(src);
+  await mkdir(repo);
+  return { src, repo, root };
+}
+
+/** Write a file inside the fixture's source dir. */
+async function seedSource(src: string, files: Record<string, string>): Promise<void> {
+  for (const [name, contents] of Object.entries(files)) {
+    await writeFile(join(src, name), contents);
+  }
 }
 
 test("installs the named absent files into the repo root", async () => {
-  const root = await makeTempTree();
+  const { src, repo, root } = await makeFixture();
   try {
-    const src = join(root, "config");
-    const repo = join(root, "repo");
-    await mkdir(src);
-    await mkdir(repo);
-    await writeFile(join(src, ".editorconfig"), "root = true\n");
-    await writeFile(join(src, "Directory.Build.props"), "<Project />\n");
+    await seedSource(src, { ".editorconfig": "root = true\n", "Directory.Build.props": "<Project />\n" });
 
     const result = await installRootConfigs({
       sourceDir: src,
@@ -40,13 +48,9 @@ test("installs the named absent files into the repo root", async () => {
 });
 
 test("leaves an identical existing file untouched and reports unchanged", async () => {
-  const root = await makeTempTree();
+  const { src, repo, root } = await makeFixture();
   try {
-    const src = join(root, "config");
-    const repo = join(root, "repo");
-    await mkdir(src);
-    await mkdir(repo);
-    await writeFile(join(src, ".editorconfig"), "root = true\n");
+    await seedSource(src, { ".editorconfig": "root = true\n" });
     await writeFile(join(repo, ".editorconfig"), "root = true\n");
 
     const result = await installRootConfigs({
@@ -62,13 +66,9 @@ test("leaves an identical existing file untouched and reports unchanged", async 
 });
 
 test("throws loudly on a differing existing file and does not overwrite it", async () => {
-  const root = await makeTempTree();
+  const { src, repo, root } = await makeFixture();
   try {
-    const src = join(root, "config");
-    const repo = join(root, "repo");
-    await mkdir(src);
-    await mkdir(repo);
-    await writeFile(join(src, ".editorconfig"), "indent_size = 4\n");
+    await seedSource(src, { ".editorconfig": "indent_size = 4\n" });
     await writeFile(join(repo, ".editorconfig"), "indent_size = 2\n");
 
     await assert.rejects(
@@ -87,14 +87,9 @@ test("throws loudly on a differing existing file and does not overwrite it", asy
 });
 
 test("installs only the named files, ignoring others in the source dir", async () => {
-  const root = await makeTempTree();
+  const { src, repo, root } = await makeFixture();
   try {
-    const src = join(root, "config");
-    const repo = join(root, "repo");
-    await mkdir(src);
-    await mkdir(repo);
-    await writeFile(join(src, ".editorconfig"), "root = true\n");
-    await writeFile(join(src, "unrelated.sh"), "echo hi\n");
+    await seedSource(src, { ".editorconfig": "root = true\n", "unrelated.sh": "echo hi\n" });
 
     const result = await installRootConfigs({
       sourceDir: src,
@@ -110,13 +105,9 @@ test("installs only the named files, ignoring others in the source dir", async (
 });
 
 test("re-running after a clean install is a no-op (unchanged)", async () => {
-  const root = await makeTempTree();
+  const { src, repo, root } = await makeFixture();
   try {
-    const src = join(root, "config");
-    const repo = join(root, "repo");
-    await mkdir(src);
-    await mkdir(repo);
-    await writeFile(join(src, ".editorconfig"), "root = true\n");
+    await seedSource(src, { ".editorconfig": "root = true\n" });
 
     const opts = { sourceDir: src, names: [".editorconfig"], repoRoot: repo };
     await installRootConfigs(opts);
