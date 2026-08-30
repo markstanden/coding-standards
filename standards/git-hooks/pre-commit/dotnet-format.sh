@@ -6,7 +6,7 @@ echo "Running C# pre-commit hook"
 echo "Getting all staged .cs files..."
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.cs$')
 
-if [ -z "$STAGED_FILES" ]; then
+if [[ -z "$STAGED_FILES" ]]; then
     echo "No C# files to format."
     exit 0
 fi
@@ -28,7 +28,7 @@ dotnet format --include "$STAGED_FILES" --verbosity normal
 FORMAT_EXIT_CODE=$?
 
 echo ""
-if [ $FORMAT_EXIT_CODE -eq 0 ]; then
+if [[ $FORMAT_EXIT_CODE -eq 0 ]]; then
     echo "Format successful, re-adding the formatted files to the staging area"
     echo "$STAGED_FILES" | tr '\n' '\0' | xargs -0 git add --
 else

@@ -30,11 +30,16 @@ interface StepInput {
 
 interface Step {
   id: string;
-  run: { (input: StepInput): Promise<StepResult> };
+  run: (input: StepInput) => Promise<StepResult>;
 }
 
+/**
+ * Prove end-to-end container execution by probing git's version. Uses a
+ * fixed absolute path (/usr/bin/git — the image installs git via apt on
+ * Debian slim), so no PATH lookup is involved and the probe is deterministic.
+ */
 async function runSmoke({ ctx }: { ctx: RunContext }): Promise<StepResult> {
-  const probe = spawnSync("git", ["--version"], { encoding: "utf8" });
+  const probe = spawnSync("/usr/bin/git", ["--version"], { encoding: "utf8" });
   if (probe.status !== 0) {
     return failed({ notice: "git not available in container" });
   }
@@ -117,7 +122,8 @@ async function main(): Promise<void> {
   // quiet green run is never fully mute.
   for (const [id, r] of results) {
     if (!ctx.silent || id === "smoke") {
-      console.log(`${r.status.padEnd(4)} ${id}${r.notice ? ` — ${r.notice}` : ""}`);
+      const notice = r.notice ? ` — ${r.notice}` : "";
+      console.log(`${r.status.padEnd(4)} ${id}${notice}`);
     }
   }
 

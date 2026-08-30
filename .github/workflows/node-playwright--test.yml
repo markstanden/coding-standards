@@ -73,7 +73,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: ${{ inputs.project-path }}
-        run: npx playwright install --with-deps chromium
+        run: ./node_modules/.bin/playwright install --with-deps chromium
 
       - name: Run Playwright tests
         working-directory: ${{ inputs.project-path }}

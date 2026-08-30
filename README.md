@@ -2,25 +2,26 @@
 
 A single source of truth for my development project configuration files, workflow templates, and development tools to ensure consistency across projects.
 
-In progress: **defined** — a portable, drop-in quality gate (`runtime/`) plus a
-flat set of standards (`standards/`), shared building blocks (`lib/`), and
-pipeline modules (`pipelines/`). See [PLAN.md](PLAN.md).
+**defined** — a portable, drop-in quality gate and workflow runtime base. A
+single container image (`runtime/`) that detects any project's stack and runs
+the right checks, backed by shared building blocks (`lib/`), pipeline modules
+(`pipelines/`) and house standards (`standards/`). See [PLAN.md](PLAN.md).
 
 ## Project Structure
 
 ```bash
 coding-standards/
-├── runtime/                          # the container image (the quality gate)
+├── runtime/                          # the container image (gate + runtime base)
 │   ├── Containerfile                 # node 26 slim base, pinned tools
 │   ├── tool-versions.env             # single source of tool version pins
 │   ├── verify.sh                     # host shim: engine → mount → exec
-│   ├── verify.mts                    # orchestrator
+│   ├── verify.mts                    # orchestrator (step manifest + setup dispatch)
 │   ├── setup.mts                     # bootstrap (configs + AGENTS.md block)
-│   ├── lib/                          # gate-specific core (ctx, steps, blocks)
+│   ├── lib/                          # gate-specific core (ctx, severities, blocks)
 │   ├── steps/                        # one module per ecosystem check
 │   └── config/                       # tool configs travelling in the image
-├── lib/                              # shared building blocks (proc, paths, git)
-├── pipelines/                        # zero-dep pipeline modules (stage 2)
+├── lib/                              # shared building blocks (proc, paths, git, json, gha)
+├── pipelines/                        # zero-dep pipeline modules (thin lib/ consumers)
 ├── standards/                        # house standards and tools
 │   ├── .editorconfig                 # code formatting rules
 │   ├── Directory.Build.props         # common build properties
