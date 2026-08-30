@@ -1,6 +1,6 @@
 // pipelines/tofu-plan.mts — OpenTofu plan with detailed exit-code handling.
 //
-// Extracted from opentofu-build-infrastructure.yml ("OpenTofu Plan" step).
+// Extracted from opentofu--build--infrastructure.yml ("OpenTofu Plan" step).
 // tofu plan -detailed-exitcode returns:
 //   0 = success, no changes
 //   1 = error
@@ -14,7 +14,7 @@
 import { appendFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { run } from "../lib/proc.mts";
+import { run, type Runner } from "../lib/proc.mts";
 
 export interface TofuPlanInput {
   infraDir?: string;
@@ -24,9 +24,9 @@ export interface TofuPlanInput {
 let planStdout = "";
 
 /** Run `tofu plan -detailed-exitcode` and return the exit code (0/1/2). */
-export function runTofuPlan({ infraDir, outputFile = "plan.txt" }: TofuPlanInput): number {
+export function runTofuPlan({ infraDir, outputFile = "plan.txt", runner = run }: TofuPlanInput & { runner?: Runner }): number {
   const cwd = infraDir ? resolve(infraDir) : process.cwd();
-  const result = run({
+  const result = runner({
     cmd: "tofu",
     args: ["plan", "-detailed-exitcode", "-no-color", "-out=tfplan"],
     cwd,

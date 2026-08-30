@@ -1,7 +1,7 @@
-// pipelines/azure-swa-appsettings.mts — replace DeployEnvironment/AppVersion
+// pipelines/azure-swa-replace-appsettings.mts — replace DeployEnvironment/AppVersion
 // in appsettings.json.
 //
-// Extracted from azure-swa--deploy-blazor-wasm.yml ("Replace Tokens in
+// Extracted from azure-swa--deploy--blazor-wasm.yml ("Replace Tokens in
 // appsettings.json" step). Verifies the file exists and is non-empty, sets
 // `.DeployEnvironment` and `.AppVersion` (short SHA), writes atomically via a
 // temp file, then validates the result. Replaces the jq `--arg` + `mv` flow.

@@ -1,6 +1,6 @@
 // pipelines/azure-swa-set-token.mts — resolve the SWA deployment token.
 //
-// Extracted from azure-swa--deploy-blazor-wasm.yml ("Set SWA Token" step).
+// Extracted from azure-swa--deploy--blazor-wasm.yml ("Set SWA Token" step).
 // Token precedence: a provided secret wins; otherwise the token parsed from
 // infrastructure outputs; otherwise the step fails loudly.
 //

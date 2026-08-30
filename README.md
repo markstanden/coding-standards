@@ -25,6 +25,7 @@ coding-standards/
 ├── standards/                        # house standards and tools
 │   ├── .editorconfig                 # code formatting rules
 │   ├── Directory.Build.props         # common build properties
+│   ├── naming.md                     # workflow + pipeline filename grammar
 │   ├── git-hooks/                    # .NET-specific git hooks
 │   ├── testing/                      # testing docs
 │   └── workflows/                    # GitHub Actions workflow templates
@@ -43,4 +44,6 @@ never overwritten.
 
 To use the gate in a GitHub Actions pipeline, call the reusable
 `defined--verify.yml` workflow from a gitsha-pinned ref with the matching
-`image-tag` (see `.github/workflows/defined--verify.yml`).
+`image-tag` (see `.github/workflows/defined--verify.yml`). Workflow templates
+and pipeline modules follow the filename grammar in
+[`standards/naming.md`](standards/naming.md).

@@ -1,6 +1,6 @@
 // pipelines/azure-swa-resolve-url.mts — resolve the deployed site URL.
 //
-// Extracted from azure-swa--deploy-static-site.yml ("Resolve deployment URL"
+// Extracted from azure-swa--deploy--static-site.yml ("Resolve deployment URL"
 // step). Prefers the SWA action's URL, falls back to the infrastructure
 // outputs URL, and fails when neither exists.
 //

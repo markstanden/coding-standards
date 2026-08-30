@@ -13,6 +13,8 @@ export interface CommandResult {
   stderr: string;
 }
 
+export type Runner = typeof run;
+
 /**
  * Run a command synchronously and capture its output.
  * Throws with guidance when the binary itself cannot be executed.

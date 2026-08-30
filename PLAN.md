@@ -44,6 +44,7 @@ daily but is coupled to that one repo. This plan extracts it.
 | 17 | **Base image: official `node:<ver>-slim`, digest-pinned** (2026-08-25, supersedes the "Ubuntu image" wording of #1) — multi-arch manifest digest gives arm64 free, deletes hand-maintained Node install code, Node team handles base patching. Digest lives in `tool-versions.env` and reaches `FROM` via build args so that file stays the single source of truth. Global pinned `tsc` is baked in for typechecking the gate's own code; the gate still *runs* on strip-types with no build step |
 | 18 | **Shellcheck floor raised `error` → `style`** (2026-08-25, supersedes the 2026-08-23 "floor error universally" rule) — every shellcheck finding gates; inconsistencies are forced away, not tolerated. Raises-only means floors move up, never down. First run at this floor found 4 real findings, all fixed mechanically rather than suppressed |
 | 19 | **Brand: `defined`; repo flattened** (2026-08-30) — the container's role outgrew "quality gate" (it is also the workflow runtime base), so consumer-visible naming is `defined`: image `ghcr.io/markstanden/defined`, workflows `defined--*.yml`, AGENTS.md markers `<!-- defined:start/end -->`. The repo restructures flat: `quality/` → `runtime/` (the image), root `lib/` (shared building blocks used by both runtime and pipelines), `pipelines/` (thin zero-dep pipeline modules consuming `lib/`), `dotnet/` → `standards/`, docs under `practices/`. The GitHub repo keeps the name `coding-standards` for now — renamed once SHAs stabilise. Legacy `dotnet/setup.sh` retired (decision #15 made real) |
+| 20 | **Filename grammar: `<namespace>--<loose-verb>[--<target>]` for workflows, `<namespace>-<loose-verb>` for pipeline modules** (2026-08-30) — `--` separates the segments (so single-hyphen words like `azure-swa`/`common-test-runner` fit inside a segment), and the middle segment is a *loose verb* naming the intent (`verify`, `analyse`) rather than the tool (`curl`, `swa`). Workflows are jobs (three segments, target optional); `pipelines/*.mts` are shared building blocks (no target, never 1:1 workflow mirrors). Hard rule: **runnable modules never end in `-test`** — Node's `*-test.*` discovery glob executes them (the `dotnet-test.mts` discovery bug that turned the suite red). Renamed all 16 non-conforming workflows and 6 modules; `simple.test.mts` grab-bag split into colocated tests; tofu modules gained an injected-runner parameter + colocated tests. Canonical reference: `standards/naming.md` |
 
 ## Roadmap (2026-08-25 brainstorm)
 
@@ -109,8 +110,8 @@ runtime/                 # the container image (was quality/ + container/)
 lib/                     # shared building blocks: paths, proc, git (+ tests)
 pipelines/               # zero-dep pipeline modules (stage 2), consume ../lib
 standards/               # house standards (was dotnet/): .editorconfig,
-                         #   Directory.Build.props, git-hooks/, testing/,
-                         #   workflows/pipeline.yml.example
+                         #   Directory.Build.props, naming.md, git-hooks/,
+                         #   testing/, workflows/pipeline.example.yml
 practices/               # docs / how-to
 ```
 
@@ -464,6 +465,38 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       (zizmor unpinned-uses + Sonar S7637). `dotnet-version`/`opentofu-version`
       inputs retired from containerised workflows — the image tag IS the
       toolchain. 120/120 tests green; gate FULLY green (exit 0).
+- [x] Filename grammar standardised (2026-08-30, decision #20) — workflow
+      templates renamed to `<namespace>--<loose-verb>[--<target>]` (all 16
+      non-conforming files; `defined--*` already conformed) and pipeline
+      modules to `<namespace>-<loose-verb>` verb forms (`healthcheck-curl` →
+      `healthcheck-verify`, `azure-swa-appsettings` →
+      `azure-swa-replace-appsettings`, `dotnet-env-json` →
+      `dotnet-json-to-env`, `summary` → `dotnet-summary`, `playwright-version`
+      → `dotnet-playwright-version`, `dotnet-test` → `dotnet-test-runner`).
+      The `dotnet-test.mts` rename fixed the hidden suite-red: Node's default
+      `*-test.*` discovery glob was executing the module's `main()` and
+      running a real `dotnet test` with no solution (CI's explicit
+      `*.test.mts` globs had been masking it). `simple.test.mts` grab-bag
+      split into colocated per-module tests. Tofu modules gained an optional
+      injected `runner` param (the `steps/*.mts` pattern) + colocated tests —
+      the 5 previously untested modules now covered (init arg construction,
+      plan exit-code passthrough, diagnose never-throws, outputs JSON fallback
+      + verify, destroy select-gating). Canonical reference:
+      `standards/naming.md`. 142/142 host tests green.
+- [x] Standalone dotnet format/build/test templates retired (2026-08-30,
+      decision #20 follow-through) — the gate's `dotnet` step (restore →
+      format → build → test over workspace discovery) fully subsumed
+      `dotnet--format--solution`, `dotnet--build--solution`,
+      `dotnet--test--{common-test-runner,unit-tests,integration-tests}`;
+      deleted all five plus the now-orphaned `pipelines/dotnet-test-runner.mts`
+      (its only consumer was common-test-runner). The consumer pipeline
+      example (`standards/workflows/pipeline.example.yml`) now calls only
+      `defined--verify.yml`. Surviving dotnet templates are genuinely
+      not-subsumed: `dotnet--build--blazor-frontend` (npm/node frontend),
+      `dotnet--test--playwright-tests` (playwright stays in-run),
+      `dotnet--analyse--sonarqube` (outside the gate manifest, decision #9).
+      Public API shrinks towards "the defined standards" — one gate entry
+      point plus pipeline-specific wrappers.
 
 ## Local workflow testing (2026-08-30)
 

@@ -1,6 +1,6 @@
-// pipelines/healthcheck-curl.mts — cURL healthchecks against a route list.
+// pipelines/healthcheck-verify.mts — cURL healthchecks against a route list.
 //
-// Extracted from healthcheck--curl-endpoints.yml ("Test endpoints" step).
+// Extracted from healthcheck--verify--endpoints.yml ("Test endpoints" step).
 // Parses the JSON routes array (jq replaced by Node), curls each endpoint with
 // retries, and fails the run when any endpoint fails. curl is baked in the
 // image.

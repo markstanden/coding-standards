@@ -66,7 +66,7 @@ jobs:
         if: inputs.environment-variables != ''
         env:
           ENV_JSON: ${{ inputs.environment-variables }}
-        run: node /opt/defined/pipelines/dotnet-env-json.mts
+        run: node /opt/defined/pipelines/dotnet-json-to-env.mts
 
       - name: "Check for npm requirements"
         id: check-npm

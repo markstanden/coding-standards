@@ -1,7 +1,7 @@
 // pipelines/tofu-init.mts — OpenTofu init + workspace select-or-create.
 //
-// Extracted from opentofu-build-infrastructure.yml (the "Initialize and Select
-// Workspace" steps) and opentofu-destroy-workspace.yml (the "Initialize
+// Extracted from opentofu--build--infrastructure.yml (the "Initialize and Select
+// Workspace" steps) and opentofu--destroy--workspace.yml (the "Initialize
 // Backend" step). Runs in the defined image where tofu is baked in, so the
 // workflow needs no setup-opentofu step.
 //
@@ -13,7 +13,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { run } from "../lib/proc.mts";
+import { run, type Runner } from "../lib/proc.mts";
 
 export interface TofuInitInput {
   pluginCacheDir: string;
@@ -29,7 +29,16 @@ export interface TofuInitInput {
  * Prepare the plugin cache dir, init with the remote Azure backend, then
  * select-or-create the workspace when buildEnv is set and not "default".
  */
-export function runTofuInit({ pluginCacheDir, infraDir, backendRg, backendSa, backendContainer, backendKey, buildEnv }: TofuInitInput): void {
+export function runTofuInit({
+  pluginCacheDir,
+  infraDir,
+  backendRg,
+  backendSa,
+  backendContainer,
+  backendKey,
+  buildEnv,
+  runner = run,
+}: TofuInitInput & { runner?: Runner }): void {
   mkdirSync(pluginCacheDir, { recursive: true });
 
   const cwd = infraDir ? resolve(infraDir) : process.cwd();
@@ -38,10 +47,10 @@ export function runTofuInit({ pluginCacheDir, infraDir, backendRg, backendSa, ba
   // below starts from a clean slate.
   const envMarker = `${cwd}/.terraform/environment`;
   if (existsSync(envMarker)) {
-    run({ cmd: "rm", args: ["-f", envMarker], cwd });
+    runner({ cmd: "rm", args: ["-f", envMarker], cwd });
   }
 
-  const init = run({
+  const init = runner({
     cmd: "tofu",
     args: [
       "init",
@@ -59,9 +68,9 @@ export function runTofuInit({ pluginCacheDir, infraDir, backendRg, backendSa, ba
   }
 
   if (buildEnv && buildEnv !== "default") {
-    const select = run({ cmd: "tofu", args: ["workspace", "select", buildEnv], cwd });
+    const select = runner({ cmd: "tofu", args: ["workspace", "select", buildEnv], cwd });
     if (select.status !== 0) {
-      const create = run({ cmd: "tofu", args: ["workspace", "new", buildEnv], cwd });
+      const create = runner({ cmd: "tofu", args: ["workspace", "new", buildEnv], cwd });
       if (create.status !== 0) {
         throw new Error(`tofu workspace select|new failed:\n${create.stderr}`);
       }

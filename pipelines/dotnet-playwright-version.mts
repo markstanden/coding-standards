@@ -1,7 +1,7 @@
-// pipelines/playwright-version.mts — detect the Microsoft.Playwright version
+// pipelines/dotnet-playwright-version.mts — detect the Microsoft.Playwright version
 // for the browser cache key.
 //
-// Extracted from dotnet-test--playwright-tests.yml ("Compute Playwright cache
+// Extracted from dotnet--test--playwright-tests.yml ("Compute Playwright cache
 // key" step). Resolution order:
 //   1. packages.lock.json `.dependencies["Microsoft.Playwright"].resolved`
 //   2. obj/project.assets.json first microsoft.playwright/ library key

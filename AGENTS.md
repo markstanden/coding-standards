@@ -14,12 +14,16 @@ end-to-end gate.
 
 - Root `.github/workflows/*.yml` are mostly **reusable `workflow_call` templates**
   for consumer repos, NOT CI for this repo. Naming convention:
-  `<tool>--<purpose>.yml` (double hyphen), inputs parameterise paths/versions.
+  `<namespace>--<loose-verb>[--<target>].yml` (double hyphen separates the
+  segments; the verb names the intent, not the tool — see
+  `standards/naming.md`), inputs parameterise paths/versions.
   Exceptions that ARE CI for this repo: `defined--publish.yml` (builds +
   pushes the gate image to ghcr on main) and `defined--test.yml` (runs
   the gate's own unit + broken-fixture suite on PRs and merges).
-- `standards/workflows/pipeline.yml.example` — the `.example` suffix is
-  deliberate: it is a template for consumer pipelines, not run here.
+- `standards/workflows/pipeline.example.yml` — the `.example` in the stem is
+  deliberate: it is a template for consumer pipelines, not a real workflow
+  here. The `.yml` extension means the gate's `yaml` step lints it, so the
+  template stays valid YAML.
 - `standards/.editorconfig` and `standards/Directory.Build.props` are the
   single source of truth for shared root configs — the gate's `setup`
   installs them into consumer repo roots (raises-only) from the baked image.
@@ -51,9 +55,12 @@ aren't relitigated:
 - Pipeline modules live in `pipelines/*.mts` (thin zero-dep wrappers over the
   shared `lib/` building blocks), baked into the image at
   `/opt/defined/pipelines` and invoked by containerised workflow jobs as
-  `node /opt/defined/pipelines/<module>.mts` with inputs via env. The image
-  tag IS the toolchain for containerised workflows — no setup-opentofu/
-  setup-dotnet/setup-node steps needed.
+  `node /opt/defined/pipelines/<module>.mts` with inputs via env. Modules are
+  shared building blocks named `<namespace>-<loose-verb>.mts` — never 1:1
+  mirrors of a workflow, and runnable modules never end in `-test` (Node's
+  `*-test.*` discovery glob would execute them). See `standards/naming.md`.
+  The image tag IS the toolchain for containerised workflows — no
+  setup-opentofu/setup-dotnet/setup-node steps needed.
 
 ## Conventions
 
