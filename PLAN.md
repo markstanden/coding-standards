@@ -101,7 +101,8 @@ quality/
 ├── config/                # prettier.config.mjs prettierignore yamllint.yml schema
 │   │                      #   agents-block.md root/ (installed to repo root)
 ├── container/
-│   ├── Containerfile      # ubuntu base, node 26, apt-pinned tools
+│   ├── Containerfile      # node 26 slim base, apt/tarball/npm-pinned tools,
+│   │                      #   MS dotnet-10 feed, bakes gate code at /opt/quality
 │   └── tool-versions.env  # single source of tool version pins
 └── README.md              # usage, house conventions, add-a-step checklist
 ```
@@ -191,9 +192,12 @@ submodule/symlink/package-manager trilemma dissolves:
 - **Local**: `verify.sh` builds `localhost/quality-gate:<pinhash>` on first
   run (layer-cached; rebuilds only when pins change) and runs it against the
   mounted repo.
-- **CI**: workflows pull `ghcr.io/markstanden/quality-gate:<tag>`; an
-  identical tag means identical toolchain, so local green = merge green by
-  construction.
+- **CI**: workflows pull `ghcr.io/markstanden/quality-gate:<tag>`; the image
+  is self-contained (gate code baked at /opt/quality), so consumers vendor
+  nothing. Two tags are pushed: `<pinhash>` (stable toolchain) and
+  `:<shortsha>` (pinned release) — consumers pin the shortsha for full
+  reproducibility. An identical tag means identical toolchain, so local green
+  = merge green by construction.
 - **Target projects vendor nothing.** A project may install a ~5-line shim
   that invokes the image (setup scripts can drop it alongside the dotnet
   standards) plus its own `.qualityrc.json`. The shim's first-run bootstrap
@@ -332,6 +336,22 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       CLI cannot operate on a bare directory that merely contains a project;
       multiple projects with no solution now fail loudly)
 - [ ] CI template: publish/consume ghcr image tagged from pin hash
+      (2026-08-30: image made self-contained — build context is now quality/
+      and the gate code is baked at /opt/quality, so CI consumers vendor
+      nothing; local verify.sh still bind-mounts quality/ ro, shadowing the
+      baked copy for live edits. Publish workflow
+      `.github/workflows/quality-gate--publish.yml` (main push on quality/**
+      + dispatch) builds linux/amd64+arm64 via buildx and pushes
+      `ghcr.io/markstanden/quality-gate:<pinhash>` + `:<shortsha>`. Consumer
+      template `quality-gate--verify.yml` is a reusable workflow_call taking
+      `image-tag`/`fix`/`silent`/`working-directory`. Verified: baked image
+      runs a dotnet repo with zero host mounts/tools; new workflows clean
+      under the gate's own actionlint + yamllint; gate stays red only on the
+      deferred workflow findings. DECIDED: tag scheme is pinhash (stable
+      toolchain) AND shortsha (pinned release) — consumers pin shortsha for
+      full reproducibility. CI shadow volumes intentionally omitted: a fresh
+      runner has no host deps to leak, and the NuGet cache volume is pointless
+      on ephemeral runners)
 - [ ] Golden-test parity on system-config
 - [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
       deliberately parked so the red gate keeps flagging them — see
