@@ -23,6 +23,12 @@ REPO_ROOT="$(git -C "${PWD}" rev-parse --show-toplevel)" || {
 	exit 1
 }
 
+# Repo identity for named shadow volumes (decision #3): dependencies are
+# restored *inside* the container so host↔image ABI mismatches (e.g. Arch-built
+# native modules) never leak in. Volumes are keyed by this hash so two checkouts
+# of the same repo share one restore cache.
+REPO_HASH="$(printf '%s' "${REPO_ROOT}" | sha256sum | cut -c1-12)"
+
 if command -v podman >/dev/null 2>&1; then
 	ENGINE="podman"
 elif command -v docker >/dev/null 2>&1; then
@@ -52,5 +58,9 @@ fi
 exec "${ENGINE}" run --rm \
 	-v "${REPO_ROOT}:/repo" \
 	-v "${QUALITY_DIR}:/opt/quality:ro" \
+	-v "quality-node-${PINHASH}-${REPO_HASH}:/repo/node_modules" \
+	-v "quality-npm-${REPO_HASH}:/root/.npm" \
+	-v "quality-nuget-${REPO_HASH}:/root/.nuget/packages" \
+	-e "NUGET_PACKAGES=/root/.nuget/packages" \
 	--workdir /repo \
 	"${IMAGE}" "$@"
