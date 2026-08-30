@@ -44,13 +44,13 @@ RUN set -eux; \
         aarch64) ARCH="arm64"; ZIZMOR_ARCH="aarch64"; GITLEAKS_ARCH="arm64" ;; \
         *) echo "Unsupported arch: ${arch}" >&2; exit 1 ;; \
     esac; \
-    curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin actionlint; \
+    curl -fsSL --retry 3 --retry-all-errors "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin actionlint; \
     actionlint --version >/dev/null; \
-    curl -fsSL "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-${ZIZMOR_ARCH}-unknown-linux-gnu.tar.gz" | tar -xz -C /usr/local/bin zizmor; \
+    curl -fsSL --retry 3 --retry-all-errors "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-${ZIZMOR_ARCH}-unknown-linux-gnu.tar.gz" | tar -xz -C /usr/local/bin zizmor; \
     zizmor --version >/dev/null; \
-    curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz" | tar -xz -C /usr/local/bin gitleaks; \
+    curl -fsSL --retry 3 --retry-all-errors "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz" | tar -xz -C /usr/local/bin gitleaks; \
     gitleaks --version >/dev/null; \
-    curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin tofu; \
+    curl -fsSL --retry 3 --retry-all-errors "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin tofu; \
     tofu --version >/dev/null; \
     node --version
 
