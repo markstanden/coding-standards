@@ -154,30 +154,36 @@ csharp_space_between_method_call_empty_parameter_list_parentheses = false
 csharp_preserve_single_line_statements = true
 csharp_preserve_single_line_blocks = true
 
-# XML project files
+# XML project files. Deliberately NOT 4-space: dotnet format owns these and
+# ignores editorconfig indent_size for XML (verified 2026-08-30 — a 4-space
+# setting left a misindented csproj untouched), so aligning would make IDE
+# hint at 4 while the gate's dotnet step enforces its own XML style. 2 is
+# dotnet's own convention; keep it in step with what dotnet format emits.
 [*.{csproj,fsproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
 indent_size = 2
 
-# XML config files
+# XML config files (same rationale as project files above).
 [*.{props,targets,ruleset,config,nuspec,resx,vsixmanifest,vsct}]
 indent_size = 2
 
-# JSON files (4-space to match prettier tabWidth — lockstep per PLAN)
+# JSON files (4-space to match prettier — .editorconfig is the single source
+# of indent; prettier reads it natively per PLAN decision)
 [*.json]
 indent_size = 4
 
-# YAML files (4-space to match prettier tabWidth — .editorconfig, prettier
-# config and shfmt must stay in lockstep per PLAN decision)
+# YAML files (4-space to match prettier; same single-source rationale)
 [*.{yml,yaml}]
 indent_size = 4
-
-# Markdown files
-[*.md]
-indent_size = 4
-trim_trailing_whitespace = false
 
 # Shell script files
 [*.sh]
 end_of_line = lf
 indent_style = space
 indent_size = 4
+
+# Markdown files. trim_trailing_whitespace = false must be its own last
+# section so nothing re-enables trimming for .md (trailing spaces are
+# meaningful in Markdown — hard line breaks).
+[*.md]
+indent_size = 4
+trim_trailing_whitespace = false

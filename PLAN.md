@@ -187,7 +187,11 @@ never turns into rubber-stamping. Where repos disagree, the fix is mechanical
   in step automatically. Gate setup installs `.editorconfig` into consumer
   roots; this repo carries its own root copy (identical to `standards/`) so
   the gate's own tree is self-hosted — `verify.sh setup` on it is a no-op,
-  and drift fails loudly (raises-only).
+  and drift fails loudly (raises-only). Exception: **XML stays at 2-space** —
+  dotnet format owns `.csproj`/`.props` and ignores editorconfig `indent_size`
+  for XML (verified 2026-08-30: a 4-space setting left a misindented csproj
+  untouched), so aligning XML would make IDEs hint at 4 while the gate enforces
+  dotnet's own 2-space style.
 - **DECIDED — Shellcheck floor `error` universally**, raises-only per run
   (system-config's model).
 - **DECIDED — Prettier scope is repo-wide** (markdown, JSONC, YAML, CSS),
