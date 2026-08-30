@@ -8,8 +8,13 @@
 //   3. a file behind the host .prettierignore is never touched.
 //
 // Requires a container engine + the gate image (verify.sh builds it on first
-// run). Skips cleanly when podman/docker are absent so `node --test` stays
-// runnable on a bare machine.
+// run). Skips cleanly when no engine is usable so `node --test` stays
+// runnable on a bare machine. It also skips under `act`: act runs each step
+// in its own runner container, and the fixture nests the gate *inside* that —
+// verify.sh mounts a temp repo path, but that path lives in the runner
+// container's namespace, which the host engine (reached via the mounted
+// socket) cannot see. Gate-in-container cannot work under act; the real
+// runner or direct podman is required. See PLAN.md "Local workflow testing".
 // Run: node --test quality/fixture.test.mts
 
 import assert from "node:assert/strict";
@@ -23,6 +28,9 @@ import { createBrokenFixture, brokenFixtureFiles } from "./lib/fixture.mts";
 import { run } from "./lib/proc.mts";
 
 function hasEngine(): boolean {
+  if (process.env.ACT === "true") {
+    return false;
+  }
   return existsSync("/usr/bin/podman") || existsSync("/usr/bin/docker");
 }
 

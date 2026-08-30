@@ -427,7 +427,28 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       - actionlint: `codecov/codecov-action@v3` too old for GitHub Actions
         (dotnet-test--common-test-runner.yml:108) — bump to v4
 
-## Continuous verification
+## Local workflow testing (2026-08-30)
+
+Three ways to test `.github/workflows/*.yml` before merge; trade-offs:
+
+| Approach | Offline? | Fidelity | Gate-in-container | Verdict |
+| --- | --- | --- | --- | --- |
+| `act` (nektos/act) | yes — runs working tree, any branch | good for unit steps, weak for actions needing GitHub context | ❌ impossible — step runs in act's runner container; the gate nests a container via `verify.sh`, and the fixture's temp repo lives in the runner's namespace, invisible to the host engine (even with `--container-daemon-socket`) | daily iteration + syntax checks |
+| Real self-hosted runner (`actions/runner` in podman) | no — registers with GitHub, polls for jobs; workflow must be on a remote ref, triggered via `gh workflow run` | highest — actual runner, real `actions/` execution | ✅ possible in principle (socket mount) but runner label must match `runs-on` (self-hosted ≠ `ubuntu-latest` without relabelling) | final pre-merge fidelity check on main |
+| Direct podman / `verify.sh` | yes | exact for the gate's own steps | ✅ the gate itself | the gate's own suite (unit + fixture) |
+
+Notes from the `act` experiment on this box:
+
+- `act` connects to podman via `DOCKER_HOST=unix:///run/user/1000/podman/podman.sock`
+  (podman exposes a Docker-compatible API). `--container-daemon-socket` mounts
+  it into the runner container, so `docker` CLI inside acts against the host
+  engine — but the fixture still can't work (namespace boundary, see table).
+- The broken-fixture integration test therefore skips under `act`
+  (`ACT=true`), and runs for real under host podman / the real runner. The
+  skip is deliberate and documented in `quality/fixture.test.mts`.
+- `act` used Node 24.19.0 (setup-node resolved the workflow's `26` to a
+  cached 24 on the box) — another reason real CI is the authority on tool
+  versions, not `act`.
 
 Host `node --test` green does not mean the gate is green: on 2026-08-30 the
 unit suite passed 69/69 while the first in-container run went red on real
