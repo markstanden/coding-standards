@@ -7,10 +7,13 @@ import { test } from "node:test";
 import { resolveSwaToken } from "./azure-swa-set-token.mts";
 
 test("resolveSwaToken prefers the secret over the parsed token", () => {
-  assert.equal(resolveSwaToken({ secretToken: "s", parsedToken: "p" }), "s");
-  assert.equal(resolveSwaToken({ secretToken: "", parsedToken: "p" }), "p");
+    assert.equal(resolveSwaToken({ secretToken: "s", parsedToken: "p" }), "s");
+    assert.equal(resolveSwaToken({ secretToken: "", parsedToken: "p" }), "p");
 });
 
 test("resolveSwaToken throws when no token is available", () => {
-  assert.throws(() => resolveSwaToken({ secretToken: "", parsedToken: "" }), /No SWA token/u);
+    assert.throws(
+        () => resolveSwaToken({ secretToken: "", parsedToken: "" }),
+        /No SWA token/u,
+    );
 });

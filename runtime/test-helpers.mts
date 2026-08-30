@@ -16,36 +16,44 @@ type RunResult = { status: number; stdout?: string; stderr?: string };
  * commands take a working directory.
  */
 export function fakeRunner(
-  outcomes: Record<string, RunResult>,
-  withCwd = false,
+    outcomes: Record<string, RunResult>,
+    withCwd = false,
 ): { runner: typeof import("../lib/proc.mts").run; calls: string[][] } {
-  const calls: string[][] = [];
-  const runner = (({ cmd, args, cwd }: { cmd: string; args: string[]; cwd?: string }) => {
-    if (withCwd) {
-      calls.push([cmd, ...args, cwd ?? ""]);
-      const key = `${cmd} ${args[0] ?? ""}`.trim();
-      const o = outcomes[key] ?? outcomes[cmd] ?? { status: 0 };
-      return {
-        status: o.status,
-        stdout: o.stdout ?? "",
-        stderr: o.stderr ?? "",
-      } satisfies CommandResult;
-    }
-    calls.push([cmd, ...args]);
-    const o = outcomes[cmd] ?? { status: 0 };
-    return {
-      status: o.status,
-      stdout: o.stdout ?? "",
-      stderr: o.stderr ?? "",
-    } satisfies CommandResult;
-  }) as typeof import("../lib/proc.mts").run;
-  return { runner, calls };
+    const calls: string[][] = [];
+    const runner = (({
+        cmd,
+        args,
+        cwd,
+    }: {
+        cmd: string;
+        args: string[];
+        cwd?: string;
+    }) => {
+        if (withCwd) {
+            calls.push([cmd, ...args, cwd ?? ""]);
+            const key = `${cmd} ${args[0] ?? ""}`.trim();
+            const o = outcomes[key] ?? outcomes[cmd] ?? { status: 0 };
+            return {
+                status: o.status,
+                stdout: o.stdout ?? "",
+                stderr: o.stderr ?? "",
+            } satisfies CommandResult;
+        }
+        calls.push([cmd, ...args]);
+        const o = outcomes[cmd] ?? { status: 0 };
+        return {
+            status: o.status,
+            stdout: o.stdout ?? "",
+            stderr: o.stderr ?? "",
+        } satisfies CommandResult;
+    }) as typeof import("../lib/proc.mts").run;
+    return { runner, calls };
 }
 
 /** Default step context: check-only, non-silent, repo at /repo. */
 export const baseCtx = {
-  mode: "no-fix" as const,
-  silent: false,
-  help: false as const,
-  repoRoot: "/repo",
+    mode: "no-fix" as const,
+    silent: false,
+    help: false as const,
+    repoRoot: "/repo",
 };

@@ -23,28 +23,29 @@ daily but is coupled to that one repo. This plan extracts it.
 
 ## Decisions log (2026-08-24 design review)
 
-| # | Decision |
-| --- | --- |
-| 1 | **Container is the runtime** — Ubuntu image, tools pinned via `tool-versions.env`; host needs only podman/docker + git |
-| 2 | **No native fallback** — missing container engine fails loudly with install guidance; one path, no drift |
-| 3 | **In-container project deps** — named volumes shadow `node_modules`/`obj`/`bin`; gate restores inside the container (avoids host↔image ABI mismatch, e.g. Arch-built native modules) |
-| 4 | **Build local, publish for CI** — `verify.sh` builds a cached local image on first run; CI consumes/publishes `ghcr.io/markstanden/defined:<tag>`, tag derived from tool-pin hash |
-| 5 | **Step order**: `naming → node → dotnet → shell → yaml → workflow → tofu` — semantic renames precede mechanical formatting so renamed symbols never land unformatted |
-| 6 | **Tofu**: `fmt` always (fixable); `init` + `validate` accepted despite provider-download cost |
-| 7 | **Types**: bare string-literal unions (`StepMode`, `StepStatus`) — enums banned under strip-types; a rankable `as const` object is reserved for severity-floor maths only |
-| 8 | **Params**: public functions take a single destructured object (named-parameter style); positional params only for genuinely unary operations |
-| 9 | **Tool policy**: no optional tier — missing tool = loud fail pointing at the Containerfile; degradation exists nowhere except sonar, which stays outside the manifest |
-| 10 | **Scanning**: git-tracked files only (`git ls-files -co --exclude-standard`); per-tool ignores travel in `runtime/config/` for committed-but-generated exceptions |
-| 11 | **Detection**: sync only (`fs` existence checks); execution strictly sequential — `--fix` writes files, and ordered output keeps `--silent` log-dumps trustworthy |
-| 12 | **Overrides**: `.qualityrc.json` at target repo root; raises-only; unknown step ids or lowered floors are config errors |
-| 13 | **Gate is the bootstrap** — gate setup installs shared configs (`.editorconfig`, `Directory.Build.props`) into the repo root from versions baked into the image; `verify` fails loudly on drift. Editors read these files only from the project root, so install is part of setup, not verify |
-| 14 | **Agent instructions are seeded, not owned** — gate setup writes a marker-delimited managed block (`<!-- defined:start -->…<!-- defined:end -->`) into consumer `AGENTS.md`: house standards summary + pointer home to this repo's README as canonical index. Idempotent re-runs rewrite the block only; project content outside it is never clobbered (raises-only) |
-| 15 | **Distribution end-state: two channels only** — the pinned image (configs + bootstrap) and gitsha-pinned reusable-workflow `uses:` refs. Symlinks, submodules and release artifacts all retired; no release pipeline needed since the image tag *is* the release |
-| 16 | **Standalone lint/security workflow templates dropped** — shellcheck/yamllint/gitleaks arrive via the image's `shell`/`yaml`/`workflow` steps consumed through a single `defined--verify.yml`; thin wrapper templates would be immediate deletion work |
-| 17 | **Base image: official `node:<ver>-slim`, digest-pinned** (2026-08-25, supersedes the "Ubuntu image" wording of #1) — multi-arch manifest digest gives arm64 free, deletes hand-maintained Node install code, Node team handles base patching. Digest lives in `tool-versions.env` and reaches `FROM` via build args so that file stays the single source of truth. Global pinned `tsc` is baked in for typechecking the gate's own code; the gate still *runs* on strip-types with no build step |
-| 18 | **Shellcheck floor raised `error` → `style`** (2026-08-25, supersedes the 2026-08-23 "floor error universally" rule) — every shellcheck finding gates; inconsistencies are forced away, not tolerated. Raises-only means floors move up, never down. First run at this floor found 4 real findings, all fixed mechanically rather than suppressed |
-| 19 | **Brand: `defined`; repo flattened** (2026-08-30) — the container's role outgrew "quality gate" (it is also the workflow runtime base), so consumer-visible naming is `defined`: image `ghcr.io/markstanden/defined`, workflows `defined--*.yml`, AGENTS.md markers `<!-- defined:start/end -->`. The repo restructures flat: `quality/` → `runtime/` (the image), root `lib/` (shared building blocks used by both runtime and pipelines), `pipelines/` (thin zero-dep pipeline modules consuming `lib/`), `dotnet/` → `standards/`, docs under `practices/`. The GitHub repo keeps the name `coding-standards` for now — renamed once SHAs stabilise. Legacy `dotnet/setup.sh` retired (decision #15 made real) |
-| 20 | **Filename grammar: `<namespace>--<loose-verb>[--<target>]` for workflows, `<namespace>-<loose-verb>` for pipeline modules** (2026-08-30) — `--` separates the segments (so single-hyphen words like `azure-swa`/`common-test-runner` fit inside a segment), and the middle segment is a *loose verb* naming the intent (`verify`, `analyse`) rather than the tool (`curl`, `swa`). Workflows are jobs (three segments, target optional); `pipelines/*.mts` are shared building blocks (no target, never 1:1 workflow mirrors). Hard rule: **runnable modules never end in `-test`** — Node's `*-test.*` discovery glob executes them (the `dotnet-test.mts` discovery bug that turned the suite red). Renamed all 16 non-conforming workflows and 6 modules; `simple.test.mts` grab-bag split into colocated tests; tofu modules gained an injected-runner parameter + colocated tests. Canonical reference: `standards/naming.md` |
+| #   | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Container is the runtime** — Ubuntu image, tools pinned via `tool-versions.env`; host needs only podman/docker + git                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2   | **No native fallback** — missing container engine fails loudly with install guidance; one path, no drift                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 3   | **In-container project deps** — named volumes shadow `node_modules`/`obj`/`bin`; gate restores inside the container (avoids host↔image ABI mismatch, e.g. Arch-built native modules)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 4   | **Build local, publish for CI** — `verify.sh` builds a cached local image on first run; CI consumes/publishes `ghcr.io/markstanden/defined:<tag>`, tag derived from tool-pin hash                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 5   | **Step order**: `naming → node → dotnet → shell → yaml → workflow → tofu` — semantic renames precede mechanical formatting so renamed symbols never land unformatted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 6   | **Tofu**: `fmt` always (fixable); `init` + `validate` accepted despite provider-download cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 7   | **Types**: bare string-literal unions (`StepMode`, `StepStatus`) — enums banned under strip-types; a rankable `as const` object is reserved for severity-floor maths only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 8   | **Params**: public functions take a single destructured object (named-parameter style); positional params only for genuinely unary operations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 9   | **Tool policy**: no optional tier — missing tool = loud fail pointing at the Containerfile; degradation exists nowhere except sonar, which stays outside the manifest                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 10  | **Scanning**: git-tracked files only (`git ls-files -co --exclude-standard`); per-tool ignores travel in `runtime/config/` for committed-but-generated exceptions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 11  | **Detection**: sync only (`fs` existence checks); execution strictly sequential — `--fix` writes files, and ordered output keeps `--silent` log-dumps trustworthy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 12  | **Overrides**: `.qualityrc.json` at target repo root; raises-only; unknown step ids or lowered floors are config errors                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 13  | **Gate is the bootstrap** — gate setup installs shared configs (`.editorconfig`, `Directory.Build.props`) into the repo root from versions baked into the image; `verify` fails loudly on drift. Editors read these files only from the project root, so install is part of setup, not verify                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 14  | **Agent instructions are seeded, not owned** — gate setup writes a marker-delimited managed block (`<!-- defined:start -->…<!-- defined:end -->`) into consumer `AGENTS.md`: house standards summary + pointer home to this repo's README as canonical index. Idempotent re-runs rewrite the block only; project content outside it is never clobbered (raises-only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 15  | **Distribution end-state: two channels only** — the pinned image (configs + bootstrap) and gitsha-pinned reusable-workflow `uses:` refs. Symlinks, submodules and release artifacts all retired; no release pipeline needed since the image tag _is_ the release                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 16  | **Standalone lint/security workflow templates dropped** — shellcheck/yamllint/gitleaks arrive via the image's `shell`/`yaml`/`workflow` steps consumed through a single `defined--verify.yml`; thin wrapper templates would be immediate deletion work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 17  | **Base image: official `node:<ver>-slim`, digest-pinned** (2026-08-25, supersedes the "Ubuntu image" wording of #1) — multi-arch manifest digest gives arm64 free, deletes hand-maintained Node install code, Node team handles base patching. Digest lives in `tool-versions.env` and reaches `FROM` via build args so that file stays the single source of truth. Global pinned `tsc` is baked in for typechecking the gate's own code; the gate still _runs_ on strip-types with no build step                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 18  | **Shellcheck floor raised `error` → `style`** (2026-08-25, supersedes the 2026-08-23 "floor error universally" rule) — every shellcheck finding gates; inconsistencies are forced away, not tolerated. Raises-only means floors move up, never down. First run at this floor found 4 real findings, all fixed mechanically rather than suppressed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 19  | **Brand: `defined`; repo flattened** (2026-08-30) — the container's role outgrew "quality gate" (it is also the workflow runtime base), so consumer-visible naming is `defined`: image `ghcr.io/markstanden/defined`, workflows `defined--*.yml`, AGENTS.md markers `<!-- defined:start/end -->`. The repo restructures flat: `quality/` → `runtime/` (the image), root `lib/` (shared building blocks used by both runtime and pipelines), `pipelines/` (thin zero-dep pipeline modules consuming `lib/`), `dotnet/` → `standards/`, docs under `practices/`. The GitHub repo keeps the name `coding-standards` for now — renamed once SHAs stabilise. Legacy `dotnet/setup.sh` retired (decision #15 made real)                                                                                                                                                                                                                   |
+| 20  | **Filename grammar: `<namespace>--<loose-verb>[--<target>]` for workflows, `<namespace>-<loose-verb>` for pipeline modules** (2026-08-30) — `--` separates the segments (so single-hyphen words like `azure-swa`/`common-test-runner` fit inside a segment), and the middle segment is a _loose verb_ naming the intent (`verify`, `analyse`) rather than the tool (`curl`, `swa`). Workflows are jobs (three segments, target optional); `pipelines/*.mts` are shared building blocks (no target, never 1:1 workflow mirrors). Hard rule: **runnable modules never end in `-test`** — Node's `*-test.*` discovery glob executes them (the `dotnet-test.mts` discovery bug that turned the suite red). Renamed all 16 non-conforming workflows and 6 modules; `simple.test.mts` grab-bag split into colocated tests; tofu modules gained an injected-runner parameter + colocated tests. Canonical reference: `standards/naming.md` |
+| 21  | **tflint folded into the `tofu` step** (2026-08-30, resolves the 2026-08-25 [NEEDS DECISION]) — sonarqube-compatible HCL lint runs alongside `tofu fmt/init/validate`; pinned `TFLINT_VERSION="0.64.0"` delivered as a release zip (like the workflow Go tools) with an `unzip` install and a build-time version assertion. `--init` first (so a project's `.tflint.hcl` plugins land in the plugin cache), `--fix` in fix mode, then a check that gates on any finding (exit 0 clean / 1 error / 2 issues). Step order: fmt → tflint → init → validate. The broken-fixture `main.tf` is now tflint-clean (required_version + required_providers) so only its fmt drift gates                                                                                                                                                                                                                                                       |
 
 ## Roadmap (2026-08-25 brainstorm)
 
@@ -68,18 +69,19 @@ until first green nothing distributes configs or instructions.
    usage; expand standards docs (standards/testing/unit-testing.md, node
    equivalents, architecture preferences). Consumer adoption = pin a sha;
    the legacy submodule/symlink flow is retired.
+   [DONE 2026-08-30 — see Status]
 
 ## Current couplings to remove (audit of system-config `quality/`, 2026-08-23)
 
-| Coupling | Where | Fix |
-| --- | --- | --- |
-| Tool configs live at repo root (`prettier.config.mjs`, `.prettierignore`, `.yamllint.yml`) | `typescript.sh`, `yaml.sh` | Move into `runtime/config/`; pass explicitly (`--config`, `--ignore-path`, `yamllint -c`) |
-| Prettier resolves `.prettierignore` relative to CWD, not target tree | `typescript.sh` (already carries a comment about this) | Always pass `--ignore-path` |
-| Hardcoded `lib/` TypeScript package | `typescript.sh` (`LIB_DIR`) | Auto-detect: run only if a JS/TS package with the right scripts exists |
-| Repo-specific naming doctrine | `naming.sh` | Opt-in step, not default-on |
-| Fixed step list + LocalQube probe in orchestrator | `verify.sh` | Manifest-driven steps; sonar stays a separate opt-in tool |
-| Symlink-blind path resolution | `lib.sh:5` (`dirname BASH_SOURCE`, no `readlink -f`) | Resolve symlinks; derive repo root from invocation CWD's git root |
-| `.gitleaksignore` expected at scan root | `workflow.sh` | Absence must be fine (it is); document as per-project file |
+| Coupling                                                                                   | Where                                                  | Fix                                                                                       |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Tool configs live at repo root (`prettier.config.mjs`, `.prettierignore`, `.yamllint.yml`) | `typescript.sh`, `yaml.sh`                             | Move into `runtime/config/`; pass explicitly (`--config`, `--ignore-path`, `yamllint -c`) |
+| Prettier resolves `.prettierignore` relative to CWD, not target tree                       | `typescript.sh` (already carries a comment about this) | Always pass `--ignore-path`                                                               |
+| Hardcoded `lib/` TypeScript package                                                        | `typescript.sh` (`LIB_DIR`)                            | Auto-detect: run only if a JS/TS package with the right scripts exists                    |
+| Repo-specific naming doctrine                                                              | `naming.sh`                                            | Opt-in step, not default-on                                                               |
+| Fixed step list + LocalQube probe in orchestrator                                          | `verify.sh`                                            | Manifest-driven steps; sonar stays a separate opt-in tool                                 |
+| Symlink-blind path resolution                                                              | `lib.sh:5` (`dirname BASH_SOURCE`, no `readlink -f`)   | Resolve symlinks; derive repo root from invocation CWD's git root                         |
+| `.gitleaksignore` expected at scan root                                                    | `workflow.sh`                                          | Absence must be fine (it is); document as per-project file                                |
 
 ## Target shape
 
@@ -100,10 +102,7 @@ runtime/                 # the container image (was quality/ + container/)
 │   ├── shell.mts        # default-on  shfmt + shellcheck over tracked *.sh
 │   ├── yaml.mts         # default-on  yamllint over tracked YAML
 │   ├── workflow.mts     # default-on* actionlint + zizmor + gitleaks (*needs .github/)
-│   └── tofu.mts         # default-on* tofu fmt + init/validate (*needs tracked *.tf)
-│                        #   [NEEDS DECISION 2026-08-25] also tflint —
-│                        #   sonarqube-compatible; decide pin/delivery
-│                        #   (apt vs release tarball) when the step lands
+│   └── tofu.mts         # default-on* tofu fmt + tflint + init/validate (*needs tracked *.tf)
 ├── config/              # prettier.config.mjs prettierignore yamllint.yml schema
 │   │                    #   agents-block.md root/ (installed to repo root)
 └── (tests)              # fixture.test.mts, setup.test.mts, test-helpers.mts
@@ -116,7 +115,7 @@ practices/               # docs / how-to
 ```
 
 - Steps are idempotent, accept `--fix/--no-fix/--silent`, and skip cleanly
-  (exit 0 with a notice) when their ecosystem is absent. Missing *tools*, by
+  (exit 0 with a notice) when their ecosystem is absent. Missing _tools_, by
   contrast, fail loudly pointing at the Containerfile — no optional tier.
 - Per-project tailoring via `.qualityrc.json` in the target repo, following
   the raises-only philosophy: projects may add strictness, never remove
@@ -129,14 +128,14 @@ practices/               # docs / how-to
 
 Mine these for patterns worth stealing (gates, hooks, CI templates):
 
-- [ ] `~/bin/system-config` — the prototype (source of the audit above)
-- [ ] `~/code/rdd-astro` — original inspiration for the verify gate
-- [ ] `~/code/template` — project template; likely CI skeleton to replace
-- [ ] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
+- [x] `~/bin/system-config` — the prototype (source of the audit above)
+- [x] `~/code/rdd-astro` — original inspiration for the verify gate
+- [x] `~/code/template` — project template; likely CI skeleton to replace
+- [x] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
       `~/code/eph-db` — assorted Node/shell projects; what do they actually run today?
-- [ ] `dotnet/` here — editorconfig/hooks/workflows already standardise .NET;
+- [x] `dotnet/` here — editorconfig/hooks/workflows already standardise .NET;
       the new `steps/dotnet.mts` should wrap, not duplicate, these
-- [ ] External worth a look: bloom-style `scripts/verify.sh` pattern
+- [x] External worth a look: bloom-style `scripts/verify.sh` pattern
       (single entry point), pre-commit framework (config-driven hooks)
 
 Output of research: notes appended below, then a step inventory before any code moves.
@@ -146,14 +145,14 @@ Output of research: notes appended below, then a step inventory before any code 
 **The same idea evolved independently at least four times** — every repo
 converges on "one verify entry point", but with drifted implementations:
 
-| Repo | Local entry point | CI | Ecosystem | Maturity |
-| --- | --- | --- | --- | --- |
-| `system-config` | `quality/verify.sh` (+ `--fix/--silent`, raises-only floor) | same script in `verify.yml` | node+shell+yaml+workflows | highest — repo-wide prettier, workflow gate |
-| `rdd-astro` | `code-quality-checks/all.sh` (`npm run check/fix`, `--e2e`) | 16 per-area workflows | astro/node+shell+yaml | high — but CI is fragmented into many small workflows |
-| `template`, `simple-greeter` | `scripts/verify.sh` (shellcheck → dotnet-format → build → test) | identical `verify.yml` ×2 | dotnet+shell | medium — one monolithic script, no --fix/--silent |
-| `dev-tools` | `tools/check.sh` (lint → validate, `--workspace` discovery) | `check.yml` | dotnet+shell | medium — best-in-show workspace/solution discovery |
-| `cv-server--ts` | none (npm scripts called directly by CI) | `run-tests.yml` | node | gap — no local/CI parity |
-| `eph-db` | none | none | dotnet+bicep? | gap — nothing |
+| Repo                         | Local entry point                                               | CI                          | Ecosystem                 | Maturity                                              |
+| ---------------------------- | --------------------------------------------------------------- | --------------------------- | ------------------------- | ----------------------------------------------------- |
+| `system-config`              | `quality/verify.sh` (+ `--fix/--silent`, raises-only floor)     | same script in `verify.yml` | node+shell+yaml+workflows | highest — repo-wide prettier, workflow gate           |
+| `rdd-astro`                  | `code-quality-checks/all.sh` (`npm run check/fix`, `--e2e`)     | 16 per-area workflows       | astro/node+shell+yaml     | high — but CI is fragmented into many small workflows |
+| `template`, `simple-greeter` | `scripts/verify.sh` (shellcheck → dotnet-format → build → test) | identical `verify.yml` ×2   | dotnet+shell              | medium — one monolithic script, no --fix/--silent     |
+| `dev-tools`                  | `tools/check.sh` (lint → validate, `--workspace` discovery)     | `check.yml`                 | dotnet+shell              | medium — best-in-show workspace/solution discovery    |
+| `cv-server--ts`              | none (npm scripts called directly by CI)                        | `run-tests.yml`             | node                      | gap — no local/CI parity                              |
+| `eph-db`                     | none                                                            | none                        | dotnet+bicep?             | gap — nothing                                         |
 
 **Reusable patterns worth uniting on:**
 
@@ -180,8 +179,19 @@ never turns into rubber-stamping. Where repos disagree, the fix is mechanical
 (`--fix` + commit the diff), never a debate.
 
 - **DECIDED — Indentation: 4 spaces everywhere** (no tabs). rdd-astro's
-  tab-formatted tree gets reformatted when the gate drip-feeds into it;
-  `.editorconfig` ↔ `prettier.config.mjs` ↔ `SHFMT_INDENT` move in lockstep.
+  tab-formatted tree gets reformatted when the gate drip-feeds into it.
+  `.editorconfig` is the **single source of truth** for indent: prettier's
+  config is pure defaults and reads the project `.editorconfig` natively
+  (verified 2026-08-30: prettier gives `.editorconfig` higher priority than an
+  explicit config), shfmt reads it too, and every EditorConfig-aware IDE falls
+  in step automatically. Gate setup installs `.editorconfig` into consumer
+  roots; this repo carries its own root copy (identical to `standards/`) so
+  the gate's own tree is self-hosted — `verify.sh setup` on it is a no-op,
+  and drift fails loudly (raises-only). Exception: **XML stays at 2-space** —
+  dotnet format owns `.csproj`/`.props` and ignores editorconfig `indent_size`
+  for XML (verified 2026-08-30: a 4-space setting left a misindented csproj
+  untouched), so aligning XML would make IDEs hint at 4 while the gate enforces
+  dotnet's own 2-space style.
 - **DECIDED — Shellcheck floor `error` universally**, raises-only per run
   (system-config's model).
 - **DECIDED — Prettier scope is repo-wide** (markdown, JSONC, YAML, CSS),
@@ -204,12 +214,12 @@ gate image) overturned the prototype's "resolves relative to CWD" assumption:
 - Consequence: a travelling ignore file at `/opt/defined/runtime/config/prettierignore`
   (or a merged temp file in `/tmp`) yields `../../…`-prefixed relative paths,
   so repo-root-relative patterns like `dotfiles/nvim` **never match**. Only
-  patterns that match against *any* path segment (`coverage/`, `*.toml`,
+  patterns that match against _any_ path segment (`coverage/`, `*.toml`,
   `**/lazy-lock.json`) survive.
 - The prototype "worked" only because its `.prettierignore` sat at the repo
   root **and** prettier ran from the repo root — ignore file and CWD
   coincided, so `getRelativePath` produced repo-relative paths.
-- Design consequence (RESOLVED 2026-08-30): prettier's CLI accepts *repeated*
+- Design consequence (RESOLVED 2026-08-30): prettier's CLI accepts _repeated_
   `--ignore-path` (its `ignorePath` is an array), each file's patterns
   resolving against its own location. The node step now passes both the
   travelling ignore AND the host's own `.prettierignore` — no merged temp file
@@ -240,7 +250,7 @@ submodule/symlink/package-manager trilemma dissolves:
   shared configs into the repo root and seeds `AGENTS.md` (decisions #13–14) —
   one wiring step covers configs, instructions and docs.
 - End-state (decision #15): this image plus gitsha-pinned workflow refs are
-  the *only* distribution channels; the submodule/symlink model is legacy
+  the _only_ distribution channels; the submodule/symlink model is legacy
   during transition, retired once the gate's bootstrap lands.
 
 ## Verification of the migration itself
@@ -279,8 +289,8 @@ Why:
   rule gets a table-driven test.
 - `node --test` over vitest for this repo: zero dependencies keeps the
   "drop in anywhere" promise honest — no `npm ci` to run the tests.
-- Portability contract restated honestly (2026-08-24 revision): *any project
-  on a machine with podman or docker*. Host Node is irrelevant to running the
+- Portability contract restated honestly (2026-08-24 revision): _any project
+  on a machine with podman or docker_. Host Node is irrelevant to running the
   gate — it matters only for developing the gate's own tests. The shim fails
   loudly instead of silently skipping when no engine exists.
 - Fresh build in mts beats porting working bash later — no translation step,
@@ -301,7 +311,7 @@ The gate executes exclusively inside a node slim image built from
 `runtime/Containerfile`, with every tool version pinned in
 `tool-versions.env`. Consequences recorded here so they aren't relitigated:
 
-- Tool installation *is* the Containerfile — no per-distro installer script.
+- Tool installation _is_ the Containerfile — no per-distro installer script.
   Missing binaries cannot occur at runtime: the image has them or the build
   fails.
 - Project dependencies (`node_modules`, NuGet, `obj/`/`bin/`) resolve inside
@@ -313,7 +323,7 @@ The gate executes exclusively inside a node slim image built from
   surface left is `verify.sh` (~30 lines), so the platform question reduces
   to "is there a container engine".
 
-Cross-platform note (2026-08-23, corrected): the TS core *increases*
+Cross-platform note (2026-08-23, corrected): the TS core _increases_
 portability, not less — Node ≥ 26 goes LTS within two months and runs natively
 on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 
@@ -419,17 +429,13 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       without a container engine)
 - [x] Workflow-template fixes on our own tree (2026-08-30, resolved in the
       stage-2 refactor below — the deferred findings and the gate's own
-      tripwire are gone):
-      - SC2086 unquoted `$VAR` in 28 `run:` blocks → eliminated by extracting
-        the bash into pipelines/*.mts modules (no bash left to flag)
-      - SC2129 merge redirects in dotnet-format--solution.yml:47 → inline fix
-      - `codecov/codecov-action@v3` too old → bumped to v4 (SHA-pinned)
-      - zizmor errors (previously masked by actionlint short-circuiting):
-        unpinned `uses:` → full-SHA pins across all templates; template-
-        injection (`${{ inputs.* }}` in run:) → moved into env: and referenced
-        by env var; workflow step now runs zizmor with `--min-severity high`
-        so accepted warnings (upload-artifact artipacked, fromJSON secret
-        projection) don't fail the gate. Gate is now FULLY GREEN (exit 0).
+      tripwire are gone): - SC2086 unquoted `$VAR` in 28 `run:` blocks → eliminated by extracting
+      the bash into pipelines/*.mts modules (no bash left to flag) - SC2129 merge redirects in dotnet-format--solution.yml:47 → inline fix - `codecov/codecov-action@v3` too old → bumped to v4 (SHA-pinned) - zizmor errors (previously masked by actionlint short-circuiting):
+      unpinned `uses:` → full-SHA pins across all templates; template-
+      injection (`${{ inputs.* }}` in run:) → moved into env: and referenced
+      by env var; workflow step now runs zizmor with `--min-severity high`
+      so accepted warnings (upload-artifact artipacked, fromJSON secret
+      projection) don't fail the gate. Gate is now FULLY GREEN (exit 0).
 - [x] Rebrand to `defined` + flat restructure (2026-08-30, decision #19)
       — quality/ → runtime/, shared core to root lib/, dotnet/ → standards/,
       pipelines/ + practices/ skeletons; image, workflows, markers, mount
@@ -480,8 +486,7 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       split into colocated per-module tests. Tofu modules gained an optional
       injected `runner` param (the `steps/*.mts` pattern) + colocated tests —
       the 5 previously untested modules now covered (init arg construction,
-      plan exit-code passthrough, diagnose never-throws, outputs JSON fallback
-      + verify, destroy select-gating). Canonical reference:
+      plan exit-code passthrough, diagnose never-throws, outputs JSON fallback + verify, destroy select-gating). Canonical reference:
       `standards/naming.md`. 142/142 host tests green.
 - [x] Standalone dotnet format/build/test templates retired (2026-08-30,
       decision #20 follow-through) — the gate's `dotnet` step (restore →
@@ -497,16 +502,31 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       `dotnet--analyse--sonarqube` (outside the gate manifest, decision #9).
       Public API shrinks towards "the defined standards" — one gate entry
       point plus pipeline-specific wrappers.
+- [x] tflint folded into the tofu step (2026-08-30, decision #21) — pinned
+      `TFLINT_VERSION="0.64.0"` (release zip + unzip install + build-time
+      version assertion); tofu step now runs fmt → tflint (--init, --fix in
+      fix mode, then gate on any finding) → init → validate; broken-fixture
+      `main.tf` made tflint-clean so only its fmt drift gates. Unit tests
+      cover tflint init/issue/fix phases; fixture drives the real gate
+      in-container green.
+- [x] `node--check--quality.yml` retired (2026-08-30) — parameterised npm
+      quality scripts fully subsumed by the gate's node step (prettier/eslint/
+      tsc/vitest with the baked configs). Public API now 11 consumer templates.
+- [x] Stage 3: single static entrypoint (2026-08-30) — README is the canonical
+      human+agent index (gate usage, adoption quick-start, 11-template
+      catalogue, standards links); added `standards/testing/node-testing.md`
+      and `practices/architecture.md`; research checklist ticked; roadmap
+      closed. 145/145 host tests green, gate exit 0.
 
 ## Local workflow testing (2026-08-30)
 
 Three ways to test `.github/workflows/*.yml` before merge; trade-offs:
 
-| Approach | Offline? | Fidelity | Gate-in-container | Verdict |
-| --- | --- | --- | --- | --- |
-| `act` (nektos/act) | yes — runs working tree, any branch | good for unit steps, weak for actions needing GitHub context | ❌ impossible — step runs in act's runner container; the gate nests a container via `verify.sh`, and the fixture's temp repo lives in the runner's namespace, invisible to the host engine (even with `--container-daemon-socket`) | daily iteration + syntax checks |
-| Real self-hosted runner (`actions/runner` in podman) | no — registers with GitHub, polls for jobs; workflow must be on a remote ref, triggered via `gh workflow run` | highest — actual runner, real `actions/` execution | ✅ possible in principle (socket mount) but runner label must match `runs-on` (self-hosted ≠ `ubuntu-latest` without relabelling) | final pre-merge fidelity check on main |
-| Direct podman / `verify.sh` | yes | exact for the gate's own steps | ✅ the gate itself | the gate's own suite (unit + fixture) |
+| Approach                                             | Offline?                                                                                                      | Fidelity                                                     | Gate-in-container                                                                                                                                                                                                                  | Verdict                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `act` (nektos/act)                                   | yes — runs working tree, any branch                                                                           | good for unit steps, weak for actions needing GitHub context | ❌ impossible — step runs in act's runner container; the gate nests a container via `verify.sh`, and the fixture's temp repo lives in the runner's namespace, invisible to the host engine (even with `--container-daemon-socket`) | daily iteration + syntax checks        |
+| Real self-hosted runner (`actions/runner` in podman) | no — registers with GitHub, polls for jobs; workflow must be on a remote ref, triggered via `gh workflow run` | highest — actual runner, real `actions/` execution           | ✅ possible in principle (socket mount) but runner label must match `runs-on` (self-hosted ≠ `ubuntu-latest` without relabelling)                                                                                                  | final pre-merge fidelity check on main |
+| Direct podman / `verify.sh`                          | yes                                                                                                           | exact for the gate's own steps                               | ✅ the gate itself                                                                                                                                                                                                                 | the gate's own suite (unit + fixture)  |
 
 Notes from the `act` experiment on this box:
 

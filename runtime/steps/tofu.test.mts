@@ -1,4 +1,4 @@
-// Tests for steps/tofu.mts: OpenTofu fmt, init, validate.
+// Tests for steps/tofu.mts: OpenTofu fmt, tflint, init, validate.
 // Runner injected; no host binaries needed.
 // Run: node --test steps/tofu.test.mts
 
@@ -9,65 +9,121 @@ import { filterTofuFiles, runTofuStep } from "./tofu.mts";
 import { baseCtx, fakeRunner } from "../test-helpers.mts";
 
 test("filterTofuFiles finds .tf files", () => {
-  assert.deepEqual(
-    filterTofuFiles({ files: ["main.tf", "variables.tf", "a.sh", "b.yml"] }),
-    ["main.tf", "variables.tf"],
-  );
+    assert.deepEqual(
+        filterTofuFiles({
+            files: ["main.tf", "variables.tf", "a.sh", "b.yml"],
+        }),
+        ["main.tf", "variables.tf"],
+    );
 });
 
 test("runTofuStep skips when no .tf files tracked", async () => {
-  const { runner, calls } = fakeRunner({}, true);
-  const result = await runTofuStep({ ctx: baseCtx, trackedFiles: ["a.sh", "b.yml"], runner });
-  assert.equal(result.status, "skip");
-  assert.equal(calls.length, 0);
+    const { runner, calls } = fakeRunner({}, true);
+    const result = await runTofuStep({
+        ctx: baseCtx,
+        trackedFiles: ["a.sh", "b.yml"],
+        runner,
+    });
+    assert.equal(result.status, "skip");
+    assert.equal(calls.length, 0);
 });
 
-test("check mode runs fmt -check, init, validate", async () => {
-  const { runner, calls } = fakeRunner({}, true);
-  const result = await runTofuStep({
-    ctx: baseCtx,
-    trackedFiles: ["main.tf"],
-    runner,
-  });
-  assert.equal(result.status, "pass");
-  const cmds = calls.map((c) => `${c[0]} ${c[1]}`);
-  assert.deepEqual(cmds, ["tofu fmt", "tofu init", "tofu validate"]);
+test("check mode runs fmt -check, tflint init+lint, init, validate", async () => {
+    const { runner, calls } = fakeRunner({}, true);
+    const result = await runTofuStep({
+        ctx: baseCtx,
+        trackedFiles: ["main.tf"],
+        runner,
+    });
+    assert.equal(result.status, "pass");
+    const cmds = calls.map((c) => `${c[0]} ${c[1]}`);
+    assert.deepEqual(cmds, [
+        "tofu fmt",
+        "tflint --init",
+        "tflint /repo",
+        "tofu init",
+        "tofu validate",
+    ]);
 });
 
-test("fix mode runs fmt -write then re-check, init, validate", async () => {
-  const { runner, calls } = fakeRunner({}, true);
-  const result = await runTofuStep({ ctx: { ...baseCtx, mode: "fix" }, trackedFiles: ["main.tf"], runner });
-  assert.equal(result.status, "pass");
-  const cmds = calls.map((c) => `${c[0]} ${c[1]}`);
-  assert.deepEqual(cmds, ["tofu fmt", "tofu fmt", "tofu init", "tofu validate"]);
-  assert.equal(calls[0]![2], "-write");
-  assert.equal(calls[1]![2], "-check");
+test("fix mode runs fmt -write then re-check, tflint --fix, init, validate", async () => {
+    const { runner, calls } = fakeRunner({}, true);
+    const result = await runTofuStep({
+        ctx: { ...baseCtx, mode: "fix" },
+        trackedFiles: ["main.tf"],
+        runner,
+    });
+    assert.equal(result.status, "pass");
+    const cmds = calls.map((c) => `${c[0]} ${c[1]}`);
+    assert.deepEqual(cmds, [
+        "tofu fmt",
+        "tofu fmt",
+        "tflint --init",
+        "tflint --fix",
+        "tflint /repo",
+        "tofu init",
+        "tofu validate",
+    ]);
+    assert.equal(calls[0]![2], "-write");
+    assert.equal(calls[1]![2], "-check");
 });
 
-test("fmt failure in fix mode fails the step", async () => {
-  const { runner } = fakeRunner({ "tofu fmt": { status: 1, stderr: "fmt error" } }, true);
-  const result = await runTofuStep({ ctx: { ...baseCtx, mode: "fix" }, trackedFiles: ["main.tf"], runner });
-  assert.equal(result.status, "fail");
-  assert.ok((result.notice ?? "").includes("tofu: fmt"));
-});
+type Outcome = { status?: number; stdout?: string; stderr?: string };
+type FailureCase = {
+    name: string;
+    outcomes: Record<string, Outcome>;
+    mode?: "fix";
+    notice: string;
+};
 
-test("fmt check failure fails the step", async () => {
-  const { runner } = fakeRunner({ "tofu fmt": { status: 1 } }, true);
-  const result = await runTofuStep({ ctx: baseCtx, trackedFiles: ["main.tf"], runner });
-  assert.equal(result.status, "fail");
-  assert.ok((result.notice ?? "").includes("tofu: fmt"));
-});
+const failureCases: FailureCase[] = [
+    {
+        name: "fmt failure in fix mode",
+        outcomes: { "tofu fmt": { status: 1, stderr: "fmt error" } },
+        mode: "fix",
+        notice: "tofu: fmt",
+    },
+    {
+        name: "fmt check failure",
+        outcomes: { "tofu fmt": { status: 1 } },
+        notice: "tofu: fmt",
+    },
+    {
+        name: "tflint init failure",
+        outcomes: { "tflint --init": { status: 1, stderr: "plugin error" } },
+        notice: "tflint --init",
+    },
+    {
+        name: "tflint issues",
+        outcomes: {
+            "tflint --init": { status: 0 },
+            tflint: { status: 2, stdout: "2 issue(s) found" },
+        },
+        notice: "2 issue(s) found",
+    },
+    {
+        name: "init failure",
+        outcomes: { "tofu init": { status: 1, stderr: "init error" } },
+        notice: "tofu: init",
+    },
+    {
+        name: "validate failure",
+        outcomes: {
+            "tofu validate": { status: 1, stdout: "validation error" },
+        },
+        notice: "tofu: validate",
+    },
+];
 
-test("init failure fails the step", async () => {
-  const { runner } = fakeRunner({ "tofu init": { status: 1, stderr: "init error" } }, true);
-  const result = await runTofuStep({ ctx: baseCtx, trackedFiles: ["main.tf"], runner });
-  assert.equal(result.status, "fail");
-  assert.ok((result.notice ?? "").includes("tofu: init"));
-});
-
-test("validate failure fails the step", async () => {
-  const { runner } = fakeRunner({ "tofu validate": { status: 1, stdout: "validation error" } }, true);
-  const result = await runTofuStep({ ctx: baseCtx, trackedFiles: ["main.tf"], runner });
-  assert.equal(result.status, "fail");
-  assert.ok((result.notice ?? "").includes("tofu: validate"));
-});
+for (const c of failureCases) {
+    test(`${c.name} fails the step`, async () => {
+        const { runner } = fakeRunner(c.outcomes, true);
+        const result = await runTofuStep({
+            ctx: c.mode === "fix" ? { ...baseCtx, mode: "fix" } : baseCtx,
+            trackedFiles: ["main.tf"],
+            runner,
+        });
+        assert.equal(result.status, "fail");
+        assert.ok((result.notice ?? "").includes(c.notice));
+    });
+}

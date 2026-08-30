@@ -3,7 +3,7 @@
 # Naming conventions
 
 House filename grammar for workflow templates and pipeline modules. One rule
-for the *jobs* (workflows) and one for the *building blocks* (modules) that
+for the _jobs_ (workflows) and one for the _building blocks_ (modules) that
 serve them — see PLAN.md decision log #20.
 
 ## Workflow templates: `<namespace>--<loose-verb>[--<target>].yml`
@@ -29,7 +29,7 @@ Examples:
 
 ```text
 dotnet--build--blazor-frontend.yml    dotnet--analyse--sonarqube.yml
-dotnet--test--playwright-tests.yml    node--check--quality.yml
+dotnet--test--playwright-tests.yml    node--test--playwright.yml
 azure-swa--deploy--blazor-wasm.yml    opentofu--destroy--workspace.yml
 healthcheck--verify--endpoints.yml
 ```

@@ -5,6 +5,7 @@
 This document defines the testing standards and patterns to be used across all projects. These standards ensure consistency, maintainability, and clear test intent across the codebase.
 
 ### C# Default Testing Stack
+
 - **Framework**: xUnit
 - **Mocking**: Moq
 - **Assertions**: Shouldly
@@ -20,7 +21,7 @@ public class [ClassName]Tests
 {
     private const string [ConstantName] = "[constant_value]";
     private const int [AnotherConstant] = [constant_value];
-    
+
     private readonly Mock<[IDependency1]> _mock[Dependency1] = new();
     private readonly Mock<[IDependency2]> _mock[Dependency2] = new();
     private readonly Mock<[IDependency3]> _mock[Dependency3] = new();
@@ -79,6 +80,7 @@ All tests must follow this naming pattern:
 ```
 
 #### Examples
+
 - `AddRunHistory_WithValidData_ReturnsExpectedRowCount`
 - `GetUserData_WithNonExistentUserId_ReturnsNull`
 - `Transform_WithEmptyCSV_ReturnsEmptyCollection`

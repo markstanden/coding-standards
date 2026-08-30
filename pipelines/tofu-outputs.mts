@@ -14,13 +14,13 @@ import { maskValue } from "../lib/gha.mts";
 import { run, type Runner } from "../lib/proc.mts";
 
 export interface TofuOutputsInput {
-  infraDir?: string;
-  outputJsonFilename?: string;
+    infraDir?: string;
+    outputJsonFilename?: string;
 }
 
 export interface TofuOutputsResult {
-  keys: string[];
-  artifactPath: string;
+    keys: string[];
+    artifactPath: string;
 }
 
 /**
@@ -28,54 +28,65 @@ export interface TofuOutputsResult {
  * and write the outputs JSON to the artifact file. Returns the keys seen and
  * the artifact path so callers can verify.
  */
-export async function collectTofuOutputs({ infraDir, outputJsonFilename = "tofu_outputs.json", runner = run }: TofuOutputsInput & { runner?: Runner }): Promise<TofuOutputsResult> {
-  const cwd = infraDir ? resolve(infraDir) : process.cwd();
-  const artifactPath = resolve(cwd, outputJsonFilename);
+export async function collectTofuOutputs({
+    infraDir,
+    outputJsonFilename = "tofu_outputs.json",
+    runner = run,
+}: TofuOutputsInput & { runner?: Runner }): Promise<TofuOutputsResult> {
+    const cwd = infraDir ? resolve(infraDir) : process.cwd();
+    const artifactPath = resolve(cwd, outputJsonFilename);
 
-  const result = runner({ cmd: "tofu", args: ["output", "-json"], cwd });
-  let outputs: Record<string, { value?: string }>;
-  try {
-    outputs = JSON.parse(result.stdout) as Record<string, { value?: string }>;
-  } catch {
-    outputs = {};
-  }
-
-  const keys = Object.keys(outputs);
-  for (const key of keys) {
-    const value = outputs[key]?.value;
-    if (value !== undefined) {
-      maskValue(value);
+    const result = runner({ cmd: "tofu", args: ["output", "-json"], cwd });
+    let outputs: Record<string, { value?: string }>;
+    try {
+        outputs = JSON.parse(result.stdout) as Record<
+            string,
+            { value?: string }
+        >;
+    } catch {
+        outputs = {};
     }
-  }
 
-  await writeFile(artifactPath, result.stdout || "{}", "utf8");
-  return { keys, artifactPath };
+    const keys = Object.keys(outputs);
+    for (const key of keys) {
+        const value = outputs[key]?.value;
+        if (value !== undefined) {
+            maskValue(value);
+        }
+    }
+
+    await writeFile(artifactPath, result.stdout || "{}", "utf8");
+    return { keys, artifactPath };
 }
 
 /** Verify the artifact file exists and is non-empty; throws otherwise. */
-export async function verifyOutputsFile({ artifactPath }: { artifactPath: string }): Promise<void> {
-  try {
-    const contents = await readFile(artifactPath, "utf8");
-    if (contents.trim() === "") {
-      throw new Error(`outputs file is empty: ${artifactPath}`);
+export async function verifyOutputsFile({
+    artifactPath,
+}: {
+    artifactPath: string;
+}): Promise<void> {
+    try {
+        const contents = await readFile(artifactPath, "utf8");
+        if (contents.trim() === "") {
+            throw new Error(`outputs file is empty: ${artifactPath}`);
+        }
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+            throw new Error(`outputs file does not exist: ${artifactPath}`);
+        }
+        throw err;
     }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`outputs file does not exist: ${artifactPath}`);
-    }
-    throw err;
-  }
 }
 
 async function main(): Promise<void> {
-  const { artifactPath } = await collectTofuOutputs({
-    infraDir: process.env.INFRA_DIR,
-    outputJsonFilename: process.env.OUTPUT_JSON_FILENAME,
-  });
-  await verifyOutputsFile({ artifactPath });
-  console.log(`outputs artifact verified: ${artifactPath}`);
+    const { artifactPath } = await collectTofuOutputs({
+        infraDir: process.env.INFRA_DIR,
+        outputJsonFilename: process.env.OUTPUT_JSON_FILENAME,
+    });
+    await verifyOutputsFile({ artifactPath });
+    console.log(`outputs artifact verified: ${artifactPath}`);
 }
 
 if (import.meta.main) {
-  await main();
+    await main();
 }

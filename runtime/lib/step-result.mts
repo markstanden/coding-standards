@@ -6,19 +6,19 @@
 export type StepStatus = "pass" | "fail" | "skip";
 
 export interface StepResult {
-  status: StepStatus;
-  notice?: string;
+    status: StepStatus;
+    notice?: string;
 }
 
 export function passed({ notice }: { notice?: string }): StepResult {
-  return { status: "pass", notice };
+    return { status: "pass", notice };
 }
 
 export function failed({ notice }: { notice?: string }): StepResult {
-  return { status: "fail", notice };
+    return { status: "fail", notice };
 }
 
 /** Skips are clean exits: the ecosystem is absent, nothing was wrong. */
 export function skipped({ notice }: { notice: string }): StepResult {
-  return { status: "skip", notice };
+    return { status: "skip", notice };
 }

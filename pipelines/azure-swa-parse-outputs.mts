@@ -13,15 +13,15 @@ import { appendToFile, maskValue } from "../lib/gha.mts";
 import { readJsonFile, tofuOutputValue } from "../lib/json.mts";
 
 export interface ParseOutputsInput {
-  outputFilename: string;
-  tokenKey: string;
-  urlKey?: string;
+    outputFilename: string;
+    tokenKey: string;
+    urlKey?: string;
 }
 
 export interface ParseOutputsResult {
-  token: string;
-  url?: string;
-  availableKeys: string[];
+    token: string;
+    url?: string;
+    availableKeys: string[];
 }
 
 /**
@@ -30,46 +30,48 @@ export interface ParseOutputsResult {
  * top-level keys, mirroring the original step's failure mode.
  */
 export async function parseInfrastructureOutputs({
-  outputFilename,
-  tokenKey,
-  urlKey,
+    outputFilename,
+    tokenKey,
+    urlKey,
 }: ParseOutputsInput): Promise<ParseOutputsResult> {
-  const filePath = resolve(outputFilename);
-  const outputs = await readJsonFile<Record<string, unknown>>({ filePath });
+    const filePath = resolve(outputFilename);
+    const outputs = await readJsonFile<Record<string, unknown>>({ filePath });
 
-  const token = tofuOutputValue<string>({ outputs, key: tokenKey }) ?? "";
-  const url = urlKey ? tofuOutputValue<string>({ outputs, key: urlKey }) : undefined;
+    const token = tofuOutputValue<string>({ outputs, key: tokenKey }) ?? "";
+    const url = urlKey
+        ? tofuOutputValue<string>({ outputs, key: urlKey })
+        : undefined;
 
-  if (token === "") {
-    const keys = Object.keys(outputs);
-    throw new Error(
-      `${tokenKey}.value not found in infrastructure outputs JSON. Available top-level keys: ${keys.join(", ")}`,
-    );
-  }
+    if (token === "") {
+        const keys = Object.keys(outputs);
+        throw new Error(
+            `${tokenKey}.value not found in infrastructure outputs JSON. Available top-level keys: ${keys.join(", ")}`,
+        );
+    }
 
-  return { token, url, availableKeys: Object.keys(outputs) };
+    return { token, url, availableKeys: Object.keys(outputs) };
 }
 
 async function main(): Promise<void> {
-  const tokenKey = process.env.TOKEN_KEY ?? "";
-  const result = await parseInfrastructureOutputs({
-    outputFilename: process.env.OUTPUT_FILENAME ?? "tofu_outputs.json",
-    tokenKey,
-    urlKey: process.env.URL_KEY,
-  });
+    const tokenKey = process.env.TOKEN_KEY ?? "";
+    const result = await parseInfrastructureOutputs({
+        outputFilename: process.env.OUTPUT_FILENAME ?? "tofu_outputs.json",
+        tokenKey,
+        urlKey: process.env.URL_KEY,
+    });
 
-  maskValue(result.token);
+    maskValue(result.token);
 
-  const file = process.env.GITHUB_OUTPUT;
-  if (file) {
-    const lines: Record<string, string> = { token: result.token };
-    if (result.url !== undefined) {
-      lines.url = result.url;
+    const file = process.env.GITHUB_OUTPUT;
+    if (file) {
+        const lines: Record<string, string> = { token: result.token };
+        if (result.url !== undefined) {
+            lines.url = result.url;
+        }
+        await appendToFile({ envName: "GITHUB_OUTPUT", lines });
     }
-    await appendToFile({ envName: "GITHUB_OUTPUT", lines });
-  }
 }
 
 if (import.meta.main) {
-  await main();
+    await main();
 }

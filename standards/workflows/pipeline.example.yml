@@ -1,13 +1,13 @@
 name: Code Quality Pipeline
 on:
-  pull_request:
-    branches: ["main", "dev", "prod"]
-  push:
-    branches: ["main", "dev", "prod"]
+    pull_request:
+        branches: ["main", "dev", "prod"]
+    push:
+        branches: ["main", "dev", "prod"]
 
 jobs:
-  quality:
-    name: Defined Quality Gate
-    uses: ./.coding-standards/.github/workflows/defined--verify.yml@main
-    with:
-      image-tag: <shortsha>
+    quality:
+        name: Defined Quality Gate
+        uses: ./.coding-standards/.github/workflows/defined--verify.yml@main
+        with:
+            image-tag: <shortsha>

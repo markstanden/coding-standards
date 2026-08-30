@@ -1,183 +1,183 @@
 name: "Deploy Blazor WASM to Azure SWA"
 
 on:
-  workflow_call:
-    inputs:
-      image-tag:
-        description: >-
-          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
-          node — the pipeline modules run in-container, so no setup-node step
-          is needed. Pin to the commit short-sha of the workflow ref.
-        type: string
-        required: true
+    workflow_call:
+        inputs:
+            image-tag:
+                description: >-
+                    Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+                    node — the pipeline modules run in-container, so no setup-node step
+                    is needed. Pin to the commit short-sha of the workflow ref.
+                type: string
+                required: true
 
-      environment:
-        description: "Deployment environment (e.g., staging, production)"
-        type: string
-        required: true
+            environment:
+                description: "Deployment environment (e.g., staging, production)"
+                type: string
+                required: true
 
-      frontend-artifact-name:
-        description: "Name of the frontend build artifact"
-        type: string
-        required: true
+            frontend-artifact-name:
+                description: "Name of the frontend build artifact"
+                type: string
+                required: true
 
-      infrastructure-outputs-artifact-name:
-        description: "Artifact containing infrastructure outputs (alternative to swa-token)"
-        type: string
-        required: false
+            infrastructure-outputs-artifact-name:
+                description: "Artifact containing infrastructure outputs (alternative to swa-token)"
+                type: string
+                required: false
 
-      concurrency-group:
-        description: >-
-          Concurrency group for SWA deployment; prevents concurrent deployments
-        type: string
-        required: false
-        default: ""
+            concurrency-group:
+                description: >-
+                    Concurrency group for SWA deployment; prevents concurrent deployments
+                type: string
+                required: false
+                default: ""
 
-      output-json-filename:
-        description: "Filename for the infrastructure outputs JSON file"
-        type: string
-        required: false
-        default: "tofu_outputs.json"
+            output-json-filename:
+                description: "Filename for the infrastructure outputs JSON file"
+                type: string
+                required: false
+                default: "tofu_outputs.json"
 
-      swa-token-output-key:
-        description: "Key name in infrastructure outputs for SWA token"
-        type: string
-        required: false
-        default: "azure_static_web_app_api_token"
+            swa-token-output-key:
+                description: "Key name in infrastructure outputs for SWA token"
+                type: string
+                required: false
+                default: "azure_static_web_app_api_token"
 
-      app-location:
-        description: "App location for SWA deployment"
-        type: string
-        required: false
-        default: "publish/wwwroot"
+            app-location:
+                description: "App location for SWA deployment"
+                type: string
+                required: false
+                default: "publish/wwwroot"
 
-      output-location:
-        description: "Output location for SWA deployment"
-        type: string
-        required: false
-        default: ""
+            output-location:
+                description: "Output location for SWA deployment"
+                type: string
+                required: false
+                default: ""
 
-      swa-action:
-        description: "Static Web App action (upload/close)"
-        type: string
-        required: false
-        default: "upload"
+            swa-action:
+                description: "Static Web App action (upload/close)"
+                type: string
+                required: false
+                default: "upload"
 
-      appsettings-path:
-        description: "Path to appsettings.json relative to app-location"
-        type: string
-        required: false
-        default: "appsettings.json"
+            appsettings-path:
+                description: "Path to appsettings.json relative to app-location"
+                type: string
+                required: false
+                default: "appsettings.json"
 
-      app-version-value:
-        description: "Value to set for AppVersion in appsettings.json, defaults to github commit sha"
-        type: string
-        required: false
+            app-version-value:
+                description: "Value to set for AppVersion in appsettings.json, defaults to github commit sha"
+                type: string
+                required: false
 
-      debug-output:
-        description: "Enable verbose debug output to aid troubleshooting"
-        type: boolean
-        required: false
-        default: false
+            debug-output:
+                description: "Enable verbose debug output to aid troubleshooting"
+                type: boolean
+                required: false
+                default: false
 
-    secrets:
-      swa-token:
-        description: >-
-          Azure SWA deployment token; when present, overrides infrastructure outputs
-        required: false
+        secrets:
+            swa-token:
+                description: >-
+                    Azure SWA deployment token; when present, overrides infrastructure outputs
+                required: false
 
-    outputs:
-      deployment-url:
-        description: "Deployed application URL"
-        value: ${{ jobs.deploy.outputs.url }}
+        outputs:
+            deployment-url:
+                description: "Deployed application URL"
+                value: ${{ jobs.deploy.outputs.url }}
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 defaults:
-  run:
-    shell: bash
+    run:
+        shell: bash
 
 jobs:
-  deploy:
-    name: "Deploy to ${{ inputs.environment }}"
-    runs-on: "ubuntu-latest"
-    container:
-      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
-    environment: ${{ inputs.environment }}
-    permissions:
-      contents: read
-      actions: read
-    outputs:
-      url: ${{ steps.deploy.outputs.static_web_app_url }}
-    concurrency:
-      group: "${{ inputs.concurrency-group || inputs.environment }}"
-      cancel-in-progress: true
-    steps:
-      - name: "Download Infrastructure Outputs"
-        if: inputs.infrastructure-outputs-artifact-name != ''
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: ${{ inputs.infrastructure-outputs-artifact-name }}
+    deploy:
+        name: "Deploy to ${{ inputs.environment }}"
+        runs-on: "ubuntu-latest"
+        container:
+            image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
+        environment: ${{ inputs.environment }}
+        permissions:
+            contents: read
+            actions: read
+        outputs:
+            url: ${{ steps.deploy.outputs.static_web_app_url }}
+        concurrency:
+            group: "${{ inputs.concurrency-group || inputs.environment }}"
+            cancel-in-progress: true
+        steps:
+            - name: "Download Infrastructure Outputs"
+              if: inputs.infrastructure-outputs-artifact-name != ''
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+              with:
+                  name: ${{ inputs.infrastructure-outputs-artifact-name }}
 
-      - name: "Parse Infrastructure Outputs"
-        if: inputs.infrastructure-outputs-artifact-name != ''
-        id: parse_outputs
-        env:
-          OUTPUT_FILENAME: ${{ inputs.output-json-filename }}
-          TOKEN_KEY: ${{ inputs.swa-token-output-key }}
-        run: node /opt/defined/pipelines/azure-swa-parse-outputs.mts
+            - name: "Parse Infrastructure Outputs"
+              if: inputs.infrastructure-outputs-artifact-name != ''
+              id: parse_outputs
+              env:
+                  OUTPUT_FILENAME: ${{ inputs.output-json-filename }}
+                  TOKEN_KEY: ${{ inputs.swa-token-output-key }}
+              run: node /opt/defined/pipelines/azure-swa-parse-outputs.mts
 
-      - name: "Set SWA Token"
-        id: token
-        env:
-          SWA_TOKEN: ${{ secrets.swa-token }}
-          PARSED_TOKEN: ${{ steps.parse_outputs.outputs.token }}
-        run: node /opt/defined/pipelines/azure-swa-set-token.mts
+            - name: "Set SWA Token"
+              id: token
+              env:
+                  SWA_TOKEN: ${{ secrets.swa-token }}
+                  PARSED_TOKEN: ${{ steps.parse_outputs.outputs.token }}
+              run: node /opt/defined/pipelines/azure-swa-set-token.mts
 
-      - name: "Download Frontend Artifact"
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: ${{ inputs.frontend-artifact-name }}
-          path: ./publish
+            - name: "Download Frontend Artifact"
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+              with:
+                  name: ${{ inputs.frontend-artifact-name }}
+                  path: ./publish
 
-      - name: "Debug - Verify File Structure"
-        if: ${{ inputs.debug-output }}
-        working-directory: ${{ inputs.app-location }}
-        env:
-          APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
-        run: |
-          echo "Current Directory..."
-          pwd
-          echo ""
-          echo "Files in app-location..."
-          ls -lah
-          echo ""
-          echo "Checking Appsettings.json..."
-          if [ -f "$APPSETTINGS_PATH" ]; then
-            echo "✓ Found at: $APPSETTINGS_PATH"
-            echo "Size: $(wc -c < "$APPSETTINGS_PATH") bytes"
-            echo "Content preview:"
-            cat "$APPSETTINGS_PATH"
-          else
-            echo "✗ NOT FOUND at: $APPSETTINGS_PATH"
-          fi
+            - name: "Debug - Verify File Structure"
+              if: ${{ inputs.debug-output }}
+              working-directory: ${{ inputs.app-location }}
+              env:
+                  APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
+              run: |
+                  echo "Current Directory..."
+                  pwd
+                  echo ""
+                  echo "Files in app-location..."
+                  ls -lah
+                  echo ""
+                  echo "Checking Appsettings.json..."
+                  if [ -f "$APPSETTINGS_PATH" ]; then
+                    echo "✓ Found at: $APPSETTINGS_PATH"
+                    echo "Size: $(wc -c < "$APPSETTINGS_PATH") bytes"
+                    echo "Content preview:"
+                    cat "$APPSETTINGS_PATH"
+                  else
+                    echo "✗ NOT FOUND at: $APPSETTINGS_PATH"
+                  fi
 
-      - name: "Replace Tokens in appsettings.json"
-        working-directory: ${{ inputs.app-location }}
-        env:
-          APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
-          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
-          APP_VERSION: ${{ inputs.app-version-value || github.sha }}
-        run: node /opt/defined/pipelines/azure-swa-replace-appsettings.mts
+            - name: "Replace Tokens in appsettings.json"
+              working-directory: ${{ inputs.app-location }}
+              env:
+                  APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
+                  DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+                  APP_VERSION: ${{ inputs.app-version-value || github.sha }}
+              run: node /opt/defined/pipelines/azure-swa-replace-appsettings.mts
 
-      - name: "Deploy to Azure Static Web App"
-        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
-        id: deploy
-        with:
-          azure_static_web_apps_api_token: ${{ steps.token.outputs.token }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: ${{ inputs.swa-action }}
-          app_location: ${{ inputs.app-location }}
-          output_location: ${{ inputs.output-location }}
-          skip_app_build: true
+            - name: "Deploy to Azure Static Web App"
+              uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
+              id: deploy
+              with:
+                  azure_static_web_apps_api_token: ${{ steps.token.outputs.token }}
+                  repo_token: ${{ secrets.GITHUB_TOKEN }}
+                  action: ${{ inputs.swa-action }}
+                  app_location: ${{ inputs.app-location }}
+                  output_location: ${{ inputs.output-location }}
+                  skip_app_build: true

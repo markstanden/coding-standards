@@ -15,9 +15,13 @@ import { fileURLToPath } from "node:url";
  * when runtime/ is bind-mounted at /opt/defined/runtime in the container or
  * run from a host checkout, and keeps configs travelling with the gate code.
  */
-export async function gateConfigPath({ name }: { name: string }): Promise<string> {
-  const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-  return join(gateRoot, "config", name);
+export async function gateConfigPath({
+    name,
+}: {
+    name: string;
+}): Promise<string> {
+    const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    return join(gateRoot, "config", name);
 }
 
 /**
@@ -27,6 +31,6 @@ export async function gateConfigPath({ name }: { name: string }): Promise<string
  * in the container or from a host checkout.
  */
 export async function standardsDir(): Promise<string> {
-  const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-  return join(dirname(gateRoot), "standards");
+    const gateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+    return join(dirname(gateRoot), "standards");
 }

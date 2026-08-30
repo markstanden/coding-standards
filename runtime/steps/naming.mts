@@ -13,7 +13,7 @@
 import { skipped, type StepResult } from "../lib/step-result.mts";
 
 export interface NamingRunContext {
-  mode: "fix" | "no-fix";
+    mode: "fix" | "no-fix";
 }
 
 type Runner = typeof import("../../lib/proc.mts").run;
@@ -23,23 +23,27 @@ type Runner = typeof import("../../lib/proc.mts").run;
  * when enabled, currently a placeholder for project-specific rules.
  */
 export async function runNamingStep({
-  ctx,
-  trackedFiles,
-  runner,
-  enabled = false,
+    ctx,
+    trackedFiles,
+    runner,
+    enabled = false,
 }: {
-  ctx: NamingRunContext;
-  trackedFiles: string[];
-  runner?: Runner;
-  enabled?: boolean;
+    ctx: NamingRunContext;
+    trackedFiles: string[];
+    runner?: Runner;
+    enabled?: boolean;
 }): Promise<StepResult> {
-  if (!enabled) {
-    return skipped({ notice: "naming: not enabled (opt-in via .qualityrc.json)" });
-  }
+    if (!enabled) {
+        return skipped({
+            notice: "naming: not enabled (opt-in via .qualityrc.json)",
+        });
+    }
 
-  // Placeholder for project-specific naming rules.
-  // When .qualityrc.json enables naming, it should also provide
-  // a config pointing at the project's naming rule module.
-  // For now, skip with a notice so the gate stays green.
-  return skipped({ notice: "naming: enabled but no rules configured (placeholder)" });
+    // Placeholder for project-specific naming rules.
+    // When .qualityrc.json enables naming, it should also provide
+    // a config pointing at the project's naming rule module.
+    // For now, skip with a notice so the gate stays green.
+    return skipped({
+        notice: "naming: enabled but no rules configured (placeholder)",
+    });
 }

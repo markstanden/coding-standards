@@ -9,30 +9,30 @@ export type Severity = "info" | "style" | "warning" | "error";
 
 /** Higher number = stricter. Ordered from most lenient to most strict. */
 export const SEVERITY_RANK = {
-  info: 0,
-  style: 1,
-  warning: 2,
-  error: 3,
+    info: 0,
+    style: 1,
+    warning: 2,
+    error: 3,
 } as const;
 
 function rankOf({ severity }: { severity: Severity }): number {
-  if (!(severity in SEVERITY_RANK)) {
-    throw new Error(
-      `unknown severity '${severity}' — expected one of: ${Object.keys(SEVERITY_RANK).join(", ")}`,
-    );
-  }
-  return SEVERITY_RANK[severity];
+    if (!(severity in SEVERITY_RANK)) {
+        throw new Error(
+            `unknown severity '${severity}' — expected one of: ${Object.keys(SEVERITY_RANK).join(", ")}`,
+        );
+    }
+    return SEVERITY_RANK[severity];
 }
 
 /** True when a finding's severity meets or exceeds the floor. */
 export function isAtLeastFloor({
-  value,
-  floor,
+    value,
+    floor,
 }: {
-  value: Severity;
-  floor: Severity;
+    value: Severity;
+    floor: Severity;
 }): boolean {
-  return rankOf({ severity: value }) >= rankOf({ severity: floor });
+    return rankOf({ severity: value }) >= rankOf({ severity: floor });
 }
 
 /**
@@ -40,13 +40,13 @@ export function isAtLeastFloor({
  * per-project/per-run requests; a request can only raise, never lower.
  */
 export function raiseFloor({
-  current,
-  requested,
+    current,
+    requested,
 }: {
-  current: Severity;
-  requested: Severity;
+    current: Severity;
+    requested: Severity;
 }): Severity {
-  return rankOf({ severity: requested }) > rankOf({ severity: current })
-    ? requested
-    : current;
+    return rankOf({ severity: requested }) > rankOf({ severity: current })
+        ? requested
+        : current;
 }

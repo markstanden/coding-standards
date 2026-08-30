@@ -15,31 +15,33 @@ import { maskValue } from "../lib/gha.mts";
  * neither is available.
  */
 export function resolveSwaToken({
-  secretToken,
-  parsedToken,
+    secretToken,
+    parsedToken,
 }: {
-  secretToken: string;
-  parsedToken: string;
+    secretToken: string;
+    parsedToken: string;
 }): string {
-  if (secretToken !== "") return secretToken;
-  if (parsedToken !== "") return parsedToken;
-  throw new Error("No SWA token provided (via secret or infrastructure outputs)");
+    if (secretToken !== "") return secretToken;
+    if (parsedToken !== "") return parsedToken;
+    throw new Error(
+        "No SWA token provided (via secret or infrastructure outputs)",
+    );
 }
 
 async function main(): Promise<void> {
-  const token = resolveSwaToken({
-    secretToken: process.env.SWA_TOKEN ?? "",
-    parsedToken: process.env.PARSED_TOKEN ?? "",
-  });
+    const token = resolveSwaToken({
+        secretToken: process.env.SWA_TOKEN ?? "",
+        parsedToken: process.env.PARSED_TOKEN ?? "",
+    });
 
-  maskValue(token);
+    maskValue(token);
 
-  const file = process.env.GITHUB_OUTPUT;
-  if (file) {
-    await appendFile(file, `token=${token}\n`, "utf8");
-  }
+    const file = process.env.GITHUB_OUTPUT;
+    if (file) {
+        await appendFile(file, `token=${token}\n`, "utf8");
+    }
 }
 
 if (import.meta.main) {
-  await main();
+    await main();
 }

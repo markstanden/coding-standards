@@ -14,26 +14,31 @@
 // dev-tools' pattern: explicit flag/env → single slnx/sln at root → repo root.
 // The runner is injected so tests need no host binaries.
 
-import { failed, passed, skipped, type StepResult } from "../lib/step-result.mts";
+import {
+    failed,
+    passed,
+    skipped,
+    type StepResult,
+} from "../lib/step-result.mts";
 import { run } from "../../lib/proc.mts";
 
 export interface DotNetRunContext {
-  mode: "fix" | "no-fix";
-  repoRoot: string;
+    mode: "fix" | "no-fix";
+    repoRoot: string;
 }
 
 type Runner = typeof run;
 
 export function filterDotNetFiles({ files }: { files: string[] }): string[] {
-  return files.filter((file) => /\.(csproj|sln|slnx)$/u.test(file));
+    return files.filter((file) => /\.(csproj|sln|slnx)$/u.test(file));
 }
 
 export interface DiscoverWorkspaceInput {
-  repoRoot: string;
-  workspaceEnv?: string;
-  slnxFiles: string[];
-  slnFiles: string[];
-  csprojFiles: string[];
+    repoRoot: string;
+    workspaceEnv?: string;
+    slnxFiles: string[];
+    slnFiles: string[];
+    csprojFiles: string[];
 }
 
 /**
@@ -45,48 +50,48 @@ export interface DiscoverWorkspaceInput {
  * solution, without explicit selection.
  */
 export function discoverWorkspace({
-  repoRoot,
-  workspaceEnv,
-  slnxFiles,
-  slnFiles,
-  csprojFiles,
+    repoRoot,
+    workspaceEnv,
+    slnxFiles,
+    slnFiles,
+    csprojFiles,
 }: DiscoverWorkspaceInput): string {
-  if (workspaceEnv && workspaceEnv.length > 0) {
-    return workspaceEnv;
-  }
-  if (slnxFiles.length === 1 && slnFiles.length === 0) {
-    return `${repoRoot}/${slnxFiles[0]!}`;
-  }
-  if (slnFiles.length === 1 && slnxFiles.length === 0) {
-    return `${repoRoot}/${slnFiles[0]!}`;
-  }
-  if (slnxFiles.length + slnFiles.length > 1) {
-    throw new Error(
-      `Multiple solution files found at repo root; use --workspace or TOOL_WORKSPACE: ${[
-        ...slnxFiles,
-        ...slnFiles,
-      ].join(", ")}`,
-    );
-  }
-  if (csprojFiles.length === 1) {
-    return `${repoRoot}/${csprojFiles[0]!}`;
-  }
-  if (csprojFiles.length > 1) {
-    throw new Error(
-      `Multiple .csproj files with no solution; use --workspace or TOOL_WORKSPACE: ${csprojFiles.join(
-        ", ",
-      )}`,
-    );
-  }
-  return repoRoot;
+    if (workspaceEnv && workspaceEnv.length > 0) {
+        return workspaceEnv;
+    }
+    if (slnxFiles.length === 1 && slnFiles.length === 0) {
+        return `${repoRoot}/${slnxFiles[0]!}`;
+    }
+    if (slnFiles.length === 1 && slnxFiles.length === 0) {
+        return `${repoRoot}/${slnFiles[0]!}`;
+    }
+    if (slnxFiles.length + slnFiles.length > 1) {
+        throw new Error(
+            `Multiple solution files found at repo root; use --workspace or TOOL_WORKSPACE: ${[
+                ...slnxFiles,
+                ...slnFiles,
+            ].join(", ")}`,
+        );
+    }
+    if (csprojFiles.length === 1) {
+        return `${repoRoot}/${csprojFiles[0]!}`;
+    }
+    if (csprojFiles.length > 1) {
+        throw new Error(
+            `Multiple .csproj files with no solution; use --workspace or TOOL_WORKSPACE: ${csprojFiles.join(
+                ", ",
+            )}`,
+        );
+    }
+    return repoRoot;
 }
 
 async function runDotNetCommand(
-  runner: Runner,
-  args: string[],
-  cwd: string,
+    runner: Runner,
+    args: string[],
+    cwd: string,
 ): Promise<{ status: number; stdout: string; stderr: string }> {
-  return runner({ cmd: "dotnet", args, cwd });
+    return runner({ cmd: "dotnet", args, cwd });
 }
 
 /**
@@ -96,60 +101,94 @@ async function runDotNetCommand(
  * Returns skip when no .NET files tracked; fail naming the failing phase.
  */
 export async function runDotNetStep({
-  ctx,
-  trackedFiles,
-  runner = run,
+    ctx,
+    trackedFiles,
+    runner = run,
 }: {
-  ctx: DotNetRunContext;
-  trackedFiles: string[];
-  runner?: Runner;
+    ctx: DotNetRunContext;
+    trackedFiles: string[];
+    runner?: Runner;
 }): Promise<StepResult> {
-  const dotnetFiles = filterDotNetFiles({ files: trackedFiles });
-  if (dotnetFiles.length === 0) {
-    return skipped({ notice: "dotnet: no tracked *.csproj/*.sln/*.slnx files" });
-  }
-
-  const slnxFiles = trackedFiles.filter((f) => f.endsWith(".slnx"));
-  const slnFiles = trackedFiles.filter((f) => f.endsWith(".sln"));
-  const csprojFiles = trackedFiles.filter((f) => f.endsWith(".csproj"));
-  const workspace = discoverWorkspace({
-    repoRoot: ctx.repoRoot,
-    workspaceEnv: process.env.TOOL_WORKSPACE,
-    slnxFiles,
-    slnFiles,
-    csprojFiles,
-  });
-
-  // Restore inside the container into the shadowed NuGet cache; later
-  // --no-restore phases assume this succeeded.
-  const restore = await runDotNetCommand(runner, ["restore", workspace], ctx.repoRoot);
-  if (restore.status !== 0) {
-    return failed({ notice: `dotnet: restore failed: ${restore.stderr.trim()}` });
-  }
-
-  // Fix mode: format (write) then verify; check mode: verify only.
-  if (ctx.mode === "fix") {
-    const formatWrite = await runDotNetCommand(runner, ["format", workspace], ctx.repoRoot);
-    if (formatWrite.status !== 0) {
-      return failed({ notice: `dotnet: format failed: ${formatWrite.stderr.trim()}` });
+    const dotnetFiles = filterDotNetFiles({ files: trackedFiles });
+    if (dotnetFiles.length === 0) {
+        return skipped({
+            notice: "dotnet: no tracked *.csproj/*.sln/*.slnx files",
+        });
     }
-  }
 
-  // Always verify formatting is clean.
-  const formatCheck = await runDotNetCommand(runner, ["format", "--verify-no-changes", workspace], ctx.repoRoot);
-  if (formatCheck.status !== 0) {
-    return failed({ notice: "dotnet: format found diffs (run with --fix)" });
-  }
+    const slnxFiles = trackedFiles.filter((f) => f.endsWith(".slnx"));
+    const slnFiles = trackedFiles.filter((f) => f.endsWith(".sln"));
+    const csprojFiles = trackedFiles.filter((f) => f.endsWith(".csproj"));
+    const workspace = discoverWorkspace({
+        repoRoot: ctx.repoRoot,
+        workspaceEnv: process.env.TOOL_WORKSPACE,
+        slnxFiles,
+        slnFiles,
+        csprojFiles,
+    });
 
-  const build = await runDotNetCommand(runner, ["build", workspace, "--no-restore"], ctx.repoRoot);
-  if (build.status !== 0) {
-    return failed({ notice: `dotnet: build failed: ${build.stderr.trim()}` });
-  }
+    // Restore inside the container into the shadowed NuGet cache; later
+    // --no-restore phases assume this succeeded.
+    const restore = await runDotNetCommand(
+        runner,
+        ["restore", workspace],
+        ctx.repoRoot,
+    );
+    if (restore.status !== 0) {
+        return failed({
+            notice: `dotnet: restore failed: ${restore.stderr.trim()}`,
+        });
+    }
 
-  const test = await runDotNetCommand(runner, ["test", workspace, "--no-build", "--no-restore"], ctx.repoRoot);
-  if (test.status !== 0) {
-    return failed({ notice: `dotnet: test failed: ${test.stdout.trim() || test.stderr.trim()}` });
-  }
+    // Fix mode: format (write) then verify; check mode: verify only.
+    if (ctx.mode === "fix") {
+        const formatWrite = await runDotNetCommand(
+            runner,
+            ["format", workspace],
+            ctx.repoRoot,
+        );
+        if (formatWrite.status !== 0) {
+            return failed({
+                notice: `dotnet: format failed: ${formatWrite.stderr.trim()}`,
+            });
+        }
+    }
 
-  return passed({ notice: `dotnet: format/build/test clean (${dotnetFiles.length} project(s))` });
+    // Always verify formatting is clean.
+    const formatCheck = await runDotNetCommand(
+        runner,
+        ["format", "--verify-no-changes", workspace],
+        ctx.repoRoot,
+    );
+    if (formatCheck.status !== 0) {
+        return failed({
+            notice: "dotnet: format found diffs (run with --fix)",
+        });
+    }
+
+    const build = await runDotNetCommand(
+        runner,
+        ["build", workspace, "--no-restore"],
+        ctx.repoRoot,
+    );
+    if (build.status !== 0) {
+        return failed({
+            notice: `dotnet: build failed: ${build.stderr.trim()}`,
+        });
+    }
+
+    const test = await runDotNetCommand(
+        runner,
+        ["test", workspace, "--no-build", "--no-restore"],
+        ctx.repoRoot,
+    );
+    if (test.status !== 0) {
+        return failed({
+            notice: `dotnet: test failed: ${test.stdout.trim() || test.stderr.trim()}`,
+        });
+    }
+
+    return passed({
+        notice: `dotnet: format/build/test clean (${dotnetFiles.length} project(s))`,
+    });
 }

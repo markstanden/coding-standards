@@ -11,3 +11,6 @@ coverage/
 
 # TOML is editorconfig territory, not Prettier's.
 *.toml
+
+# Java-style properties (SonarQube project identity) have no prettier parser.
+*.properties

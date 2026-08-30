@@ -58,3 +58,8 @@ nunit-*.xml
 
 # Node
 node_modules/
+
+# SonarLint per-user state (keep connectedMode.json; ignore the rest).
+# Negation must come last so it wins over .sonarlint/*.
+.sonarlint/*
+!.sonarlint/connectedMode.json

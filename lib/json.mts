@@ -10,21 +10,27 @@ import { readFile } from "node:fs/promises";
  * Read and parse a JSON file. Throws a descriptive error when the file is
  * missing or contains invalid JSON, so callers never conflate the two.
  */
-export async function readJsonFile<T>({ filePath }: { filePath: string }): Promise<T> {
-  let text: string;
-  try {
-    text = await readFile(filePath, "utf8");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`JSON file not found: ${filePath}`);
+export async function readJsonFile<T>({
+    filePath,
+}: {
+    filePath: string;
+}): Promise<T> {
+    let text: string;
+    try {
+        text = await readFile(filePath, "utf8");
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+            throw new Error(`JSON file not found: ${filePath}`);
+        }
+        throw err;
     }
-    throw err;
-  }
-  try {
-    return JSON.parse(text) as T;
-  } catch (err) {
-    throw new Error(`invalid JSON in ${filePath}: ${(err as Error).message}`);
-  }
+    try {
+        return JSON.parse(text) as T;
+    } catch (err) {
+        throw new Error(
+            `invalid JSON in ${filePath}: ${(err as Error).message}`,
+        );
+    }
 }
 
 /**
@@ -33,7 +39,13 @@ export async function readJsonFile<T>({ filePath }: { filePath: string }): Promi
  * Returns undefined when the key is absent, so callers can distinguish
  * "not there" from a genuinely empty value.
  */
-export function tofuOutputValue<T>({ outputs, key }: { outputs: Record<string, unknown>; key: string }): T | undefined {
-  const entry = outputs[key] as { value?: T } | undefined;
-  return entry?.value;
+export function tofuOutputValue<T>({
+    outputs,
+    key,
+}: {
+    outputs: Record<string, unknown>;
+    key: string;
+}): T | undefined {
+    const entry = outputs[key] as { value?: T } | undefined;
+    return entry?.value;
 }

@@ -22,8 +22,8 @@ PIPELINES_DIR="${GATE_ROOT}/pipelines"
 # Repo root comes from the invocation CWD's git root — never from where this
 # script lives — so the gate can run against any checkout.
 REPO_ROOT="$(git -C "${PWD}" rev-parse --show-toplevel)" || {
-	echo "ERROR: not inside a git repository (run from within the target project)" >&2
-	exit 1
+    echo "ERROR: not inside a git repository (run from within the target project)" >&2
+    exit 1
 }
 
 # Repo identity for named shadow volumes (decision #3): dependencies are
@@ -33,13 +33,13 @@ REPO_ROOT="$(git -C "${PWD}" rev-parse --show-toplevel)" || {
 REPO_HASH="$(printf '%s' "${REPO_ROOT}" | sha256sum | cut -c1-12)"
 
 if command -v podman >/dev/null 2>&1; then
-	ENGINE="podman"
+    ENGINE="podman"
 elif command -v docker >/dev/null 2>&1; then
-	ENGINE="docker"
+    ENGINE="docker"
 else
-	echo "ERROR: no container engine found. Install podman or docker:" >&2
-	echo "  see runtime/Containerfile for the supported base" >&2
-	exit 1
+    echo "ERROR: no container engine found. Install podman or docker:" >&2
+    echo "  see runtime/Containerfile for the supported base" >&2
+    exit 1
 fi
 
 PINHASH="$(sha256sum "${RUNTIME_DIR}/tool-versions.env" | cut -c1-12)"
@@ -51,23 +51,23 @@ IMAGE="localhost/defined:${PINHASH}"
 source "${RUNTIME_DIR}/tool-versions.env"
 
 if ! "${ENGINE}" image inspect "${IMAGE}" >/dev/null 2>&1; then
-	echo "Building ${IMAGE} ..."
-	"${ENGINE}" build \
-		-f "${RUNTIME_DIR}/Containerfile" \
-		--build-arg "NODE_IMAGE_TAG=${NODE_IMAGE_TAG}" \
-		--build-arg "NODE_IMAGE_DIGEST=${NODE_IMAGE_DIGEST}" \
-		-t "${IMAGE}" "${GATE_ROOT}"
+    echo "Building ${IMAGE} ..."
+    "${ENGINE}" build \
+        -f "${RUNTIME_DIR}/Containerfile" \
+        --build-arg "NODE_IMAGE_TAG=${NODE_IMAGE_TAG}" \
+        --build-arg "NODE_IMAGE_DIGEST=${NODE_IMAGE_DIGEST}" \
+        -t "${IMAGE}" "${GATE_ROOT}"
 fi
 
 exec "${ENGINE}" run --rm \
-	-v "${REPO_ROOT}:/repo" \
-	-v "${RUNTIME_DIR}:/opt/defined/runtime:ro" \
-	-v "${LIB_DIR}:/opt/defined/lib:ro" \
-	-v "${STANDARDS_DIR}:/opt/defined/standards:ro" \
-	-v "${PIPELINES_DIR}:/opt/defined/pipelines:ro" \
-	-v "defined-node-${PINHASH}-${REPO_HASH}:/repo/node_modules" \
-	-v "defined-npm-${REPO_HASH}:/root/.npm" \
-	-v "defined-nuget-${REPO_HASH}:/root/.nuget/packages" \
-	-e "NUGET_PACKAGES=/root/.nuget/packages" \
-	--workdir /repo \
-	"${IMAGE}" "$@"
+    -v "${REPO_ROOT}:/repo" \
+    -v "${RUNTIME_DIR}:/opt/defined/runtime:ro" \
+    -v "${LIB_DIR}:/opt/defined/lib:ro" \
+    -v "${STANDARDS_DIR}:/opt/defined/standards:ro" \
+    -v "${PIPELINES_DIR}:/opt/defined/pipelines:ro" \
+    -v "defined-node-${PINHASH}-${REPO_HASH}:/repo/node_modules" \
+    -v "defined-npm-${REPO_HASH}:/root/.npm" \
+    -v "defined-nuget-${REPO_HASH}:/root/.nuget/packages" \
+    -e "NUGET_PACKAGES=/root/.nuget/packages" \
+    --workdir /repo \
+    "${IMAGE}" "$@"
