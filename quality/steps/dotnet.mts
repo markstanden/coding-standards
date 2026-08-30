@@ -33,18 +33,23 @@ export interface DiscoverWorkspaceInput {
   workspaceEnv?: string;
   slnxFiles: string[];
   slnFiles: string[];
+  csprojFiles: string[];
 }
 
 /**
  * Discover the .NET workspace to operate on.
- * Priority: explicit env → single .slnx → single .sln → repo root.
- * Throws on multiple solutions without explicit selection.
+ * Priority: explicit env → single .slnx → single .sln → single .csproj →
+ * repo root. The csproj resolution matters: the CLI cannot operate on a bare
+ * directory that merely *contains* a project, so a lone nested project must be
+ * passed by path. Throws on multiple solutions, or multiple projects with no
+ * solution, without explicit selection.
  */
 export function discoverWorkspace({
   repoRoot,
   workspaceEnv,
   slnxFiles,
   slnFiles,
+  csprojFiles,
 }: DiscoverWorkspaceInput): string {
   if (workspaceEnv && workspaceEnv.length > 0) {
     return workspaceEnv;
@@ -61,6 +66,16 @@ export function discoverWorkspace({
         ...slnxFiles,
         ...slnFiles,
       ].join(", ")}`,
+    );
+  }
+  if (csprojFiles.length === 1) {
+    return `${repoRoot}/${csprojFiles[0]!}`;
+  }
+  if (csprojFiles.length > 1) {
+    throw new Error(
+      `Multiple .csproj files with no solution; use --workspace or TOOL_WORKSPACE: ${csprojFiles.join(
+        ", ",
+      )}`,
     );
   }
   return repoRoot;
@@ -96,11 +111,13 @@ export async function runDotNetStep({
 
   const slnxFiles = trackedFiles.filter((f) => f.endsWith(".slnx"));
   const slnFiles = trackedFiles.filter((f) => f.endsWith(".sln"));
+  const csprojFiles = trackedFiles.filter((f) => f.endsWith(".csproj"));
   const workspace = discoverWorkspace({
     repoRoot: ctx.repoRoot,
     workspaceEnv: process.env.TOOL_WORKSPACE,
     slnxFiles,
     slnFiles,
+    csprojFiles,
   });
 
   // Restore inside the container into the shadowed NuGet cache; later

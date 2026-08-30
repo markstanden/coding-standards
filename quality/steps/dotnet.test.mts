@@ -39,21 +39,30 @@ test("filterDotNetFiles finds csproj, sln, slnx files", () => {
   );
 });
 
-test("discoverWorkspace prefers explicit env, then single slnx/sln, else repo root", () => {
+test("discoverWorkspace prefers explicit env, then single slnx/sln/csproj, else repo root", () => {
   // explicit env
-  assert.equal(discoverWorkspace({ repoRoot: "/repo", workspaceEnv: "/repo/explicit.slnx" }), "/repo/explicit.slnx");
+  assert.equal(discoverWorkspace({ repoRoot: "/repo", workspaceEnv: "/repo/explicit.slnx", slnxFiles: [], slnFiles: [], csprojFiles: [] }), "/repo/explicit.slnx");
   // single slnx
-  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: ["proj.slnx"], slnFiles: [] }), "/repo/proj.slnx");
+  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: ["proj.slnx"], slnFiles: [], csprojFiles: [] }), "/repo/proj.slnx");
   // single sln
-  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: [], slnFiles: ["proj.sln"] }), "/repo/proj.sln");
+  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: [], slnFiles: ["proj.sln"], csprojFiles: [] }), "/repo/proj.sln");
+  // single csproj (nested or root) — the CLI needs a path, not a directory
+  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: [], slnFiles: [], csprojFiles: ["src/MyApp/MyApp.csproj"] }), "/repo/src/MyApp/MyApp.csproj");
   // none -> repo root
-  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: [], slnFiles: [] }), "/repo");
+  assert.equal(discoverWorkspace({ repoRoot: "/repo", slnxFiles: [], slnFiles: [], csprojFiles: [] }), "/repo");
 });
 
 test("discoverWorkspace throws on multiple solutions", () => {
   assert.throws(
-    () => discoverWorkspace({ repoRoot: "/repo", slnxFiles: ["a.slnx"], slnFiles: ["b.sln"] }),
+    () => discoverWorkspace({ repoRoot: "/repo", slnxFiles: ["a.slnx"], slnFiles: ["b.sln"], csprojFiles: [] }),
     /Multiple solution files/,
+  );
+});
+
+test("discoverWorkspace throws on multiple projects with no solution", () => {
+  assert.throws(
+    () => discoverWorkspace({ repoRoot: "/repo", slnxFiles: [], slnFiles: [], csprojFiles: ["src/A/A.csproj", "tests/B/B.csproj"] }),
+    /Multiple \.csproj files/,
   );
 });
 
@@ -75,6 +84,7 @@ test("check mode runs restore, format --verify-no-changes, build, test", async (
   const cmds = calls.map((c) => c[0]);
   assert.deepEqual(cmds, ["dotnet", "dotnet", "dotnet", "dotnet"]);
   assert.equal(calls[0]![1], "restore");
+  assert.equal(calls[0]![2], "/repo/src/MyProj.csproj");
   assert.equal(calls[1]![1], "format");
   assert.equal(calls[1]![2], "--verify-no-changes");
   assert.equal(calls[2]![1], "build");
