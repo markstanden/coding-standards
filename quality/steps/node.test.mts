@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import type { CommandResult } from "../lib/proc.mts";
-import { filterPackageJsons, resolveIgnorePath, runNodeStep } from "./node.mts";
+import { filterPackageJsons, prettierIgnoreArgs, runNodeStep } from "./node.mts";
 
 function fakeRunner(
   outcomes: Record<string, { status: number; stdout?: string; stderr?: string }>,
@@ -92,18 +92,19 @@ test("check mode failure names prettier and the file count", async () => {
   assert.ok((result.notice ?? "").includes("prettier"));
 });
 
-test("resolveIgnorePath merges a host .prettierignore additively", async () => {
+test("prettierIgnoreArgs passes the travelling ignore and adds the host .prettierignore when present", async () => {
   const root = await mkdtemp(join(tmpdir(), "quality-node-ignore-"));
   try {
+    // No host file: single travelling ignore.
+    const bare = await prettierIgnoreArgs({ repoRoot: root });
+    assert.equal(bare.filter((a) => a === "--ignore-path").length, 1);
+    assert.match(bare[1]!, /quality\/config\/prettierignore$/u);
+
+    // Host file present: second --ignore-path points at the repo root.
     await writeFile(join(root, ".prettierignore"), "dotfiles/nvim/\n");
-    const path = await resolveIgnorePath({ repoRoot: root });
-    try {
-      const merged = await import("node:fs/promises").then((m) => m.readFile(path, "utf8"));
-      assert.ok(merged.includes("# host repo additions"));
-      assert.ok(merged.includes("dotfiles/nvim/"));
-    } finally {
-      await import("../lib/ignore.mts").then((m) => m.removeMergedIgnore({ path }));
-    }
+    const withHost = await prettierIgnoreArgs({ repoRoot: root });
+    assert.equal(withHost.filter((a) => a === "--ignore-path").length, 2);
+    assert.equal(withHost[3], join(root, ".prettierignore"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

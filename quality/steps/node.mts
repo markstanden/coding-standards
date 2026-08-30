@@ -17,13 +17,12 @@
 // plugins and types a global install cannot supply.
 // The runner is injected so tests need no host binaries.
 
-import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { failed, passed, skipped, type StepResult } from "../lib/step-result.mts";
 import { run } from "../lib/proc.mts";
 import { gateConfigPath } from "../lib/paths.mts";
-import { mergeIgnoreContents, writeMergedIgnore, removeMergedIgnore } from "../lib/ignore.mts";
 
 export interface NodeRunContext {
   mode: "fix" | "no-fix";
@@ -37,23 +36,22 @@ export function filterPackageJsons({ files }: { files: string[] }): string[] {
 }
 
 /**
- * Effective prettier ignore path: the gate's travelling ignore is the base;
- * the host repo's own `.prettierignore` (if present) is additive. Returns the
- * gate config path when no host file exists, else a merged temp file.
+ * Effective prettier ignore args. The gate's travelling ignore is the base
+ * (generic patterns like coverage/ and *.toml match from any location); the
+ * host repo's own `.prettierignore` (if present) is additive and resolves
+ * correctly because it sits at the repo root. prettier combines repeated
+ * --ignore-path flags (its ignorePath is an array), and resolves each file's
+ * patterns relative to that file's own location (getRelativePath) — so a
+ * merged temp file would silently no-op repo-relative directory patterns.
+ * See PLAN.md "Confirmed: prettier resolves ignore patterns…".
  */
-export async function resolveIgnorePath({ repoRoot }: { repoRoot: string }): Promise<string> {
+export async function prettierIgnoreArgs({ repoRoot }: { repoRoot: string }): Promise<string[]> {
   const basePath = await gateConfigPath({ name: "prettierignore" });
-  const base = await readFile(basePath, "utf8");
-  let host = "";
-  try {
-    host = await readFile(join(repoRoot, ".prettierignore"), "utf8");
-  } catch {
-    host = "";
+  const args = ["--ignore-path", basePath];
+  if (existsSync(join(repoRoot, ".prettierignore"))) {
+    args.push("--ignore-path", join(repoRoot, ".prettierignore"));
   }
-  if (host.trim() === "") {
-    return basePath;
-  }
-  return writeMergedIgnore({ content: mergeIgnoreContents({ base, host }) });
+  return args;
 }
 
 /**
@@ -76,8 +74,7 @@ export async function runNodeStep({
   }
 
   const config = await gateConfigPath({ name: "prettier.config.mjs" });
-  const ignorePath = await resolveIgnorePath({ repoRoot: ctx.repoRoot });
-  const sharedArgs = ["--config", config, "--ignore-path", ignorePath];
+  const sharedArgs = ["--config", config, ...(await prettierIgnoreArgs({ repoRoot: ctx.repoRoot }))];
 
   if (ctx.mode === "fix") {
     const write = runner({ cmd: "prettier", args: ["--write", ...sharedArgs, "."], cwd: ctx.repoRoot });
