@@ -29,7 +29,7 @@ Examples:
 
 ```text
 dotnet--build--blazor-frontend.yml    dotnet--analyse--sonarqube.yml
-dotnet--test--playwright-tests.yml    node--check--quality.yml
+dotnet--test--playwright-tests.yml    node--test--playwright.yml
 azure-swa--deploy--blazor-wasm.yml    opentofu--destroy--workspace.yml
 healthcheck--verify--endpoints.yml
 ```

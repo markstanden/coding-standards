@@ -28,6 +28,7 @@ RUN set -eux; \
         yamllint \
         curl \
         ca-certificates \
+        unzip \
     ; \
     rm -rf /var/lib/apt/lists/*; \
     . /usr/local/share/defined/tool-versions.env; \
@@ -52,6 +53,10 @@ RUN set -eux; \
     gitleaks --version >/dev/null; \
     curl -fsSL --retry 3 --retry-all-errors "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin tofu; \
     tofu --version >/dev/null; \
+    curl -fsSL --retry 3 --retry-all-errors "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_${ARCH}.zip" -o /tmp/tflint.zip; \
+    unzip -o /tmp/tflint.zip -d /usr/local/bin; \
+    rm /tmp/tflint.zip; \
+    test "$(tflint --version | sed -n 's/^TFLint version //p')" = "${TFLINT_VERSION}"; \
     node --version
 
 # Dotnet SDK: Debian main does not ship dotnet, so add Microsoft's Debian-13

@@ -30,8 +30,11 @@ export function brokenFixtureFiles(): Record<string, string> {
     ".github/workflows/ci.yml":
       "name: CI\non: push\njobs:\n  build:\n    steps:\n      - run: echo hi\n",
 
-    // tofu: fmt drift (misaligned default); tofu fmt repairs.
-    "main.tf": 'variable "x" {\n default = "a"\n}\n',
+    // tofu: fmt drift (misaligned closing brace); tofu fmt repairs. Content is
+    // tflint-clean (required_version + required_providers present) so the
+    // tflint phase stays green and only the fmt offence gates.
+    "main.tf":
+      'terraform {\n  required_version = ">= 1.0"\n  required_providers {\n    null = {\n      source  = "hashicorp/null"\n      version = "~> 3.0"\n    }\n  }\n}\n\nresource "null_resource" "probe" {\n   }\n',
 
     // ignore case: behind the host .prettierignore, must never be touched.
     "dotfiles/nvim/lazy-lock.json": '{ "lock":  true }\n',

@@ -1,9 +1,9 @@
-// steps/tofu.mts — OpenTofu: fmt, init, validate.
+// steps/tofu.mts — OpenTofu: fmt, tflint, init, validate.
 //
-// Tools:    tofu (OpenTofu)
-// Config:   none
-// Fix:      tofu fmt -write rewrites, then step re-verifies — a fix that
-//           leaves diffs can never read as success
+// Tools:    tofu (OpenTofu), tflint
+// Config:   none (tflint picks up the project's .tflint.hcl when present)
+// Fix:      tofu fmt -write and tflint --fix rewrite, then step re-verifies —
+//           a fix that leaves diffs can never read as success
 //
 // Detection is sync and data-driven: activation = at least one tracked *.tf file.
 // The runner is injected so tests need no host binaries.
@@ -30,8 +30,16 @@ async function runTofuCommand(
   return runner({ cmd: "tofu", args, cwd });
 }
 
+async function runTflintCommand(
+  runner: Runner,
+  args: string[],
+  cwd: string,
+): Promise<{ status: number; stdout: string; stderr: string }> {
+  return runner({ cmd: "tflint", args, cwd });
+}
+
 /**
- * Run tofu fmt, init, validate over the repo root.
+ * Run tofu fmt, tflint, init, validate over the repo root.
  * Returns skip when no .tf files tracked; fail naming the failing phase.
  */
 export async function runTofuStep({
@@ -62,9 +70,27 @@ export async function runTofuStep({
     return failed({ notice: "tofu: fmt found diffs (run with --fix)" });
   }
 
-  // Init with -backend=false to avoid provider download in check mode?
-  // Plan says "init + validate accepted despite provider-download cost".
-  // Use -backend=false to skip backend init (still downloads providers but skips backend config).
+  // tflint: static lint over the tracked *.tf files (no init needed for the
+  // built-in rules). --init first so a project .tflint.hcl's plugins land in
+  // the plugin cache; then lint. Exit 0 clean / 1 error / 2 issues found.
+  const tflintInit = await runTflintCommand(runner, ["--init"], ctx.repoRoot);
+  if (tflintInit.status !== 0) {
+    return failed({ notice: `tofu: tflint --init failed: ${tflintInit.stderr.trim()}` });
+  }
+
+  if (ctx.mode === "fix") {
+    const tflintFix = await runTflintCommand(runner, ["--fix"], ctx.repoRoot);
+    if (tflintFix.status === 1) {
+      return failed({ notice: `tofu: tflint --fix failed: ${tflintFix.stderr.trim()}` });
+    }
+  }
+
+  const tflint = await runTflintCommand(runner, [], ctx.repoRoot);
+  if (tflint.status !== 0) {
+    return failed({ notice: `tofu: tflint found issues:\n${tflint.stdout.trim()}` });
+  }
+
+  // Init with -backend=false to skip backend init (still downloads providers but skips backend config).
   const init = await runTofuCommand(runner, ["init", "-backend=false"], ctx.repoRoot);
   if (init.status !== 0) {
     return failed({ notice: `tofu: init failed: ${init.stderr.trim()}` });
@@ -75,5 +101,5 @@ export async function runTofuStep({
     return failed({ notice: `tofu: validate failed: ${validate.stdout.trim() || validate.stderr.trim()}` });
   }
 
-  return passed({ notice: `tofu: fmt/init/validate clean (${tfFiles.length} file(s))` });
+  return passed({ notice: `tofu: fmt/tflint/init/validate clean (${tfFiles.length} file(s))` });
 }

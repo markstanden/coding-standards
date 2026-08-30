@@ -45,6 +45,7 @@ daily but is coupled to that one repo. This plan extracts it.
 | 18 | **Shellcheck floor raised `error` → `style`** (2026-08-25, supersedes the 2026-08-23 "floor error universally" rule) — every shellcheck finding gates; inconsistencies are forced away, not tolerated. Raises-only means floors move up, never down. First run at this floor found 4 real findings, all fixed mechanically rather than suppressed |
 | 19 | **Brand: `defined`; repo flattened** (2026-08-30) — the container's role outgrew "quality gate" (it is also the workflow runtime base), so consumer-visible naming is `defined`: image `ghcr.io/markstanden/defined`, workflows `defined--*.yml`, AGENTS.md markers `<!-- defined:start/end -->`. The repo restructures flat: `quality/` → `runtime/` (the image), root `lib/` (shared building blocks used by both runtime and pipelines), `pipelines/` (thin zero-dep pipeline modules consuming `lib/`), `dotnet/` → `standards/`, docs under `practices/`. The GitHub repo keeps the name `coding-standards` for now — renamed once SHAs stabilise. Legacy `dotnet/setup.sh` retired (decision #15 made real) |
 | 20 | **Filename grammar: `<namespace>--<loose-verb>[--<target>]` for workflows, `<namespace>-<loose-verb>` for pipeline modules** (2026-08-30) — `--` separates the segments (so single-hyphen words like `azure-swa`/`common-test-runner` fit inside a segment), and the middle segment is a *loose verb* naming the intent (`verify`, `analyse`) rather than the tool (`curl`, `swa`). Workflows are jobs (three segments, target optional); `pipelines/*.mts` are shared building blocks (no target, never 1:1 workflow mirrors). Hard rule: **runnable modules never end in `-test`** — Node's `*-test.*` discovery glob executes them (the `dotnet-test.mts` discovery bug that turned the suite red). Renamed all 16 non-conforming workflows and 6 modules; `simple.test.mts` grab-bag split into colocated tests; tofu modules gained an injected-runner parameter + colocated tests. Canonical reference: `standards/naming.md` |
+| 21 | **tflint folded into the `tofu` step** (2026-08-30, resolves the 2026-08-25 [NEEDS DECISION]) — sonarqube-compatible HCL lint runs alongside `tofu fmt/init/validate`; pinned `TFLINT_VERSION="0.64.0"` delivered as a release zip (like the workflow Go tools) with an `unzip` install and a build-time version assertion. `--init` first (so a project's `.tflint.hcl` plugins land in the plugin cache), `--fix` in fix mode, then a check that gates on any finding (exit 0 clean / 1 error / 2 issues). Step order: fmt → tflint → init → validate. The broken-fixture `main.tf` is now tflint-clean (required_version + required_providers) so only its fmt drift gates |
 
 ## Roadmap (2026-08-25 brainstorm)
 
@@ -68,6 +69,7 @@ until first green nothing distributes configs or instructions.
    usage; expand standards docs (standards/testing/unit-testing.md, node
    equivalents, architecture preferences). Consumer adoption = pin a sha;
    the legacy submodule/symlink flow is retired.
+   [DONE 2026-08-30 — see Status]
 
 ## Current couplings to remove (audit of system-config `quality/`, 2026-08-23)
 
@@ -100,10 +102,7 @@ runtime/                 # the container image (was quality/ + container/)
 │   ├── shell.mts        # default-on  shfmt + shellcheck over tracked *.sh
 │   ├── yaml.mts         # default-on  yamllint over tracked YAML
 │   ├── workflow.mts     # default-on* actionlint + zizmor + gitleaks (*needs .github/)
-│   └── tofu.mts         # default-on* tofu fmt + init/validate (*needs tracked *.tf)
-│                        #   [NEEDS DECISION 2026-08-25] also tflint —
-│                        #   sonarqube-compatible; decide pin/delivery
-│                        #   (apt vs release tarball) when the step lands
+│   └── tofu.mts         # default-on* tofu fmt + tflint + init/validate (*needs tracked *.tf)
 ├── config/              # prettier.config.mjs prettierignore yamllint.yml schema
 │   │                    #   agents-block.md root/ (installed to repo root)
 └── (tests)              # fixture.test.mts, setup.test.mts, test-helpers.mts
@@ -129,14 +128,14 @@ practices/               # docs / how-to
 
 Mine these for patterns worth stealing (gates, hooks, CI templates):
 
-- [ ] `~/bin/system-config` — the prototype (source of the audit above)
-- [ ] `~/code/rdd-astro` — original inspiration for the verify gate
-- [ ] `~/code/template` — project template; likely CI skeleton to replace
-- [ ] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
+- [x] `~/bin/system-config` — the prototype (source of the audit above)
+- [x] `~/code/rdd-astro` — original inspiration for the verify gate
+- [x] `~/code/template` — project template; likely CI skeleton to replace
+- [x] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
       `~/code/eph-db` — assorted Node/shell projects; what do they actually run today?
-- [ ] `dotnet/` here — editorconfig/hooks/workflows already standardise .NET;
+- [x] `dotnet/` here — editorconfig/hooks/workflows already standardise .NET;
       the new `steps/dotnet.mts` should wrap, not duplicate, these
-- [ ] External worth a look: bloom-style `scripts/verify.sh` pattern
+- [x] External worth a look: bloom-style `scripts/verify.sh` pattern
       (single entry point), pre-commit framework (config-driven hooks)
 
 Output of research: notes appended below, then a step inventory before any code moves.
@@ -497,6 +496,21 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       `dotnet--analyse--sonarqube` (outside the gate manifest, decision #9).
       Public API shrinks towards "the defined standards" — one gate entry
       point plus pipeline-specific wrappers.
+- [x] tflint folded into the tofu step (2026-08-30, decision #21) — pinned
+      `TFLINT_VERSION="0.64.0"` (release zip + unzip install + build-time
+      version assertion); tofu step now runs fmt → tflint (--init, --fix in
+      fix mode, then gate on any finding) → init → validate; broken-fixture
+      `main.tf` made tflint-clean so only its fmt drift gates. Unit tests
+      cover tflint init/issue/fix phases; fixture drives the real gate
+      in-container green.
+- [x] `node--check--quality.yml` retired (2026-08-30) — parameterised npm
+      quality scripts fully subsumed by the gate's node step (prettier/eslint/
+      tsc/vitest with the baked configs). Public API now 11 consumer templates.
+- [x] Stage 3: single static entrypoint (2026-08-30) — README is the canonical
+      human+agent index (gate usage, adoption quick-start, 11-template
+      catalogue, standards links); added `standards/testing/node-testing.md`
+      and `practices/architecture.md`; research checklist ticked; roadmap
+      closed. 145/145 host tests green, gate exit 0.
 
 ## Local workflow testing (2026-08-30)
 
