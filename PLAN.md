@@ -121,7 +121,7 @@ quality/
 
 Mine these for patterns worth stealing (gates, hooks, CI templates):
 
-- [ ] `~/code/system-config` — the prototype (source of the audit above)
+- [ ] `~/bin/system-config` — the prototype (source of the audit above)
 - [ ] `~/code/rdd-astro` — original inspiration for the verify gate
 - [ ] `~/code/template` — project template; likely CI skeleton to replace
 - [ ] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
@@ -180,6 +180,31 @@ never turns into rubber-stamping. Where repos disagree, the fix is mechanical
   with `quality/config/prettierignore` travelling in the gate.
 - **DECIDED — `.editorconfig` at each repo root is installed by gate setup**,
   not hand-maintained per repo (editors only read it from the project root).
+
+**Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
+parity; eph-db gets any gating at all.
+
+### Confirmed: prettier resolves ignore patterns relative to the ignore file, not CWD (2026-08-30)
+
+Experiment (golden-test debug against system-config, prettier 3.9.6 in the
+gate image) overturned the prototype's "resolves relative to CWD" assumption:
+
+- Prettier source (`index.mjs`, `createSingleIsIgnoredFunction`):
+  `ignore.checkIgnore(slash(getRelativePath(file, ignoreFile)))` — the matched
+  path is computed **relative to the ignore file's location**, then tested
+  against the ignore patterns.
+- Consequence: a travelling ignore file at `/opt/quality/config/prettierignore`
+  (or a merged temp file in `/tmp`) yields `../../…`-prefixed relative paths,
+  so repo-root-relative patterns like `dotfiles/nvim` **never match**. Only
+  patterns that match against *any* path segment (`coverage/`, `*.toml`,
+  `**/lazy-lock.json`) survive.
+- The prototype "worked" only because its `.prettierignore` sat at the repo
+  root **and** prettier ran from the repo root — ignore file and CWD
+  coincided, so `getRelativePath` produced repo-relative paths.
+- Design consequence for the additive host-ignore feature: the merged ignore
+  file must be materialised **at the repo root** (e.g. `.prettierignore` next
+  to the tree), not in a tmp dir, or directory-pattern host ignores silently
+  no-op. Pending: rework `lib/ignore.mts` + `steps/node.mts` accordingly.
 
 **Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
 parity; eph-db gets any gating at all.
@@ -352,7 +377,19 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       full reproducibility. CI shadow volumes intentionally omitted: a fresh
       runner has no host deps to leak, and the NuGet cache volume is pointless
       on ephemeral runners)
-- [ ] Golden-test parity on system-config
+- [x] Golden-test parity on system-config
+      (2026-08-30: ran the new gate in-container against ~/bin/system-config
+      (the prototype repo — plan's `~/code/system-config` path corrected, it
+      lives at ~/bin). Result: node/yaml/workflow pass identically to the
+      prototype's bash gate; shell flags 2 SC2129 style findings in
+      bootstrap.sh:233/238 that the prototype's lenient `-S info` floor hid —
+      the intended decision #18 raise, not a regression. One travelling-config
+      fix from the run: `**/lazy-lock.json` added to quality/config/prettierignore
+      (machine-generated nvim plugin lockfile, same churn rationale as
+      package-lock.json; the prototype's repo-local ignore had covered it).
+      Parity verdict: gate detects and gates the same ecosystems on the real
+      tree; divergences are raises-only by design. Remaining divergence is a
+      mechanical `--fix` on the prototype, not a gate defect)
 - [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
       deliberately parked so the red gate keeps flagging them — see
       "Continuous verification" below). First in-container run of

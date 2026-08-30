@@ -2,9 +2,12 @@
 //
 // Tools:    prettier
 // Config:   quality/config/prettier.config.mjs + prettierignore, passed
-//           explicitly (--config/--ignore-path) so they travel with the
-//           gate regardless of CWD — prettier resolves ignore files
-//           relative to CWD, not the target tree (prototype lesson)
+//           explicitly (--config/--ignore-path) so they travel with the gate.
+//           NOTE (2026-08-30): prettier resolves ignore patterns relative to
+//           the ignore FILE, not CWD (getRelativePath(file, ignoreFile)) — a
+//           travelling/temp ignore must live at the repo root for
+//           repo-relative directory patterns to match. See PLAN.md "Confirmed:
+//           prettier resolves ignore patterns…".
 // Fix:      prettier --write rewrites, then the step re-checks before
 //           reporting — a fix that leaves diffs can never read as success
 //
@@ -14,9 +17,13 @@
 // plugins and types a global install cannot supply.
 // The runner is injected so tests need no host binaries.
 
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { failed, passed, skipped, type StepResult } from "../lib/step-result.mts";
 import { run } from "../lib/proc.mts";
 import { gateConfigPath } from "../lib/paths.mts";
+import { mergeIgnoreContents, writeMergedIgnore, removeMergedIgnore } from "../lib/ignore.mts";
 
 export interface NodeRunContext {
   mode: "fix" | "no-fix";
@@ -27,6 +34,26 @@ type Runner = typeof run;
 
 export function filterPackageJsons({ files }: { files: string[] }): string[] {
   return files.filter((file) => file.split("/").pop() === "package.json");
+}
+
+/**
+ * Effective prettier ignore path: the gate's travelling ignore is the base;
+ * the host repo's own `.prettierignore` (if present) is additive. Returns the
+ * gate config path when no host file exists, else a merged temp file.
+ */
+export async function resolveIgnorePath({ repoRoot }: { repoRoot: string }): Promise<string> {
+  const basePath = await gateConfigPath({ name: "prettierignore" });
+  const base = await readFile(basePath, "utf8");
+  let host = "";
+  try {
+    host = await readFile(join(repoRoot, ".prettierignore"), "utf8");
+  } catch {
+    host = "";
+  }
+  if (host.trim() === "") {
+    return basePath;
+  }
+  return writeMergedIgnore({ content: mergeIgnoreContents({ base, host }) });
 }
 
 /**
@@ -49,7 +76,7 @@ export async function runNodeStep({
   }
 
   const config = await gateConfigPath({ name: "prettier.config.mjs" });
-  const ignorePath = await gateConfigPath({ name: "prettierignore" });
+  const ignorePath = await resolveIgnorePath({ repoRoot: ctx.repoRoot });
   const sharedArgs = ["--config", config, "--ignore-path", ignorePath];
 
   if (ctx.mode === "fix") {

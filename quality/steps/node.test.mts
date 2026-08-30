@@ -3,10 +3,13 @@
 // Run: node --test quality/steps/node.test.mts
 
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import type { CommandResult } from "../lib/proc.mts";
-import { filterPackageJsons, runNodeStep } from "./node.mts";
+import { filterPackageJsons, resolveIgnorePath, runNodeStep } from "./node.mts";
 
 function fakeRunner(
   outcomes: Record<string, { status: number; stdout?: string; stderr?: string }>,
@@ -87,4 +90,21 @@ test("check mode failure names prettier and the file count", async () => {
   const result = await runNodeStep({ ctx: baseCtx, trackedFiles: ["package.json"], runner });
   assert.equal(result.status, "fail");
   assert.ok((result.notice ?? "").includes("prettier"));
+});
+
+test("resolveIgnorePath merges a host .prettierignore additively", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quality-node-ignore-"));
+  try {
+    await writeFile(join(root, ".prettierignore"), "dotfiles/nvim/\n");
+    const path = await resolveIgnorePath({ repoRoot: root });
+    try {
+      const merged = await import("node:fs/promises").then((m) => m.readFile(path, "utf8"));
+      assert.ok(merged.includes("# host repo additions"));
+      assert.ok(merged.includes("dotfiles/nvim/"));
+    } finally {
+      await import("../lib/ignore.mts").then((m) => m.removeMergedIgnore({ path }));
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
