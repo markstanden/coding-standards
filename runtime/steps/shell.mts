@@ -18,7 +18,6 @@ import type { Severity } from "../lib/severities.mts";
 // < style). Raised from the original 'error' default per decision #18;
 // floors only ever move up.
 export const SHELLCHECK_DEFAULT_FLOOR: Severity = "style";
-const SHELL_SCRIPT = /\.sh$/u;
 
 export interface ShellRunContext {
   mode: "fix" | "no-fix";
@@ -27,7 +26,7 @@ export interface ShellRunContext {
 type Runner = typeof run;
 
 export function filterShellScripts({ files }: { files: string[] }): string[] {
-  return files.filter((file) => SHELL_SCRIPT.test(file));
+  return files.filter((file) => file.endsWith(".sh"));
 }
 
 /**

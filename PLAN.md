@@ -54,6 +54,7 @@ until first green nothing distributes configs or instructions.
    config/ migration → container dep volumes → ghcr CI template → golden-test
    parity. Includes the bootstrap/install step (decisions #13–14): shared
    configs into repo roots + AGENTS.md managed block seeding.
+   [DONE 2026-08-30 — see Status]
 2. **Pipelines consume the gate** — `defined--verify.yml` pulls the
    pinned ghcr image against consumer repos (local green = merge green by
    construction). Remaining genuinely pipeline-specific inline scripts
@@ -121,7 +122,7 @@ practices/               # docs / how-to
   defaults.
 - Module conventions (unions not enums, object params, filename == step id,
   header comments stating tools/config/fix behaviour, `lib/` never knows
-  steps, steps never import each other) are law, recorded in runtime/README.md.
+  steps, steps never import each other) are law, recorded in AGENTS.md.
 
 ## Research: scour existing solutions before building
 
@@ -368,34 +369,31 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       workspace discovery: a lone nested .csproj is passed by path, since the
       CLI cannot operate on a bare directory that merely contains a project;
       multiple projects with no solution now fail loudly)
-- [ ] CI template: publish/consume ghcr image tagged from pin hash
+- [x] CI template: publish/consume ghcr image tagged from pin hash
       (2026-08-30: image made self-contained — build context is now the repo
-      root and the gate code + shared lib are baked at /opt/defined, so CI
-      consumers vendor nothing; local verify.sh still bind-mounts runtime/ +
-      lib/ ro, shadowing the baked copies for live edits. Publish workflow
+      root and the gate code + shared lib + standards + pipelines are baked at
+      /opt/defined, so CI consumers vendor nothing; local verify.sh still
+      bind-mounts runtime/ + lib/ + standards/ + pipelines/ ro, shadowing the
+      baked copies for live edits. Publish workflow
       `.github/workflows/defined--publish.yml` (main push on runtime/** +
-      lib/** + dispatch) builds linux/amd64+arm64 via buildx and pushes
-      `ghcr.io/markstanden/defined:<pinhash>` + `:<shortsha>`. Consumer
-      template `defined--verify.yml` is a reusable workflow_call taking
-      `image-tag`/`fix`/`silent`. Verified: baked image
-      runs a dotnet repo with zero host mounts/tools; new workflows clean
-      under the gate's own actionlint + yamllint; gate stays red only on the
-      deferred workflow findings. DECIDED: tag scheme is pinhash (stable
-      toolchain) AND shortsha (pinned release) — consumers pin shortsha for
-      full reproducibility. CI shadow volumes intentionally omitted: a fresh
-      runner has no host deps to leak, and the NuGet cache volume is pointless
-      on ephemeral runners. 2026-08-30: added `defined--test.yml` —
-      fires on PRs + main merges, sets up Node 26, pre-pulls the published
-      image (falls back to verify.sh building), runs `node --test` (unit +
-      broken-fixture) from the repo root. Consumer template
-      `defined--verify.yml` tightened: `image-tag` is now REQUIRED (the
-      publish workflow never pushes `latest`; consumers pin shortsha),
+      lib/** + standards/** + pipelines/** + dispatch) builds linux/amd64+arm64
+      via buildx and pushes `ghcr.io/markstanden/defined:<pinhash>` +
+      `:<shortsha>`. Consumer template `defined--verify.yml` is a reusable
+      workflow_call taking `image-tag`/`fix`/`silent`. DECIDED: tag scheme is
+      pinhash (stable toolchain) AND shortsha (pinned release) — consumers pin
+      shortsha for full reproducibility. CI shadow volumes intentionally
+      omitted: a fresh runner has no host deps to leak, and the NuGet cache
+      volume is pointless on ephemeral runners. 2026-08-30: added
+      `defined--test.yml` — fires on PRs + main merges, sets up Node 26,
+      pre-pulls the published image (falls back to verify.sh building), runs
+      `node --test` (unit + broken-fixture) from the repo root. Consumer
+      template `defined--verify.yml` tightened: `image-tag` is now REQUIRED
+      (the publish workflow never pushes `latest`; consumers pin shortsha),
       misleading `working-directory` input removed (the gate scans the whole
-      repo regardless of cwd), usage comment added. Verified the consumer
-      invocation end-to-end (podman run, repo mounted, no runtime/ mount).
-      NOTE: the local shim's image tag keys only on tool-versions.env, so a
-      Containerfile change without a pin change leaves a stale cached local
-      image — CI is immune (always fresh build); dev must rm the tag)
+      repo regardless of cwd), usage comment added. NOTE: the local shim's
+      image tag keys only on tool-versions.env, so a Containerfile change
+      without a pin change leaves a stale cached local image — CI is immune
+      (always fresh build); dev must rm the tag)
 - [x] Golden-test parity on system-config
       (2026-08-30: ran the new gate in-container against ~/bin/system-config
       (the prototype repo — plan's `~/code/system-config` path corrected, it
@@ -465,7 +463,7 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       summary blocks fixed inline (SC2086/SC2129). All actions SHA-pinned
       (zizmor unpinned-uses + Sonar S7637). `dotnet-version`/`opentofu-version`
       inputs retired from containerised workflows — the image tag IS the
-      toolchain. 119/119 tests green; gate FULLY green (exit 0).
+      toolchain. 120/120 tests green; gate FULLY green (exit 0).
 
 ## Local workflow testing (2026-08-30)
 

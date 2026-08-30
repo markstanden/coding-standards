@@ -24,9 +24,9 @@ end-to-end gate.
   single source of truth for shared root configs — the gate's `setup`
   installs them into consumer repo roots (raises-only) from the baked image.
 
-## Active work: portable quality gate
+## The gate: how it works
 
-`runtime/` + shared `lib/` are being built per `PLAN.md`. Read `PLAN.md` before
+`runtime/` + shared `lib/` are built per `PLAN.md`. Read `PLAN.md` before
 touching anything gate-related — its decisions log is law and exists so choices
 aren't relitigated:
 
