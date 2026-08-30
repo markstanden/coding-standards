@@ -74,10 +74,10 @@ jobs:
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
@@ -85,11 +85,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ inputs.frontend-project-path }}
-        run: ${{ inputs.install-command }}
+        env:
+          INSTALL_CMD: ${{ inputs.install-command }}
+        run: bash -c "$INSTALL_CMD"
 
       - name: Build
         working-directory: ${{ inputs.frontend-project-path }}
-        run: ${{ inputs.build-command }}
+        env:
+          BUILD_CMD: ${{ inputs.build-command }}
+        run: bash -c "$BUILD_CMD"
 
       - name: Debug build output
         if: inputs.debug-output
@@ -99,7 +103,7 @@ jobs:
           find . -maxdepth 2 -type f | head -40
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.artifact-prefix }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ inputs.frontend-project-path }}/${{ inputs.output-directory }}

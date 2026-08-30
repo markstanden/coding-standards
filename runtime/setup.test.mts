@@ -1,0 +1,68 @@
+// Tests for setup.mts: bootstrap installs configs and seeds AGENTS.md.
+// Run: node --test setup.test.mts
+
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { test } from "node:test";
+
+import { BLOCK_START } from "./lib/agents-block.mts";
+import { runSetup } from "./setup.mts";
+
+async function makeTempRepo(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "quality-setup-"));
+  await mkdir(join(root, ".git"));
+  return root;
+}
+
+test("runSetup installs root configs and seeds the AGENTS.md managed block", async () => {
+  const repo = await makeTempRepo();
+  try {
+    await runSetup({ startDir: repo });
+    assert.ok((await readFile(join(repo, ".editorconfig"), "utf8")).includes("root = true"));
+    assert.ok(
+      (await readFile(join(repo, "Directory.Build.props"), "utf8")).includes("<Project>"),
+    );
+    const agents = await readFile(join(repo, "AGENTS.md"), "utf8");
+    assert.ok(agents.includes(BLOCK_START));
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+test("runSetup preserves pre-existing AGENTS.md content outside the block", async () => {
+  const repo = await makeTempRepo();
+  try {
+    const mine = "# My Project\n\nOnly my conventions live here.\n";
+    await writeFile(join(repo, "AGENTS.md"), mine);
+    await runSetup({ startDir: repo });
+    const agents = await readFile(join(repo, "AGENTS.md"), "utf8");
+    assert.ok(agents.startsWith(mine.trimStart().slice(0, "# My Project".length)));
+    assert.ok(agents.includes(mine));
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+test("runSetup is idempotent: re-run leaves AGENTS.md byte-identical", async () => {
+  const repo = await makeTempRepo();
+  try {
+    await runSetup({ startDir: repo });
+    const first = await readFile(join(repo, "AGENTS.md"), "utf8");
+    await runSetup({ startDir: repo });
+    assert.equal(await readFile(join(repo, "AGENTS.md"), "utf8"), first);
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});
+
+test("runSetup fails loudly when a root config conflicts (raises-only)", async () => {
+  const repo = await makeTempRepo();
+  try {
+    await writeFile(join(repo, ".editorconfig"), "indent_size = 2\n");
+    await assert.rejects(() => runSetup({ startDir: repo }), /raises-only/u);
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+});

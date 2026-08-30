@@ -3,11 +3,13 @@ name: "OpenTofu Build Infrastructure"
 on:
   workflow_call:
     inputs:
-      opentofu-version:
-        description: "OpenTofu version to use for infrastructure operations"
+      image-tag:
+        description: >-
+          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+          the pinned OpenTofu toolchain — no setup-opentofu step needed. Pin
+          to the commit short-sha of the workflow ref.
         type: string
-        required: false
-        default: "1.7.2"
+        required: true
 
       infrastructure-directory:
         description: "Path to the infrastructure code directory from project root"
@@ -71,12 +73,6 @@ on:
         required: false
         default: 1
 
-      tofu-wrapper:
-        description: "Whether to enable OpenTofu wrapper for enhanced CI/CD output"
-        type: boolean
-        required: false
-        default: false
-
       debug-output:
         description: "Enable verbose debug output to aid troubleshooting"
         type: boolean
@@ -98,10 +94,16 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   opentofu-plan:
     name: "OpenTofu Plan"
     runs-on: "ubuntu-latest"
+    container:
+      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
     env:
       TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
       TF_IN_AUTOMATION: "true"
@@ -114,24 +116,13 @@ jobs:
       plan-exitcode: ${{ steps.plan.outputs.exitcode }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
-
-      - name: "Setup OpenTofu"
-        uses: opentofu/setup-opentofu@v2.0.1
-        with:
-          tofu_version: ${{ inputs.opentofu-version }}
-          tofu_wrapper: ${{ inputs.tofu-wrapper }}
-
-      - name: "Azure CLI Login"
-        uses: azure/login@v3.0.0
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: "Prepare plugin cache directory"
         run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
       - name: "Cache OpenTofu plugin cache"
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
         continue-on-error: true
         with:
           path: ${{ env.TF_PLUGIN_CACHE_DIR }}
@@ -140,21 +131,14 @@ jobs:
             ${{ inputs.cache-key-prefix }}-
 
       - name: "Initialize and Select Workspace"
-        working-directory: ${{ inputs.infrastructure-directory }}
         env:
+          INFRA_DIR: ${{ inputs.infrastructure-directory }}
           BUILD_ENV: ${{ inputs.environment }}
-        run: |
-          mkdir -p "$TF_PLUGIN_CACHE_DIR"
-          rm -f .terraform/environment || true
-          tofu init -reconfigure -input=false \
-            -backend-config="resource_group_name=${{ inputs.backend-resource-group-name }}" \
-            -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
-            -backend-config="container_name=${{ inputs.backend-container-name }}" \
-            -backend-config="key=${{ inputs.project-name }}.tfstate"
-
-          if [ "$BUILD_ENV" != "default" ]; then
-            tofu workspace select $BUILD_ENV || tofu workspace new $BUILD_ENV
-          fi
+          BACKEND_RG: ${{ inputs.backend-resource-group-name }}
+          BACKEND_SA: ${{ inputs.backend-storage-account-name }}
+          BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
+          BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
+        run: node /opt/defined/pipelines/tofu-init.mts
 
       - name: "OpenTofu Validate"
         working-directory: ${{ inputs.infrastructure-directory }}
@@ -162,27 +146,9 @@ jobs:
 
       - name: "OpenTofu Plan"
         id: plan
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          # OpenTofu plan returns exit codes:
-          #   0 = Success, no changes (infrastructure matches desired state)
-          #   1 = Error occurred (validation/configuration issues)
-          #   2 = Success, changes detected (plan created successfully)
-          if tofu plan -detailed-exitcode -no-color -out=tfplan > plan.txt; then
-            exit_code=0
-          else
-            exit_code=$?
-          fi
-
-          # Store exit code for downstream jobs to check
-          echo "exitcode=${exit_code}" >> $GITHUB_OUTPUT
-
-          # Fail the workflow only on genuine errors (exit code 1)
-          # Exit codes 0 and 2 are both successful plan scenarios
-          if [ "${exit_code}" -eq 1 ]; then
-            cat plan.txt
-            exit 1
-          fi
+        env:
+          INFRA_DIR: ${{ inputs.infrastructure-directory }}
+        run: node /opt/defined/pipelines/tofu-plan.mts
 
       - name: "Show plan (debug)"
         if: inputs.debug-output
@@ -190,7 +156,7 @@ jobs:
         run: cat plan.txt
 
       - name: "Upload OpenTofu Plan"
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: |
@@ -202,6 +168,8 @@ jobs:
     needs: ["opentofu-plan"]
     name: "OpenTofu Apply"
     runs-on: "ubuntu-latest"
+    container:
+      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
     env:
       TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
       TF_IN_AUTOMATION: "true"
@@ -214,24 +182,13 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
-
-      - name: "Setup OpenTofu"
-        uses: opentofu/setup-opentofu@v2.0.1
-        with:
-          tofu_version: ${{ inputs.opentofu-version }}
-          tofu_wrapper: ${{ inputs.tofu-wrapper }}
-
-      - name: "Azure CLI Login"
-        uses: azure/login@v3.0.0
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: "Prepare plugin cache directory"
         run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
       - name: "Cache OpenTofu plugin cache"
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
         continue-on-error: true
         with:
           path: ${{ env.TF_PLUGIN_CACHE_DIR }}
@@ -240,7 +197,7 @@ jobs:
             ${{ inputs.cache-key-prefix }}-
 
       - name: "Download OpenTofu Plan"
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ env.PLAN_ARTIFACT_NAME }}
           path: ${{ inputs.infrastructure-directory }}
@@ -253,29 +210,22 @@ jobs:
           ls -lah
           echo ""
           echo "Plan file details:"
-          file tfplan 2>/dev/null || echo "tfplan not found!"
-          if [ -f plan.txt ]; then
+          file "tfplan" 2>/dev/null || echo "tfplan not found!"
+          if [ -f "plan.txt" ]; then
             echo ""
             echo "--- plan.txt ---"
-            cat plan.txt
+            cat "plan.txt"
           fi
 
       - name: "Initialize and Select Workspace"
-        working-directory: ${{ inputs.infrastructure-directory }}
         env:
+          INFRA_DIR: ${{ inputs.infrastructure-directory }}
           BUILD_ENV: ${{ inputs.environment }}
-        run: |
-          mkdir -p "$TF_PLUGIN_CACHE_DIR"
-          rm -f .terraform/environment || true
-          tofu init -reconfigure -input=false \
-            -backend-config="resource_group_name=${{ inputs.backend-resource-group-name }}" \
-            -backend-config="storage_account_name=${{ inputs.backend-storage-account-name }}" \
-            -backend-config="container_name=${{ inputs.backend-container-name }}" \
-            -backend-config="key=${{ inputs.project-name }}.tfstate"
-
-          if [ "$BUILD_ENV" != "default" ]; then
-            tofu workspace select $BUILD_ENV || tofu workspace new $BUILD_ENV
-          fi
+          BACKEND_RG: ${{ inputs.backend-resource-group-name }}
+          BACKEND_SA: ${{ inputs.backend-storage-account-name }}
+          BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
+          BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
+        run: node /opt/defined/pipelines/tofu-init.mts
 
       - name: "OpenTofu Apply"
         if: needs.opentofu-plan.outputs.plan-exitcode == 2
@@ -284,20 +234,10 @@ jobs:
 
       - name: "Diagnose State and Outputs"
         if: always()
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "--- Current Workspace ---"
-          tofu workspace show || true
-          echo " "
-          echo "--- All Workspaces ---"
-          tofu workspace list || true
-          echo " "
-          echo "--- Managed Resources ---"
-          tofu state list || echo "(no resources in state)"
-          echo " "
-          echo "--- Output Keys ---"
-          tofu output -json 2>/dev/null | jq -r 'keys_unsorted[]?' || echo "(no outputs)"
-          echo " "
+        env:
+          INFRA_DIR: ${{ inputs.infrastructure-directory }}
+          SHOW_OUTPUT_KEYS: "true"
+        run: node /opt/defined/pipelines/tofu-diagnose.mts
 
       - name: "Show State"
         if: ${{ always() && inputs.debug-output }}
@@ -307,46 +247,13 @@ jobs:
           tofu show
 
       - name: "Get OpenTofu Outputs"
-        id: outputs
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "--- Creating OpenTofu Output Artifact ---"
-
-          echo "Working directory: $(pwd)"
-
-          echo "Obtaining keys..."
-          output_keys=$(tofu output -json | jq -r 'keys_unsorted | @sh')
-
-          echo "Masking sensitive values..."
-          for key in $output_keys; do
-            value=$(tofu output -raw "${key//\'/}")
-            echo "::add-mask::${value}"
-            echo "Output '${key//\'/}': found with length ${#value}"
-          done
-
-          echo "Saving outputs to artifact..."
-
-          if ! tofu output -json > ${{ inputs.output-json-filename }} 2>/dev/null; then
-            echo '{}' > ${{ inputs.output-json-filename }}
-          fi
-
-          echo "Artifact ready for upload."
-
-      - name: "Verify outputs file"
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          if [ -f ${{ inputs.output-json-filename }} ]; then
-            echo "File found. Contents:"
-            cat ${{ inputs.output-json-filename }}
-            echo ""
-            echo "File size: $(wc -c < ${{ inputs.output-json-filename }}) bytes"
-          else
-            echo "ERROR: File does not exist"
-            exit 1
-          fi
+        env:
+          INFRA_DIR: ${{ inputs.infrastructure-directory }}
+          OUTPUT_JSON_FILENAME: ${{ inputs.output-json-filename }}
+        run: node /opt/defined/pipelines/tofu-outputs.mts
 
       - name: "Upload OpenTofu Outputs"
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.output-artifact-name }}
           path: ${{ inputs.infrastructure-directory }}/${{ inputs.output-json-filename }}

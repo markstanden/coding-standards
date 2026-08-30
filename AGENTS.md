@@ -4,33 +4,31 @@
 
 ## What this repo is
 
-A source of truth for **other projects'** configuration — templates consumed
-via git submodule + symlinks (`dotnet/setup.sh`). There is no application
-here: no solution, no `package.json`, no test suite of its own. Verification
-means shell/YAML sanity checks, not builds.
+A source of truth for **other projects'** configuration, delivered as one
+container image (`defined`, built from `runtime/` + shared `lib/` +
+`standards/`). There is no application here: no solution, no `package.json`.
+Verification is the gate's own suite (`node --test`) plus the podman
+end-to-end gate.
 
 ## Non-obvious structure
 
 - Root `.github/workflows/*.yml` are mostly **reusable `workflow_call` templates**
   for consumer repos, NOT CI for this repo. Naming convention:
   `<tool>--<purpose>.yml` (double hyphen), inputs parameterise paths/versions.
-  Exceptions that ARE CI for this repo: `quality-gate--publish.yml` (builds +
-  pushes the gate image to ghcr on main) and `quality-gate--test.yml` (runs
+  Exceptions that ARE CI for this repo: `defined--publish.yml` (builds +
+  pushes the gate image to ghcr on main) and `defined--test.yml` (runs
   the gate's own unit + broken-fixture suite on PRs and merges).
-- `dotnet/workflows/pipeline.yml.example` — the `.example` suffix is
-  deliberate: `setup.sh` copies it into consumer repos as `pipeline.yml`
-  (README calls it `pipeline-example.yml`; the script is authoritative).
-- `setup.sh` and hook scripts assume this repo is checked out as
-  `.coding-standards/` inside the consumer project; path maths depends on it.
-- `dotnet/editorconfig/.editorconfig` and
-  `dotnet/directory-build-props/Directory.Build.props` are symlink *targets* —
-  edits propagate to every consumer project on next checkout.
+- `standards/workflows/pipeline.yml.example` — the `.example` suffix is
+  deliberate: it is a template for consumer pipelines, not run here.
+- `standards/.editorconfig` and `standards/Directory.Build.props` are the
+  single source of truth for shared root configs — the gate's `setup`
+  installs them into consumer repo roots (raises-only) from the baked image.
 
 ## Active work: portable quality gate
 
-`quality/` is being built per `PLAN.md`. Read `PLAN.md` before touching
-anything gate-related — its decisions log is law and exists so choices aren't
-relitigated:
+`runtime/` + shared `lib/` are being built per `PLAN.md`. Read `PLAN.md` before
+touching anything gate-related — its decisions log is law and exists so choices
+aren't relitigated:
 
 - Container-native runtime (official `node:<ver>-slim` base, digest-pinned
   via `tool-versions.env`; global pinned `tsc` for typechecking gate code);
@@ -42,14 +40,20 @@ relitigated:
   → tofu`; missing tools fail loudly pointing at the Containerfile (no
   optional tier).
 - **Run the full suite continuously**: host `node --test` *and* the podman
-  end-to-end gate (`./quality/verify.sh`) — host-green does not mean
-  gate-green (2026-08-30: unit suite passed 69/69 while the gate went red on
-  real workflow-template findings). `node --test` also runs the broken-fixture
-  integration test (`quality/fixture.test.mts`), which drives the real gate
-  against a deliberately-broken repo and skips cleanly without a container
-  engine. The gate is currently red on purpose (deferred workflow fixes, see
-  PLAN.md status) and must stay that way until the fixes land — the failing
-  `workflow` step is the tripwire that flags deviations.
+  end-to-end gate (`./runtime/verify.sh`) — host-green does not mean
+  gate-green (2026-08-30: the unit suite passed while the gate went red on
+  real workflow-template findings until the stage-2 refactor fixed them).
+  `node --test` also runs the broken-fixture integration test
+  (`runtime/fixture.test.mts`), which drives the real gate against a
+  deliberately-broken repo and skips cleanly without a container engine.
+  The gate is now fully green; keeping it green is the tripwire — any new
+  workflow-template deviation fails the `workflow` step again.
+- Pipeline modules live in `pipelines/*.mts` (thin zero-dep wrappers over the
+  shared `lib/` building blocks), baked into the image at
+  `/opt/defined/pipelines` and invoked by containerised workflow jobs as
+  `node /opt/defined/pipelines/<module>.mts` with inputs via env. The image
+  tag IS the toolchain for containerised workflows — no setup-opentofu/
+  setup-dotnet/setup-node steps needed.
 
 ## Conventions
 
@@ -57,10 +61,10 @@ relitigated:
 - Markdown files carry an update header:
   `<!-- update: agent=[name] | date=YYYY-MM-DD | scope=[path] -->`
   (get dates from `date +%F`, never guess).
-<!-- quality-gate:start -->
-This project is gated by Mark's portable quality gate (`quality/`).
+<!-- defined:start -->
+This project is gated by Mark's portable defined gate (`runtime/`).
 House standards, tool pins and the decision log live in the gate's PLAN.md;
 the canonical cross-project index is the coding-standards README. Run
-`./quality/verify.sh` to gate (add `--fix` to repair mechanically, `--silent`
+`./runtime/verify.sh` to gate (add `--fix` to repair mechanically, `--silent`
 for log-style output); a missing ecosystem skips, a missing tool fails loudly.
-<!-- quality-gate:end -->
+<!-- defined:end -->

@@ -2,18 +2,13 @@ name: "Build Blazor Frontend"
 on:
   workflow_call:
     inputs:
-
-      dotnet-version:
-        description: ".NET SDK version to use"
+      image-tag:
+        description: >-
+          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+          the pinned .NET SDK and Node — no setup-dotnet/setup-node steps
+          needed. Pin to the commit short-sha of the workflow ref.
         type: string
-        required: false
-        default: "9.0.x"
-
-      node-version:
-        description: "Node.js version to use"
-        type: string
-        required: false
-        default: "22"
+        required: true
 
       web-project-path:
         description: "Path to the web project directory"
@@ -50,54 +45,42 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-frontend:
     name: "Build Frontend Artifact"
     runs-on: "ubuntu-latest"
+    container:
+      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
     permissions:
       contents: read
       actions: write  # needed to save caches
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: "Set environment variables"
         if: inputs.environment-variables != ''
-        run: |
-          # Set custom environment variables from JSON input
-          if [ "${{ inputs.environment-variables }}" != "" ]; then
-            echo "${{ inputs.environment-variables }}" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
-          fi
+        env:
+          ENV_JSON: ${{ inputs.environment-variables }}
+        run: node /opt/defined/pipelines/dotnet-env-json.mts
 
       - name: "Check for npm requirements"
         id: check-npm
-        run: |
-          if [ -f "${{ inputs.web-project-path }}/package.json" ]; then
-            echo "npm-required=true" >> $GITHUB_OUTPUT
-          else
-            echo "npm-required=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: "Setup Node.js"
-        if: steps.check-npm.outputs.npm-required == 'true'
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ inputs.node-version }}
-          cache: "npm"
-          cache-dependency-path: "${{ inputs.web-project-path }}/package-lock.json"
+        env:
+          WEB_PROJECT_PATH: ${{ inputs.web-project-path }}
+        run: node /opt/defined/pipelines/dotnet-check-npm.mts
 
       - name: "Install npm dependencies"
         if: steps.check-npm.outputs.npm-required == 'true'
         working-directory: ${{ inputs.web-project-path }}
         run: npm ci
 
-      - name: "Setup .NET"
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: ${{ inputs.dotnet-version }}
-
       - name: "Cache NuGet packages"
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
         continue-on-error: true
         with:
           path: ~/.nuget/packages
@@ -106,16 +89,22 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: "Restore dependencies"
-        run: dotnet restore ${{ inputs.web-project-path }}
+        env:
+          WEB_PROJECT_PATH: ${{ inputs.web-project-path }}
+        run: dotnet restore "$WEB_PROJECT_PATH"
 
       - name: "Build"
-        run: dotnet build ${{ inputs.web-project-path }} --no-restore --configuration Release
+        env:
+          WEB_PROJECT_PATH: ${{ inputs.web-project-path }}
+        run: dotnet build "$WEB_PROJECT_PATH" --no-restore --configuration Release
 
       - name: "Publish"
-        run: dotnet publish ${{ inputs.web-project-path }} --no-restore --configuration Release --output ./publish
+        env:
+          WEB_PROJECT_PATH: ${{ inputs.web-project-path }}
+        run: dotnet publish "$WEB_PROJECT_PATH" --no-restore --configuration Release --output ./publish
 
       - name: "Upload build artifacts"
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.artifact-name }}
           if-no-files-found: error

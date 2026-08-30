@@ -3,6 +3,14 @@ name: "Deploy Blazor WASM to Azure SWA"
 on:
   workflow_call:
     inputs:
+      image-tag:
+        description: >-
+          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+          node — the pipeline modules run in-container, so no setup-node step
+          is needed. Pin to the commit short-sha of the workflow ref.
+        type: string
+        required: true
+
       environment:
         description: "Deployment environment (e.g., staging, production)"
         type: string
@@ -86,10 +94,16 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   deploy:
     name: "Deploy to ${{ inputs.environment }}"
     runs-on: "ubuntu-latest"
+    container:
+      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
     environment: ${{ inputs.environment }}
     permissions:
       contents: read
@@ -102,7 +116,7 @@ jobs:
     steps:
       - name: "Download Infrastructure Outputs"
         if: inputs.infrastructure-outputs-artifact-name != ''
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ inputs.infrastructure-outputs-artifact-name }}
 
@@ -112,44 +126,17 @@ jobs:
         env:
           OUTPUT_FILENAME: ${{ inputs.output-json-filename }}
           TOKEN_KEY: ${{ inputs.swa-token-output-key }}
-        run: |
-          set -euo pipefail
-
-          # Verify JSON file exists and is valid
-          if ! jq -e . $OUTPUT_FILENAME > /dev/null; then
-            echo "Infrastructure outputs JSON is not valid or is empty."
-            exit 1
-          fi
-
-          token=$(jq -r ".$TOKEN_KEY.value // empty" $OUTPUT_FILENAME)
-
-          if [ -z "$token" ]; then
-            echo "$TOKEN_KEY.value not found in infrastructure outputs JSON"
-            echo "Available top-level keys:"
-            jq -r 'paths | select(length==1) | join(".")' $OUTPUT_FILENAME || true
-            exit 1
-          fi
-
-          echo "::add-mask::${token}"
-          echo "token=${token}" >> $GITHUB_OUTPUT
+        run: node /opt/defined/pipelines/azure-swa-parse-outputs.mts
 
       - name: "Set SWA Token"
         id: token
-        run: |
-          if [ -n "${{ secrets.swa-token }}" ]; then
-              token="${{ secrets.swa-token }}"
-          elif [ -n "${{ steps.parse_outputs.outputs.token }}" ]; then
-              token="${{ steps.parse_outputs.outputs.token }}"
-          else
-              echo "ERROR: No SWA token provided (via secret or infrastructure outputs)"
-              exit 1
-          fi
-
-          echo "::add-mask::${token}"
-          echo "token=${token}" >> $GITHUB_OUTPUT
+        env:
+          SWA_TOKEN: ${{ secrets.swa-token }}
+          PARSED_TOKEN: ${{ steps.parse_outputs.outputs.token }}
+        run: node /opt/defined/pipelines/azure-swa-set-token.mts
 
       - name: "Download Frontend Artifact"
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ inputs.frontend-artifact-name }}
           path: ./publish
@@ -157,6 +144,8 @@ jobs:
       - name: "Debug - Verify File Structure"
         if: ${{ inputs.debug-output }}
         working-directory: ${{ inputs.app-location }}
+        env:
+          APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
         run: |
           echo "Current Directory..."
           pwd
@@ -165,56 +154,22 @@ jobs:
           ls -lah
           echo ""
           echo "Checking Appsettings.json..."
-          if [ -f "${{ inputs.appsettings-path }}" ]; then
-            echo "✓ Found at: ${{ inputs.appsettings-path }}"
-            echo "Size: $(wc -c < ${{ inputs.appsettings-path }}) bytes"
+          if [ -f "$APPSETTINGS_PATH" ]; then
+            echo "✓ Found at: $APPSETTINGS_PATH"
+            echo "Size: $(wc -c < "$APPSETTINGS_PATH") bytes"
             echo "Content preview:"
-            cat "${{ inputs.appsettings-path }}"
+            cat "$APPSETTINGS_PATH"
           else
-            echo "✗ NOT FOUND at: ${{ inputs.appsettings-path }}"
+            echo "✗ NOT FOUND at: $APPSETTINGS_PATH"
           fi
 
       - name: "Replace Tokens in appsettings.json"
         working-directory: ${{ inputs.app-location }}
-        shell: bash
         env:
           APPSETTINGS_PATH: ${{ inputs.appsettings-path }}
           DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
           APP_VERSION: ${{ inputs.app-version-value || github.sha }}
-        run: |
-          set -euo pipefail
-
-          SHORT_SHA=$(echo "$APP_VERSION" | cut -c1-8)
-
-          echo "Verifying appsettings.json exists and is non-empty..."
-          if [[ ! -f "$APPSETTINGS_PATH" ]]; then
-            echo "ERROR: appsettings.json not found at $APPSETTINGS_PATH"
-            exit 1
-          fi
-
-          if [[ ! -s "$APPSETTINGS_PATH" ]]; then
-            echo "ERROR: appsettings.json is empty at $APPSETTINGS_PATH"
-            exit 1
-          fi
-
-          echo "Processing appsettings.json at: $APPSETTINGS_PATH"
-
-          echo "Updating JSON values..."
-          jq --arg env "$DEPLOY_ENVIRONMENT" \
-            --arg ver "$SHORT_SHA" \
-            '.DeployEnvironment = $env | .AppVersion = $ver' \
-            "$APPSETTINGS_PATH" > temp.json
-
-          echo "Atomically replacing the original file..."
-          mv temp.json "$APPSETTINGS_PATH"
-
-          echo "Verifying the JSON is still valid after changes..."
-          if ! jq empty "$APPSETTINGS_PATH" 2>/dev/null; then
-            echo "ERROR: Generated JSON is invalid"
-            exit 1
-          fi
-
-          echo "✅ Successfully updated appsettings.json for $DEPLOY_ENVIRONMENT environment"
+        run: node /opt/defined/pipelines/azure-swa-appsettings.mts
 
       - name: "Deploy to Azure Static Web App"
         uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
