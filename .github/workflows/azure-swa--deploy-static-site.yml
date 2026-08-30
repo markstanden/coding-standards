@@ -3,6 +3,14 @@ name: "Deploy static site to Azure SWA"
 on:
   workflow_call:
     inputs:
+      image-tag:
+        description: >-
+          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+          node — the pipeline modules run in-container, so no setup-node step
+          is needed. Pin to the commit short-sha of the workflow ref.
+        type: string
+        required: true
+
       environment:
         description: "Deployment environment (e.g. staging, production)"
         type: string
@@ -68,10 +76,16 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   deploy:
     name: "Deploy to ${{ inputs.environment }}"
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
     environment: ${{ inputs.environment }}
     permissions:
       contents: read
@@ -83,10 +97,10 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Download infrastructure outputs
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ inputs.infrastructure-outputs-artifact-name }}
 
@@ -95,29 +109,11 @@ jobs:
         env:
           OUTPUT_FILENAME: ${{ inputs.output-json-filename }}
           TOKEN_KEY: ${{ inputs.swa-token-output-key }}
-        run: |
-          set -euo pipefail
-
-          if ! jq -e . "$OUTPUT_FILENAME" > /dev/null; then
-            echo "Infrastructure outputs JSON is not valid or is empty."
-            exit 1
-          fi
-
-          token=$(jq -r ".$TOKEN_KEY.value // empty" "$OUTPUT_FILENAME")
-          url=$(jq -r '.static_web_app_url.value // empty' "$OUTPUT_FILENAME")
-
-          if [ -z "$token" ]; then
-            echo "$TOKEN_KEY.value not found in infrastructure outputs JSON"
-            jq -r 'paths | select(length==1) | join(".")' "$OUTPUT_FILENAME" || true
-            exit 1
-          fi
-
-          echo "::add-mask::${token}"
-          echo "token=${token}" >> "$GITHUB_OUTPUT"
-          echo "url=${url}" >> "$GITHUB_OUTPUT"
+          URL_KEY: static_web_app_url
+        run: node /opt/defined/pipelines/azure-swa-parse-outputs.mts
 
       - name: Download frontend artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ inputs.frontend-artifact-name }}
           path: ${{ inputs.app-location }}
@@ -144,13 +140,7 @@ jobs:
 
       - name: Resolve deployment URL
         id: parse_url
-        run: |
-          url="${{ steps.deploy.outputs.static_web_app_url }}"
-          if [ -z "$url" ]; then
-            url="${{ steps.parse_outputs.outputs.url }}"
-          fi
-          if [ -z "$url" ]; then
-            echo "No deployment URL from SWA action or infrastructure outputs"
-            exit 1
-          fi
-          echo "url=${url}" >> "$GITHUB_OUTPUT"
+        env:
+          SWA_URL: ${{ steps.deploy.outputs.static_web_app_url }}
+          OUTPUTS_URL: ${{ steps.parse_outputs.outputs.url }}
+        run: node /opt/defined/pipelines/azure-swa-resolve-url.mts

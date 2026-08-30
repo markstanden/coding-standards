@@ -2,6 +2,13 @@ name: "Healthcheck - cURL Endpoint Check"
 on:
   workflow_call:
     inputs:
+      image-tag:
+        description: >-
+          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+          curl — the healthcheck loop runs in-container. Pin to the commit
+          short-sha of the workflow ref.
+        type: string
+        required: true
 
       base-url:
         description: "Base URL to test"
@@ -37,10 +44,16 @@ on:
         required: false
         default: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   healthcheck:
     name: "Healthcheck Endpoints"
     runs-on: "ubuntu-latest"
+    container:
+      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
     steps:
       - name: "Test endpoints"
         env:
@@ -49,37 +62,4 @@ jobs:
           MAX_TIMEOUT: ${{ inputs.timeout }}
           RETRY_ATTEMPTS: ${{ inputs.retries }}
           RETRY_DELAY: ${{ inputs.retry-delay }}
-        run: |
-          set -euo pipefail
-
-          # Parse JSON routes array into bash array
-          readarray -t ROUTES < <(echo "$ROUTES_ARRAY" | jq -r '.[]')
-
-          echo "Testing endpoints at: $BASE_URL"
-            failed_routes=()
-
-            for route in "${ROUTES[@]}"; do
-              FULL_URL="${BASE_URL}${route}"
-
-              if curl -fsS \
-                --max-time "$MAX_TIMEOUT" \
-                --retry "$RETRY_ATTEMPTS" \
-                --retry-all-errors \
-                --retry-delay "$RETRY_DELAY" \
-                -o /dev/null \
-                "$FULL_URL"; then
-                echo "✓ $FULL_URL is responding"
-              else
-                echo "✗ $FULL_URL failed"
-                failed_routes+=("$FULL_URL")
-              fi
-            done
-
-            if [ ${#failed_routes[@]} -gt 0 ]; then
-              echo ""
-              echo "❌ ${#failed_routes[@]} endpoint(s) failed:"
-              printf '  - %s\n' "${failed_routes[@]}"
-              exit 1
-            fi
-
-            echo "✅ All endpoints are responding"
+        run: node /opt/defined/pipelines/healthcheck-curl.mts

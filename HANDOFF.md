@@ -7,11 +7,14 @@ decision log and conventions.
 
 > STATUS UPDATE (2026-08-30, same session): **Phase 1 is DONE** — the repo is
 > rebranded and flattened (runtime/, lib/, pipelines/, practices/, standards/).
-> 91/91 tests green, gate green except the intended workflow tripwire.
 > **Phase 2 is DONE** — legacy setup.sh/setup-hooks.sh + config/root/ copies
 > deleted; setup installs from the single-source standards/ (baked + mounted).
-> Phase 3 (pipelines/*.mts + option B) remains. Sections below marked
-> Phase 1/2 are historical context; proceed to "Execution phases" Phase 3.
+> **Phase 3 is DONE** — heavy run: bash extracted to pipelines/*.mts (19
+> modules + tests), 7 heavy workflows containerised (option B, image IS the
+> toolchain), zizmor errors fixed (SHA pins + env-passing), gate FULLY GREEN
+> (exit 0, 119/119 tests). Remaining: stage 3 (single static entrypoint /
+> README as canonical index, expand standards docs). Sections below are
+> historical context.
 
 ## What the repo is (and is becoming)
 

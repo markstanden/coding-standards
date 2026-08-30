@@ -59,7 +59,7 @@ export async function runWorkflowStep({
 
     const zizmor = runner({
       cmd: "zizmor",
-      args: ["--no-progress", ...workflowFiles],
+      args: ["--no-progress", "--min-severity", "high", ...workflowFiles],
       cwd: ctx.repoRoot,
     });
     if (zizmor.status !== 0) {

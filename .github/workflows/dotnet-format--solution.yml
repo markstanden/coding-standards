@@ -23,15 +23,15 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - name: "Checkout repo"
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: "Setup .NET"
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
         with:
           dotnet-version: ${{ inputs.dotnet-version }}
 
       - name: "Cache NuGet packages"
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
         continue-on-error: true
         with:
           path: ~/.nuget/packages
@@ -45,11 +45,13 @@ jobs:
       - name: "Add format summary"
         if: always()
         run: |
-          echo "### Format Check Results" >> $GITHUB_STEP_SUMMARY
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "Code meets formatting standards" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Code formatting issues detected" >> $GITHUB_STEP_SUMMARY
-            echo "Run \`dotnet format\` locally with the correct \`.editorconfig\`" >> $GITHUB_STEP_SUMMARY
-            echo "to meet required standards." >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "### Format Check Results"
+            if [ "${{ job.status }}" == 'success' ]; then
+              echo "Code meets formatting standards"
+            else
+              echo "Code formatting issues detected"
+              echo "Run \`dotnet format\` locally with the correct \`.editorconfig\`"
+              echo "to meet required standards."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

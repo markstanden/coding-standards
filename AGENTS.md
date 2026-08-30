@@ -41,13 +41,19 @@ aren't relitigated:
   optional tier).
 - **Run the full suite continuously**: host `node --test` *and* the podman
   end-to-end gate (`./runtime/verify.sh`) — host-green does not mean
-  gate-green (2026-08-30: unit suite passed 91/91 while the gate went red on
-  real workflow-template findings). `node --test` also runs the broken-fixture
-  integration test (`runtime/fixture.test.mts`), which drives the real gate
-  against a deliberately-broken repo and skips cleanly without a container
-  engine. The gate is currently red on purpose (deferred workflow fixes, see
-  PLAN.md status) and must stay that way until the fixes land — the failing
-  `workflow` step is the tripwire that flags deviations.
+  gate-green (2026-08-30: the unit suite passed while the gate went red on
+  real workflow-template findings until the stage-2 refactor fixed them).
+  `node --test` also runs the broken-fixture integration test
+  (`runtime/fixture.test.mts`), which drives the real gate against a
+  deliberately-broken repo and skips cleanly without a container engine.
+  The gate is now fully green; keeping it green is the tripwire — any new
+  workflow-template deviation fails the `workflow` step again.
+- Pipeline modules live in `pipelines/*.mts` (thin zero-dep wrappers over the
+  shared `lib/` building blocks), baked into the image at
+  `/opt/defined/pipelines` and invoked by containerised workflow jobs as
+  `node /opt/defined/pipelines/<module>.mts` with inputs via env. The image
+  tag IS the toolchain for containerised workflows — no setup-opentofu/
+  setup-dotnet/setup-node steps needed.
 
 ## Conventions
 

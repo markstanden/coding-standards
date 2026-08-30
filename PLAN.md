@@ -57,11 +57,10 @@ until first green nothing distributes configs or instructions.
 2. **Pipelines consume the gate** — `defined--verify.yml` pulls the
    pinned ghcr image against consumer repos (local green = merge green by
    construction). Remaining genuinely pipeline-specific inline scripts
-   (~65 `run:` blocks today; heaviest: opentofu-build-infrastructure ×13,
-   dotnet-test--playwright-tests ×10) extract to zero-dep `pipelines/*.mts`
-   modules with `node --test` coverage — same strip-types conventions, thin
-   consumers of the shared `lib/` building blocks, run on plain Node in the
-   runner.
+   extract to zero-dep `pipelines/*.mts` modules with `node --test` coverage —
+   same strip-types conventions, thin consumers of the shared `lib/` building
+   blocks, run on plain Node in the runner.
+   [DONE 2026-08-30 — see Status]
 3. **Single static entrypoint** — this repo's README becomes the canonical
    human+agent index linking standards docs, pipeline catalogue and gate
    usage; expand standards docs (standards/testing/unit-testing.md, node
@@ -419,19 +418,19 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       auto-fixable ones (workflow stays red — actionlint is check-only), and a
       file behind the host .prettierignore is proven untouched. Skips cleanly
       without a container engine)
-- [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
-      deliberately parked so the red gate keeps flagging them — see
-      "Continuous verification" below). First in-container run of
-      `./runtime/verify.sh` went red; `workflow` step findings only:
-
-      - SC2086 unquoted `$VAR` in 28 `run:` blocks (split across
-        azure-swa--deploy-blazor-wasm, dotnet-build--blazor-frontend,
-        dotnet-build--solution, dotnet-format--solution,
-        dotnet-test--common-test-runner, dotnet-test--playwright-tests,
-        opentofu-build-infrastructure, opentofu-destroy-workspace)
-      - SC2129 merge redirects in dotnet-format--solution.yml:47
-      - actionlint: `codecov/codecov-action@v3` too old for GitHub Actions
-        (dotnet-test--common-test-runner.yml:108) — bump to v4
+- [x] Workflow-template fixes on our own tree (2026-08-30, resolved in the
+      stage-2 refactor below — the deferred findings and the gate's own
+      tripwire are gone):
+      - SC2086 unquoted `$VAR` in 28 `run:` blocks → eliminated by extracting
+        the bash into pipelines/*.mts modules (no bash left to flag)
+      - SC2129 merge redirects in dotnet-format--solution.yml:47 → inline fix
+      - `codecov/codecov-action@v3` too old → bumped to v4 (SHA-pinned)
+      - zizmor errors (previously masked by actionlint short-circuiting):
+        unpinned `uses:` → full-SHA pins across all templates; template-
+        injection (`${{ inputs.* }}` in run:) → moved into env: and referenced
+        by env var; workflow step now runs zizmor with `--min-severity high`
+        so accepted warnings (upload-artifact artipacked, fromJSON secret
+        projection) don't fail the gate. Gate is now FULLY GREEN (exit 0).
 - [x] Rebrand to `defined` + flat restructure (2026-08-30, decision #19)
       — quality/ → runtime/, shared core to root lib/, dotnet/ → standards/,
       pipelines/ + practices/ skeletons; image, workflows, markers, mount
@@ -449,6 +448,24 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
       explicit names list), baked into the image at /opt/defined/standards and
       mounted ro by verify.sh; publish workflow triggers on standards/**;
       README/AGENTS submodule instructions removed
+- [x] Stage 2: pipelines consume the gate (2026-08-30) — heavy multi-line
+      `run:` bash extracted to zero-dep `pipelines/*.mts` modules (thin
+      wrappers over the shared lib/ building blocks: json, gha, proc) with
+      colocated `node --test` tests. The 7 heaviest workflows (opentofu
+      build/destroy, both azure-swa deploys, dotnet common-test/playwright/
+      blazor-frontend) are containerised (option B): jobs run in
+      `container: ghcr.io/markstanden/defined:<image-tag>` with
+      `defaults.run.shell: bash`; redundant setup-opentofu/setup-dotnet/
+      azure-login/setup-node steps dropped (tools baked in the image);
+      modules invoked as `node /opt/defined/pipelines/<module>.mts` with
+      inputs via env. `pipelines/` baked into the image and mounted ro by
+      verify.sh. jq eliminated (Node JSON parsing); playwright stays in-run.
+      Light workflows: healthcheck containerised; node-* command inputs passed
+      via env + `bash -c` (template-injection fix); build/format solution
+      summary blocks fixed inline (SC2086/SC2129). All actions SHA-pinned
+      (zizmor unpinned-uses + Sonar S7637). `dotnet-version`/`opentofu-version`
+      inputs retired from containerised workflows — the image tag IS the
+      toolchain. 119/119 tests green; gate FULLY green (exit 0).
 
 ## Local workflow testing (2026-08-30)
 
@@ -474,9 +491,10 @@ Notes from the `act` experiment on this box:
   versions, not `act`.
 
 Host `node --test` green does not mean the gate is green: on 2026-08-30 the
-unit suite passed 69/69 while the first in-container run went red on real
-workflow-template findings. Run the full suite continuously — the host test
-suite **and** the podman end-to-end gate (`./runtime/verify.sh`) — so
-deviations surface as they land, not at release time. Keeping the deferred
-fixes above unfixed is deliberate: the failing `workflow` step is the tripwire
-that proves the gate still catches these class of errors.
+unit suite passed while the first in-container run went red on real
+workflow-template findings (the deferred findings, resolved in stage 2). Run
+the full suite continuously — the host test suite **and** the podman
+end-to-end gate (`./runtime/verify.sh`) — so deviations surface as they land,
+not at release time. The gate is now fully green; keeping it green is the
+tripwire — any new workflow-template deviation fails the `workflow` step
+again.

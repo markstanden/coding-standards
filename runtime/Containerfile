@@ -2,14 +2,14 @@
 #
 # Official node slim base, digest-pinned via tool-versions.env (multi-arch
 # manifest list, so arm64 works unmodified). Build context is the repo root so
-# the runtime (gate code), the shared lib/ and the standards/ dir can all be
-# baked in: the published image is fully self-contained (code + configs +
-# standards + tools) for CI consumers who vendor nothing. Locally, verify.sh
-# bind-mounts runtime/, lib/ and standards/ read-only at /opt/defined/* —
-# shadowing the baked copies — so local edits run without a rebuild; only tool
-# pins change this image's local tag. Base image pins arrive as build args from
-# verify.sh (which sources tool-versions.env) so that file remains the single
-# source of truth.
+# the runtime (gate code), the shared lib/, the standards/ dir and the
+# pipeline modules can all be baked in: the published image is fully
+# self-contained (code + configs + standards + pipelines + tools) for CI
+# consumers who vendor nothing. Locally, verify.sh bind-mounts runtime/, lib/
+# and standards/ read-only at /opt/defined/* — shadowing the baked copies — so
+# local edits run without a rebuild; only tool pins change this image's local
+# tag. Base image pins arrive as build args from verify.sh (which sources
+# tool-versions.env) so that file remains the single source of truth.
 ARG NODE_IMAGE_TAG
 ARG NODE_IMAGE_DIGEST
 
@@ -76,13 +76,14 @@ RUN set -eux; \
     test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}"; \
     dotnet --info >/dev/null
 
-# Bake the runtime, shared lib and standards in so the published image is
-# self-contained. Local runs still bind-mount runtime/ + lib/ ro over these
-# paths (live edits, no rebuild); CI consumers use the baked copies and vendor
-# nothing.
+# Bake the runtime, shared lib, standards and pipeline modules in so the
+# published image is self-contained. Local runs still bind-mount runtime/ +
+# lib/ ro over these paths (live edits, no rebuild); CI consumers use the
+# baked copies and vendor nothing.
 COPY runtime /opt/defined/runtime
 COPY lib /opt/defined/lib
 COPY standards /opt/defined/standards
+COPY pipelines /opt/defined/pipelines
 
 WORKDIR /repo
 ENTRYPOINT ["node", "/opt/defined/runtime/verify.mts"]

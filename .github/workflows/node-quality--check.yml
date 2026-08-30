@@ -98,10 +98,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
@@ -109,27 +109,37 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ inputs.project-path }}
-        run: ${{ inputs.install-command }}
+        env:
+          INSTALL_CMD: ${{ inputs.install-command }}
+        run: bash -c "$INSTALL_CMD"
 
       - name: Format check
         if: inputs.run-format-check
         working-directory: ${{ inputs.project-path }}
-        run: ${{ inputs.format-check-command }}
+        env:
+          FORMAT_CMD: ${{ inputs.format-check-command }}
+        run: bash -c "$FORMAT_CMD"
 
       - name: Lint check
         if: inputs.run-lint-check
         working-directory: ${{ inputs.project-path }}
-        run: ${{ inputs.lint-check-command }}
+        env:
+          LINT_CMD: ${{ inputs.lint-check-command }}
+        run: bash -c "$LINT_CMD"
 
       - name: Compile check
         if: inputs.run-compile-check
         working-directory: ${{ inputs.project-path }}
-        run: ${{ inputs.compile-check-command }}
+        env:
+          COMPILE_CMD: ${{ inputs.compile-check-command }}
+        run: bash -c "$COMPILE_CMD"
 
       - name: Test check
         if: inputs.run-test-check
         working-directory: ${{ inputs.project-path }}
-        run: ${{ inputs.test-check-command }}
+        env:
+          TEST_CMD: ${{ inputs.test-check-command }}
+        run: bash -c "$TEST_CMD"
 
       - name: Debug package scripts
         if: inputs.debug-output
