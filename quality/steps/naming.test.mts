@@ -5,31 +5,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { CommandResult } from "../lib/proc.mts";
 import { runNamingStep } from "./naming.mts";
-
-function fakeRunner(
-  outcomes: Record<string, { status: number; stdout?: string; stderr?: string }>,
-): { runner: typeof import("../lib/proc.mts").run; calls: string[][] } {
-  const calls: string[][] = [];
-  const runner = (({ cmd, args }: { cmd: string; args: string[] }) => {
-    calls.push([cmd, ...args]);
-    const o = outcomes[cmd] ?? { status: 0 };
-    return {
-      status: o.status,
-      stdout: o.stdout ?? "",
-      stderr: o.stderr ?? "",
-    } satisfies CommandResult;
-  }) as typeof import("../lib/proc.mts").run;
-  return { runner, calls };
-}
-
-const baseCtx = {
-  mode: "no-fix" as const,
-  silent: false,
-  help: false as const,
-  repoRoot: "/repo",
-};
+import { baseCtx, fakeRunner } from "../test-helpers.mts";
 
 test("runNamingStep skips cleanly when not enabled", async () => {
   const { runner, calls } = fakeRunner({});

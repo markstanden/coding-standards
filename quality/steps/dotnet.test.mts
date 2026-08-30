@@ -5,32 +5,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { CommandResult } from "../lib/proc.mts";
 import { filterDotNetFiles, discoverWorkspace, runDotNetStep } from "./dotnet.mts";
-
-function fakeRunner(
-  outcomes: Record<string, { status: number; stdout?: string; stderr?: string }>,
-): { runner: typeof import("../lib/proc.mts").run; calls: string[][] } {
-  const calls: string[][] = [];
-  const runner = (({ cmd, args, cwd }: { cmd: string; args: string[]; cwd?: string }) => {
-    calls.push([cmd, ...args, cwd ?? ""]);
-    const key = `${cmd} ${args[0] ?? ""}`.trim();
-    const o = outcomes[key] ?? outcomes[cmd] ?? { status: 0 };
-    return {
-      status: o.status,
-      stdout: o.stdout ?? "",
-      stderr: o.stderr ?? "",
-    } satisfies CommandResult;
-  }) as typeof import("../lib/proc.mts").run;
-  return { runner, calls };
-}
-
-const baseCtx = {
-  mode: "no-fix" as const,
-  silent: false,
-  help: false as const,
-  repoRoot: "/repo",
-};
+import { baseCtx, fakeRunner } from "../test-helpers.mts";
 
 test("filterDotNetFiles finds csproj, sln, slnx files", () => {
   assert.deepEqual(
@@ -67,14 +43,14 @@ test("discoverWorkspace throws on multiple projects with no solution", () => {
 });
 
 test("runDotNetStep skips cleanly when no .NET files tracked", async () => {
-  const { runner, calls } = fakeRunner({});
+  const { runner, calls } = fakeRunner({}, true);
   const result = await runDotNetStep({ ctx: baseCtx, trackedFiles: ["a.sh", "b.yml"], runner });
   assert.equal(result.status, "skip");
   assert.equal(calls.length, 0);
 });
 
 test("check mode runs restore, format --verify-no-changes, build, test", async () => {
-  const { runner, calls } = fakeRunner({});
+  const { runner, calls } = fakeRunner({}, true);
   const result = await runDotNetStep({
     ctx: baseCtx,
     trackedFiles: ["src/MyProj.csproj"],
@@ -92,7 +68,7 @@ test("check mode runs restore, format --verify-no-changes, build, test", async (
 });
 
 test("fix mode runs restore then format then re-verify, build, test", async () => {
-  const { runner, calls } = fakeRunner({});
+  const { runner, calls } = fakeRunner({}, true);
   const result = await runDotNetStep({ ctx: { ...baseCtx, mode: "fix" }, trackedFiles: ["src/MyProj.csproj"], runner });
   assert.equal(result.status, "pass");
   const cmds = calls.map((c) => c[0]);
@@ -106,7 +82,7 @@ test("fix mode runs restore then format then re-verify, build, test", async () =
 });
 
 test("restore failure fails the step before any build", async () => {
-  const { runner, calls } = fakeRunner({ "dotnet restore": { status: 1, stderr: "restore error" } });
+  const { runner, calls } = fakeRunner({ "dotnet restore": { status: 1, stderr: "restore error" } }, true);
   const result = await runDotNetStep({ ctx: baseCtx, trackedFiles: ["src/MyProj.csproj"], runner });
   assert.equal(result.status, "fail");
   assert.ok((result.notice ?? "").includes("dotnet: restore"));
@@ -114,21 +90,21 @@ test("restore failure fails the step before any build", async () => {
 });
 
 test("format failure in fix mode fails the step", async () => {
-  const { runner, calls } = fakeRunner({ "dotnet format": { status: 1, stderr: "format error" } });
+  const { runner, calls } = fakeRunner({ "dotnet format": { status: 1, stderr: "format error" } }, true);
   const result = await runDotNetStep({ ctx: { ...baseCtx, mode: "fix" }, trackedFiles: ["src/MyProj.csproj"], runner });
   assert.equal(result.status, "fail");
   assert.ok((result.notice ?? "").includes("dotnet: format"));
 });
 
 test("build failure fails the step", async () => {
-  const { runner } = fakeRunner({ "dotnet build": { status: 1, stderr: "build error" } });
+  const { runner } = fakeRunner({ "dotnet build": { status: 1, stderr: "build error" } }, true);
   const result = await runDotNetStep({ ctx: baseCtx, trackedFiles: ["src/MyProj.csproj"], runner });
   assert.equal(result.status, "fail");
   assert.ok((result.notice ?? "").includes("dotnet: build"));
 });
 
 test("test failure fails the step", async () => {
-  const { runner } = fakeRunner({ "dotnet test": { status: 1, stdout: "Failed: 1" } });
+  const { runner } = fakeRunner({ "dotnet test": { status: 1, stdout: "Failed: 1" } }, true);
   const result = await runDotNetStep({ ctx: baseCtx, trackedFiles: ["src/MyProj.csproj"], runner });
   assert.equal(result.status, "fail");
   assert.ok((result.notice ?? "").includes("dotnet: test"));

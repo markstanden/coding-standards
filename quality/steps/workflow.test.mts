@@ -5,32 +5,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { CommandResult } from "../lib/proc.mts";
 import { filterWorkflowFiles, runWorkflowStep } from "./workflow.mts";
-
-function fakeRunner(
-  outcomes: Record<string, { status: number; stdout?: string; stderr?: string }>,
-): { runner: typeof import("../lib/proc.mts").run; calls: string[][] } {
-  const calls: string[][] = [];
-  const runner = (({ cmd, args, cwd }: { cmd: string; args: string[]; cwd?: string }) => {
-    calls.push([cmd, ...args, cwd ?? ""]);
-    const key = `${cmd} ${args[0] ?? ""}`.trim();
-    const o = outcomes[key] ?? outcomes[cmd] ?? { status: 0 };
-    return {
-      status: o.status,
-      stdout: o.stdout ?? "",
-      stderr: o.stderr ?? "",
-    } satisfies CommandResult;
-  }) as typeof import("../lib/proc.mts").run;
-  return { runner, calls };
-}
-
-const baseCtx = {
-  mode: "no-fix" as const,
-  silent: false,
-  help: false as const,
-  repoRoot: "/repo",
-};
+import { baseCtx, fakeRunner } from "../test-helpers.mts";
 
 test("filterWorkflowFiles finds .github/workflows/*.yml and dependabot.yml", () => {
   assert.deepEqual(
@@ -49,7 +25,7 @@ test("filterWorkflowFiles ignores non-workflow yaml in .github/", () => {
 });
 
 test("runWorkflowStep skips actionlint/zizmor when no workflow files", async () => {
-  const { runner, calls } = fakeRunner({});
+  const { runner, calls } = fakeRunner({}, true);
   const result = await runWorkflowStep({ ctx: baseCtx, trackedFiles: ["a.sh", "b.yml"], runner });
   assert.equal(result.status, "pass");
   assert.ok((result.notice ?? "").includes("no workflow files"));
@@ -59,7 +35,7 @@ test("runWorkflowStep skips actionlint/zizmor when no workflow files", async () 
 });
 
 test("actionlint runs on workflow files, then zizmor, then gitleaks", async () => {
-  const { runner, calls } = fakeRunner({});
+  const { runner, calls } = fakeRunner({}, true);
   const result = await runWorkflowStep({
     ctx: baseCtx,
     trackedFiles: [".github/workflows/ci.yml"],
@@ -77,7 +53,7 @@ test("actionlint runs on workflow files, then zizmor, then gitleaks", async () =
 });
 
 test("actionlint failure fails the step", async () => {
-  const { runner } = fakeRunner({ "actionlint": { status: 1, stderr: "actionlint error" } });
+  const { runner } = fakeRunner({ "actionlint": { status: 1, stderr: "actionlint error" } }, true);
   const result = await runWorkflowStep({
     ctx: baseCtx,
     trackedFiles: [".github/workflows/ci.yml"],
@@ -88,7 +64,7 @@ test("actionlint failure fails the step", async () => {
 });
 
 test("zizmor failure fails the step", async () => {
-  const { runner } = fakeRunner({ "zizmor": { status: 1, stderr: "zizmor error" } });
+  const { runner } = fakeRunner({ "zizmor": { status: 1, stderr: "zizmor error" } }, true);
   const result = await runWorkflowStep({
     ctx: baseCtx,
     trackedFiles: [".github/workflows/ci.yml"],
@@ -99,7 +75,7 @@ test("zizmor failure fails the step", async () => {
 });
 
 test("gitleaks failure fails the step", async () => {
-  const { runner } = fakeRunner({ "gitleaks": { status: 1, stdout: "leaks found" } });
+  const { runner } = fakeRunner({ "gitleaks": { status: 1, stdout: "leaks found" } }, true);
   const result = await runWorkflowStep({
     ctx: baseCtx,
     trackedFiles: [".github/workflows/ci.yml"],
@@ -110,7 +86,7 @@ test("gitleaks failure fails the step", async () => {
 });
 
 test("gitleaks scans repo root, not just workflow files", async () => {
-  const { runner, calls } = fakeRunner({});
+  const { runner, calls } = fakeRunner({}, true);
   await runWorkflowStep({ ctx: baseCtx, trackedFiles: [".github/workflows/ci.yml"], runner });
   const gitleaksCall = calls.find((c) => c[0] === "gitleaks")!;
   assert.deepEqual(gitleaksCall.slice(1, 3), ["dir", "."]);
