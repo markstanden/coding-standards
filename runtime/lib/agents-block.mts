@@ -12,17 +12,21 @@ export const BLOCK_START = "<!-- defined:start -->";
 export const BLOCK_END = "<!-- defined:end -->";
 
 function isErrno(err: unknown, code: string): boolean {
-  return (err as NodeJS.ErrnoException).code === code;
+    return (err as NodeJS.ErrnoException).code === code;
 }
 
 /** Read a file's text, returning "" when it does not exist. */
-export async function readContentsOrEmpty({ filePath }: { filePath: string }): Promise<string> {
-  try {
-    return await readFile(filePath, "utf8");
-  } catch (err) {
-    if (isErrno(err, "ENOENT")) return "";
-    throw err;
-  }
+export async function readContentsOrEmpty({
+    filePath,
+}: {
+    filePath: string;
+}): Promise<string> {
+    try {
+        return await readFile(filePath, "utf8");
+    } catch (err) {
+        if (isErrno(err, "ENOENT")) return "";
+        throw err;
+    }
 }
 
 /**
@@ -31,17 +35,21 @@ export async function readContentsOrEmpty({ filePath }: { filePath: string }): P
  * marker is missing or out of order, so a malformed template fails in setup,
  * never mid-install.
  */
-export async function readMarkedBlock({ templatePath }: { templatePath: string }): Promise<string> {
-  const text = await readFile(templatePath, "utf8");
-  const lines = text.split("\n");
-  const startLine = lines.findIndex((l) => l.includes(BLOCK_START));
-  const endLine = lines.findIndex((l) => l.includes(BLOCK_END));
-  if (startLine === -1 || endLine === -1 || startLine > endLine) {
-    throw new Error(
-      `template ${templatePath} must contain ${BLOCK_START} before ${BLOCK_END}`,
-    );
-  }
-  return lines.slice(startLine, endLine + 1).join("\n");
+export async function readMarkedBlock({
+    templatePath,
+}: {
+    templatePath: string;
+}): Promise<string> {
+    const text = await readFile(templatePath, "utf8");
+    const lines = text.split("\n");
+    const startLine = lines.findIndex((l) => l.includes(BLOCK_START));
+    const endLine = lines.findIndex((l) => l.includes(BLOCK_END));
+    if (startLine === -1 || endLine === -1 || startLine > endLine) {
+        throw new Error(
+            `template ${templatePath} must contain ${BLOCK_START} before ${BLOCK_END}`,
+        );
+    }
+    return lines.slice(startLine, endLine + 1).join("\n");
 }
 
 /**
@@ -51,35 +59,38 @@ export async function readMarkedBlock({ templatePath }: { templatePath: string }
  * the marked lines are replaced, everything else untouched.
  */
 export async function writeMarkedBlock({
-  filePath,
-  block,
+    filePath,
+    block,
 }: {
-  filePath: string;
-  block: string;
+    filePath: string;
+    block: string;
 }): Promise<void> {
-  const existing = await readContentsOrEmpty({ filePath });
-  const lines = existing === "" ? [] : existing.split("\n");
-  const startLine = lines.findIndex((l) => l.includes(BLOCK_START));
-  const endLine = lines.findIndex((l) => l.includes(BLOCK_END));
-  if ((startLine === -1) !== (endLine === -1) || (startLine !== -1 && startLine > endLine)) {
-    throw new Error(
-      `${filePath} has a half-written or out-of-order defined block — resolve by hand, do not rerun`,
-    );
-  }
+    const existing = await readContentsOrEmpty({ filePath });
+    const lines = existing === "" ? [] : existing.split("\n");
+    const startLine = lines.findIndex((l) => l.includes(BLOCK_START));
+    const endLine = lines.findIndex((l) => l.includes(BLOCK_END));
+    if (
+        (startLine === -1) !== (endLine === -1) ||
+        (startLine !== -1 && startLine > endLine)
+    ) {
+        throw new Error(
+            `${filePath} has a half-written or out-of-order defined block — resolve by hand, do not rerun`,
+        );
+    }
 
-  const blockLines = block.split("\n");
-  let next: string;
-  if (startLine === -1) {
-    // A content file that ends with "\n" splits into a trailing ""; dropping
-    // it before appending keeps the block's marker as the sole separator
-    // (no stray blank line), and is stable across re-runs.
-    const base = lines.at(-1) === "" ? lines.slice(0, -1) : lines;
-    next = base.concat(blockLines).join("\n");
-  } else {
-    next = lines
-      .slice(0, startLine)
-      .concat(blockLines, lines.slice(endLine + 1))
-      .join("\n");
-  }
-  await writeFile(filePath, next);
+    const blockLines = block.split("\n");
+    let next: string;
+    if (startLine === -1) {
+        // A content file that ends with "\n" splits into a trailing ""; dropping
+        // it before appending keeps the block's marker as the sole separator
+        // (no stray blank line), and is stable across re-runs.
+        const base = lines.at(-1) === "" ? lines.slice(0, -1) : lines;
+        next = base.concat(blockLines).join("\n");
+    } else {
+        next = lines
+            .slice(0, startLine)
+            .concat(blockLines, lines.slice(endLine + 1))
+            .join("\n");
+    }
+    await writeFile(filePath, next);
 }

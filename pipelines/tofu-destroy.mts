@@ -16,56 +16,74 @@ import { resolve } from "node:path";
 import { run, type Runner } from "../lib/proc.mts";
 
 export interface TofuDestroyInput {
-  infraDir?: string;
-  buildEnv: string;
+    infraDir?: string;
+    buildEnv: string;
 }
 
 /**
  * Select the target workspace when it exists, show state, then destroy.
  * Returns whether anything was destroyed.
  */
-export function runTofuDestroy({ infraDir, buildEnv, runner = run }: TofuDestroyInput & { runner?: Runner }): boolean {
-  const cwd = infraDir ? resolve(infraDir) : process.cwd();
+export function runTofuDestroy({
+    infraDir,
+    buildEnv,
+    runner = run,
+}: TofuDestroyInput & { runner?: Runner }): boolean {
+    const cwd = infraDir ? resolve(infraDir) : process.cwd();
 
-  if (buildEnv !== "default") {
-    const select = runner({ cmd: "tofu", args: ["workspace", "select", buildEnv], cwd });
-    if (select.status !== 0) {
-      return false;
+    if (buildEnv !== "default") {
+        const select = runner({
+            cmd: "tofu",
+            args: ["workspace", "select", buildEnv],
+            cwd,
+        });
+        if (select.status !== 0) {
+            return false;
+        }
     }
-  }
 
-  // Show current state for diagnostics (the original "Show current state"
-  // step; failures are non-fatal there, so ignore the status).
-  runner({ cmd: "tofu", args: ["workspace", "show"], cwd });
-  runner({ cmd: "tofu", args: ["state", "list"], cwd });
+    // Show current state for diagnostics (the original "Show current state"
+    // step; failures are non-fatal there, so ignore the status).
+    runner({ cmd: "tofu", args: ["workspace", "show"], cwd });
+    runner({ cmd: "tofu", args: ["state", "list"], cwd });
 
-  const destroy = runner({ cmd: "tofu", args: ["destroy", "-auto-approve", "-input=false"], cwd });
-  if (destroy.status !== 0) {
-    // Mirrors the original: destroy failure prints state for diagnostics.
-    const state = runner({ cmd: "tofu", args: ["state", "list"], cwd });
-    throw new Error(
-      `tofu destroy failed (${destroy.status}):\n${destroy.stderr}\n${state.stdout}`,
-    );
-  }
-  return true;
+    const destroy = runner({
+        cmd: "tofu",
+        args: ["destroy", "-auto-approve", "-input=false"],
+        cwd,
+    });
+    if (destroy.status !== 0) {
+        // Mirrors the original: destroy failure prints state for diagnostics.
+        const state = runner({ cmd: "tofu", args: ["state", "list"], cwd });
+        throw new Error(
+            `tofu destroy failed (${destroy.status}):\n${destroy.stderr}\n${state.stdout}`,
+        );
+    }
+    return true;
 }
 
 async function main(): Promise<void> {
-  const buildEnv = process.env.BUILD_ENV ?? "default";
-  const destroyed = runTofuDestroy({
-    infraDir: process.env.INFRA_DIR,
-    buildEnv,
-  });
+    const buildEnv = process.env.BUILD_ENV ?? "default";
+    const destroyed = runTofuDestroy({
+        infraDir: process.env.INFRA_DIR,
+        buildEnv,
+    });
 
-  const file = process.env.GITHUB_OUTPUT;
-  if (file) {
-    await appendFile(file, `selected=${destroyed ? buildEnv : ""}\n`, "utf8");
-  }
-  if (!destroyed) {
-    console.log(`workspace '${buildEnv}' does not exist; nothing to destroy`);
-  }
+    const file = process.env.GITHUB_OUTPUT;
+    if (file) {
+        await appendFile(
+            file,
+            `selected=${destroyed ? buildEnv : ""}\n`,
+            "utf8",
+        );
+    }
+    if (!destroyed) {
+        console.log(
+            `workspace '${buildEnv}' does not exist; nothing to destroy`,
+        );
+    }
 }
 
 if (import.meta.main) {
-  await main();
+    await main();
 }

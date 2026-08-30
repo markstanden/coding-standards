@@ -35,16 +35,16 @@ the image.
 3. **Gate in CI** — call the reusable `defined--verify.yml` workflow, pinned
    to a git sha with a matching image tag:
 
-   ```yaml
-   jobs:
-     quality:
-       uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
-       with:
-         image-tag: <shortsha>
-   ```
+    ```yaml
+    jobs:
+        quality:
+            uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
+            with:
+                image-tag: <shortsha>
+    ```
 
-   The image tag IS the release: pin the workflow ref and image tag to the
-   same commit so local green = merge green by construction.
+    The image tag IS the release: pin the workflow ref and image tag to the
+    same commit so local green = merge green by construction.
 
 ## Workflow template catalogue
 
@@ -52,19 +52,19 @@ Reusable `workflow_call` templates under `.github/workflows/`. Call any of
 these from a consumer pipeline via a gitsha-pinned ref. Filename grammar:
 `<namespace>--<loose-verb>[--<target>]` (see [`standards/naming.md`](standards/naming.md)).
 
-| Template | What it runs |
-| --- | --- |
-| `defined--verify.yml` | The gate itself (quality scan for any repo) |
-| `dotnet--analyse--sonarqube.yml` | SonarQube analysis (outside the gate by design) |
-| `dotnet--build--blazor-frontend.yml` | Blazor WASM frontend build (npm + dotnet) |
-| `dotnet--test--playwright-tests.yml` | Playwright end-to-end tests |
-| `node--build--frontend.yml` | Node frontend build |
-| `node--test--playwright.yml` | Playwright tests for a node project |
-| `azure-swa--deploy--blazor-wasm.yml` | Deploy Blazor WASM to Azure Static Web Apps |
-| `azure-swa--deploy--static-site.yml` | Deploy a static site to Azure Static Web Apps |
-| `opentofu--build--infrastructure.yml` | OpenTofu init/plan/apply with outputs |
-| `opentofu--destroy--workspace.yml` | OpenTofu workspace destroy |
-| `healthcheck--verify--endpoints.yml` | cURL healthchecks against a route list |
+| Template                              | What it runs                                    |
+| ------------------------------------- | ----------------------------------------------- |
+| `defined--verify.yml`                 | The gate itself (quality scan for any repo)     |
+| `dotnet--analyse--sonarqube.yml`      | SonarQube analysis (outside the gate by design) |
+| `dotnet--build--blazor-frontend.yml`  | Blazor WASM frontend build (npm + dotnet)       |
+| `dotnet--test--playwright-tests.yml`  | Playwright end-to-end tests                     |
+| `node--build--frontend.yml`           | Node frontend build                             |
+| `node--test--playwright.yml`          | Playwright tests for a node project             |
+| `azure-swa--deploy--blazor-wasm.yml`  | Deploy Blazor WASM to Azure Static Web Apps     |
+| `azure-swa--deploy--static-site.yml`  | Deploy a static site to Azure Static Web Apps   |
+| `opentofu--build--infrastructure.yml` | OpenTofu init/plan/apply with outputs           |
+| `opentofu--destroy--workspace.yml`    | OpenTofu workspace destroy                      |
+| `healthcheck--verify--endpoints.yml`  | cURL healthchecks against a route list          |
 
 A full example pipeline is in [`standards/workflows/pipeline.example.yml`](standards/workflows/pipeline.example.yml).
 

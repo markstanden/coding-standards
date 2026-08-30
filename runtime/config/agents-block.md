@@ -1,4 +1,5 @@
 <!-- defined:start -->
+
 This project is gated by Mark's portable defined gate (`runtime/`).
 House standards, tool pins and the decision log live in the gate's PLAN.md;
 the canonical cross-project index is the coding-standards README. Run

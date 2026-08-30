@@ -14,17 +14,22 @@ type RunResult = { status?: number; stdout?: string; stderr?: string };
  * Scriptable fake runner: maps a full command line to canned results and
  * records every call as [cmd, ...args]. Unlisted commands succeed by default.
  */
-export function scriptedRunner(
-  outcomes: Record<string, RunResult>,
-): { runner: Runner; calls: string[][] } {
-  const calls: string[][] = [];
-  const runner = (({ cmd, args }: { cmd: string; args: string[] }) => {
-    calls.push([cmd, ...args]);
-    const key = `${cmd} ${args.join(" ")}`.trim();
-    const o = outcomes[key] ?? { status: 0 };
-    return { status: o.status ?? 0, stdout: o.stdout ?? "", stderr: o.stderr ?? "" };
-  }) as Runner;
-  return { runner, calls };
+export function scriptedRunner(outcomes: Record<string, RunResult>): {
+    runner: Runner;
+    calls: string[][];
+} {
+    const calls: string[][] = [];
+    const runner = (({ cmd, args }: { cmd: string; args: string[] }) => {
+        calls.push([cmd, ...args]);
+        const key = `${cmd} ${args.join(" ")}`.trim();
+        const o = outcomes[key] ?? { status: 0 };
+        return {
+            status: o.status ?? 0,
+            stdout: o.stdout ?? "",
+            stderr: o.stderr ?? "",
+        };
+    }) as Runner;
+    return { runner, calls };
 }
 
 /**
@@ -32,13 +37,15 @@ export function scriptedRunner(
  * Restores the original console.log afterwards (including on throw).
  */
 export function captureLogs(fn: () => void): string[] {
-  const logged: string[] = [];
-  const orig = console.log;
-  console.log = (...parts: string[]) => { logged.push(parts.join(" ")); };
-  try {
-    fn();
-  } finally {
-    console.log = orig;
-  }
-  return logged;
+    const logged: string[] = [];
+    const orig = console.log;
+    console.log = (...parts: string[]) => {
+        logged.push(parts.join(" "));
+    };
+    try {
+        fn();
+    } finally {
+        console.log = orig;
+    }
+    return logged;
 }

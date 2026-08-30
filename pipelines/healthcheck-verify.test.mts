@@ -10,11 +10,17 @@ import { test } from "node:test";
 import { parseRoutes } from "./healthcheck-verify.mts";
 
 test("parseRoutes parses a JSON array of routes", () => {
-  assert.deepEqual(parseRoutes('["/health", "/ready"]'), ["/health", "/ready"]);
+    assert.deepEqual(parseRoutes('["/health", "/ready"]'), [
+        "/health",
+        "/ready",
+    ]);
 });
 
 test("parseRoutes rejects non-array or non-string input", () => {
-  assert.throws(() => parseRoutes("{}"), /JSON array of route strings/u);
-  assert.throws(() => parseRoutes("[1, 2]"), /JSON array of route strings/u);
-  assert.throws(() => parseRoutes("not json"), /JSON array of route strings/u);
+    assert.throws(() => parseRoutes("{}"), /JSON array of route strings/u);
+    assert.throws(() => parseRoutes("[1, 2]"), /JSON array of route strings/u);
+    assert.throws(
+        () => parseRoutes("not json"),
+        /JSON array of route strings/u,
+    );
 });

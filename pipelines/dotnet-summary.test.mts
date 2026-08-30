@@ -7,6 +7,12 @@ import { test } from "node:test";
 import { summaryBlock } from "./dotnet-summary.mts";
 
 test("summaryBlock renders heading + outcome", () => {
-  assert.equal(summaryBlock({ heading: "Build Results", status: "success" }), "### Build Results\nBuild Results: succeeded");
-  assert.equal(summaryBlock({ heading: "Tests", status: "failure" }), "### Tests\nTests: failed");
+    assert.equal(
+        summaryBlock({ heading: "Build Results", status: "success" }),
+        "### Build Results\nBuild Results: succeeded",
+    );
+    assert.equal(
+        summaryBlock({ heading: "Tests", status: "failure" }),
+        "### Tests\nTests: failed",
+    );
 });

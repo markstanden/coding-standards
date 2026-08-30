@@ -11,12 +11,12 @@ enforces; the sibling doc defines the C# stack.
 The gate's `node` step runs these over a tracked npm project — local green =
 merge green:
 
-| Check | Tool | Fix |
-| --- | --- | --- |
-| Formatting | prettier (repo-wide, house config) | `--fix` |
-| Lint | eslint | project config |
-| Types | `tsc --noEmit` (project) | project config |
-| Tests | node's test runner | `--fix` reruns, never skips |
+| Check      | Tool                               | Fix                         |
+| ---------- | ---------------------------------- | --------------------------- |
+| Formatting | prettier (repo-wide, house config) | `--fix`                     |
+| Lint       | eslint                             | project config              |
+| Types      | `tsc --noEmit` (project)           | project config              |
+| Tests      | node's test runner                 | `--fix` reruns, never skips |
 
 ## Testing stack
 

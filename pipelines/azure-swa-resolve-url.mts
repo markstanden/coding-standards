@@ -13,30 +13,32 @@ import { appendFile } from "node:fs/promises";
  * outputs). Throws when neither is available.
  */
 export function resolveDeploymentUrl({
-  swaUrl,
-  outputsUrl,
+    swaUrl,
+    outputsUrl,
 }: {
-  swaUrl: string;
-  outputsUrl: string;
+    swaUrl: string;
+    outputsUrl: string;
 }): string {
-  if (swaUrl !== "") return swaUrl;
-  if (outputsUrl !== "") return outputsUrl;
-  throw new Error("No deployment URL from SWA action or infrastructure outputs");
+    if (swaUrl !== "") return swaUrl;
+    if (outputsUrl !== "") return outputsUrl;
+    throw new Error(
+        "No deployment URL from SWA action or infrastructure outputs",
+    );
 }
 
 async function main(): Promise<void> {
-  const url = resolveDeploymentUrl({
-    swaUrl: process.env.SWA_URL ?? "",
-    outputsUrl: process.env.OUTPUTS_URL ?? "",
-  });
+    const url = resolveDeploymentUrl({
+        swaUrl: process.env.SWA_URL ?? "",
+        outputsUrl: process.env.OUTPUTS_URL ?? "",
+    });
 
-  const file = process.env.GITHUB_OUTPUT;
-  if (file) {
-    await appendFile(file, `url=${url}\n`, "utf8");
-  }
-  console.log(`deployment URL: ${url}`);
+    const file = process.env.GITHUB_OUTPUT;
+    if (file) {
+        await appendFile(file, `url=${url}\n`, "utf8");
+    }
+    console.log(`deployment URL: ${url}`);
 }
 
 if (import.meta.main) {
-  await main();
+    await main();
 }

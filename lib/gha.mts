@@ -13,18 +13,18 @@ import { appendFile } from "node:fs/promises";
  * outside CI.
  */
 export async function appendToFile({
-  envName,
-  lines,
+    envName,
+    lines,
 }: {
-  envName: string;
-  lines: Record<string, string>;
+    envName: string;
+    lines: Record<string, string>;
 }): Promise<void> {
-  const file = process.env[envName];
-  if (!file) return;
-  const body = Object.entries(lines)
-    .map(([k, v]) => `${k}=${v}`)
-    .join("\n");
-  await appendFile(file, `${body}\n`, "utf8");
+    const file = process.env[envName];
+    if (!file) return;
+    const body = Object.entries(lines)
+        .map(([k, v]) => `${k}=${v}`)
+        .join("\n");
+    await appendFile(file, `${body}\n`, "utf8");
 }
 
 /**
@@ -32,7 +32,7 @@ export async function appendToFile({
  * empty, so callers can mask unconditionally.
  */
 export function maskValue(value: string): void {
-  if (value !== "") {
-    console.log(`::add-mask::${value}`);
-  }
+    if (value !== "") {
+        console.log(`::add-mask::${value}`);
+    }
 }

@@ -1,98 +1,98 @@
 name: "Node Playwright Test"
 
 on:
-  workflow_call:
-    inputs:
-      node-version:
-        description: "Node.js version"
-        type: string
-        required: false
-        default: "22"
+    workflow_call:
+        inputs:
+            node-version:
+                description: "Node.js version"
+                type: string
+                required: false
+                default: "22"
 
-      project-path:
-        description: "Path to the Playwright/npm project (relative to repository root)"
-        type: string
-        required: false
-        default: "e2e"
+            project-path:
+                description: "Path to the Playwright/npm project (relative to repository root)"
+                type: string
+                required: false
+                default: "e2e"
 
-      base-url:
-        description: "Site base URL (no trailing slash). Leave empty to use Playwright webServer (build + preview)."
-        type: string
-        required: false
-        default: ""
+            base-url:
+                description: "Site base URL (no trailing slash). Empty uses Playwright webServer (build + preview)."
+                type: string
+                required: false
+                default: ""
 
-      install-command:
-        description: "Shell command to install dependencies"
-        type: string
-        required: false
-        default: "npm ci"
+            install-command:
+                description: "Shell command to install dependencies"
+                type: string
+                required: false
+                default: "npm ci"
 
-      test-check-command:
-        description: "Shell command to run Playwright tests"
-        type: string
-        required: false
-        default: "npm run test:check"
+            test-check-command:
+                description: "Shell command to run Playwright tests"
+                type: string
+                required: false
+                default: "npm run test:check"
 
-      cache-dependency-path:
-        description: "Path to package-lock.json for npm cache"
-        type: string
-        required: false
-        default: "package-lock.json"
+            cache-dependency-path:
+                description: "Path to package-lock.json for npm cache"
+                type: string
+                required: false
+                default: "package-lock.json"
 
-      debug-output:
-        description: "Enable verbose debug output to aid troubleshooting"
-        type: boolean
-        required: false
-        default: false
+            debug-output:
+                description: "Enable verbose debug output to aid troubleshooting"
+                type: boolean
+                required: false
+                default: false
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  playwright:
-    name: "Playwright"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+    playwright:
+        name: "Playwright"
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: Setup Node.js
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: ${{ inputs.node-version }}
-          cache: npm
-          cache-dependency-path: ${{ inputs.cache-dependency-path }}
+            - name: Setup Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+              with:
+                  node-version: ${{ inputs.node-version }}
+                  cache: npm
+                  cache-dependency-path: ${{ inputs.cache-dependency-path }}
 
-      - name: Install dependencies
-        working-directory: ${{ inputs.project-path }}
-        env:
-          INSTALL_CMD: ${{ inputs.install-command }}
-        run: bash -c "$INSTALL_CMD"
+            - name: Install dependencies
+              working-directory: ${{ inputs.project-path }}
+              env:
+                  INSTALL_CMD: ${{ inputs.install-command }}
+              run: bash -c "$INSTALL_CMD"
 
-      - name: Install Playwright browsers
-        working-directory: ${{ inputs.project-path }}
-        run: ./node_modules/.bin/playwright install --with-deps chromium
+            - name: Install Playwright browsers
+              working-directory: ${{ inputs.project-path }}
+              run: ./node_modules/.bin/playwright install --with-deps chromium
 
-      - name: Run Playwright tests
-        working-directory: ${{ inputs.project-path }}
-        env:
-          BASE_URL: ${{ inputs.base-url }}
-          CI: true
-          TEST_CMD: ${{ inputs.test-check-command }}
-        run: bash -c "$TEST_CMD"
+            - name: Run Playwright tests
+              working-directory: ${{ inputs.project-path }}
+              env:
+                  BASE_URL: ${{ inputs.base-url }}
+                  CI: true
+                  TEST_CMD: ${{ inputs.test-check-command }}
+              run: bash -c "$TEST_CMD"
 
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ inputs.project-path }}/playwright-report/
-          if-no-files-found: ignore
-          retention-days: 7
+            - name: Upload Playwright report
+              if: failure()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+              with:
+                  name: playwright-report-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ inputs.project-path }}/playwright-report/
+                  if-no-files-found: ignore
+                  retention-days: 7
 
-      - name: Debug package scripts
-        if: inputs.debug-output
-        working-directory: ${{ inputs.project-path }}
-        run: npm run
+            - name: Debug package scripts
+              if: inputs.debug-output
+              working-directory: ${{ inputs.project-path }}
+              run: npm run

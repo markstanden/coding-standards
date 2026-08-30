@@ -15,12 +15,12 @@ import { run } from "./proc.mts";
  * working tree are excluded; symlinks appear as themselves.
  */
 export function trackedFiles({ repoRoot }: { repoRoot: string }): string[] {
-  const result = run({
-    cmd: "git",
-    args: ["ls-files", "-co", "--exclude-standard", "--deduplicate"],
-    cwd: repoRoot,
-  });
-  return result.stdout
-    .split("\n")
-    .filter((line) => line !== "" && existsSync(join(repoRoot, line)));
+    const result = run({
+        cmd: "git",
+        args: ["ls-files", "-co", "--exclude-standard", "--deduplicate"],
+        cwd: repoRoot,
+    });
+    return result.stdout
+        .split("\n")
+        .filter((line) => line !== "" && existsSync(join(repoRoot, line)));
 }

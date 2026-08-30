@@ -1,117 +1,116 @@
 name: "OpenTofu Destroy Workspace"
 
 on:
-  workflow_call:
-    inputs:
-      image-tag:
-        description: >-
-          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
-          the pinned OpenTofu toolchain — no setup-opentofu step needed. Pin
-          to the commit short-sha of the workflow ref.
-        type: string
-        required: true
+    workflow_call:
+        inputs:
+            image-tag:
+                description: >-
+                    Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+                    the pinned OpenTofu toolchain — no setup-opentofu step needed. Pin
+                    to the commit short-sha of the workflow ref.
+                type: string
+                required: true
 
-      cache-key-prefix:
-        type: string
-        default: "tofu-plugins"
+            cache-key-prefix:
+                type: string
+                default: "tofu-plugins"
 
-      terraform-lock-file:
-        type: string
-        default: ".terraform.lock.hcl"
+            terraform-lock-file:
+                type: string
+                default: ".terraform.lock.hcl"
 
-      infrastructure-directory:
-        required: false
-        type: string
-        default: "infrastructure"
+            infrastructure-directory:
+                required: false
+                type: string
+                default: "infrastructure"
 
-      environment:
-        required: false
-        type: string
-        default: "default"
+            environment:
+                required: false
+                type: string
+                default: "default"
 
-      project-name:
-        required: true
-        type: string
+            project-name:
+                required: true
+                type: string
 
-      backend-resource-group-name:
-        required: true
-        type: string
+            backend-resource-group-name:
+                required: true
+                type: string
 
-      backend-storage-account-name:
-        required: true
-        type: string
+            backend-storage-account-name:
+                required: true
+                type: string
 
-      backend-container-name:
-        required: false
-        type: string
-        default: "tfstate"
+            backend-container-name:
+                required: false
+                type: string
+                default: "tfstate"
 
-      debug-output:
-        description: "Enable verbose debug output to aid troubleshooting"
-        type: boolean
-        required: false
-        default: false
+            debug-output:
+                description: "Enable verbose debug output to aid troubleshooting"
+                type: boolean
+                required: false
+                default: false
 
-    secrets:
-
-      AZURE_CREDENTIALS:
-        description: |
-          A JSON object containing Azure Service Principal credentials.
-          {
-            "clientId": "********",
-            "clientSecret": "********",
-            "subscriptionId": "********",
-            "tenantId": "********"
-          }
-        required: true
+        secrets:
+            AZURE_CREDENTIALS:
+                description: |
+                    A JSON object containing Azure Service Principal credentials.
+                    {
+                      "clientId": "********",
+                      "clientSecret": "********",
+                      "subscriptionId": "********",
+                      "tenantId": "********"
+                    }
+                required: true
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 defaults:
-  run:
-    shell: bash
+    run:
+        shell: bash
 
 jobs:
-  opentofu-destroy:
-    name: "OpenTofu Destroy"
-    runs-on: "ubuntu-latest"
-    container:
-      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
-    env:
-      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
-      TF_IN_AUTOMATION: "true"
-      ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientId'] }}
-      ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
-      ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
-      ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-
-      - name: "Prepare plugin cache directory"
-        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
-
-      - name: "Cache OpenTofu plugin cache"
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
-        continue-on-error: true
-        with:
-          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}  # yamllint disable-line rule:line-length
-          restore-keys: |
-            ${{ inputs.cache-key-prefix }}-
-
-      - name: "Initialize Backend"
+    opentofu-destroy:
+        name: "OpenTofu Destroy"
+        runs-on: "ubuntu-latest"
+        container:
+            image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
         env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-          BACKEND_RG: ${{ inputs.backend-resource-group-name }}
-          BACKEND_SA: ${{ inputs.backend-storage-account-name }}
-          BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
-          BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
-        run: node /opt/defined/pipelines/tofu-init.mts
+            TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
+            TF_IN_AUTOMATION: "true"
+            ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientId'] }}
+            ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
+            ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
+            ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: "Select, show and destroy workspace"
-        env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-          BUILD_ENV: ${{ inputs.environment }}
-        run: node /opt/defined/pipelines/tofu-destroy.mts
+            - name: "Prepare plugin cache directory"
+              run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+            - name: "Cache OpenTofu plugin cache"
+              uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
+              continue-on-error: true
+              with:
+                  path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+                  key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }} # yamllint disable-line rule:line-length
+                  restore-keys: |
+                      ${{ inputs.cache-key-prefix }}-
+
+            - name: "Initialize Backend"
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+                  BACKEND_RG: ${{ inputs.backend-resource-group-name }}
+                  BACKEND_SA: ${{ inputs.backend-storage-account-name }}
+                  BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
+                  BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
+              run: node /opt/defined/pipelines/tofu-init.mts
+
+            - name: "Select, show and destroy workspace"
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+                  BUILD_ENV: ${{ inputs.environment }}
+              run: node /opt/defined/pipelines/tofu-destroy.mts

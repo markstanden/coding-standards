@@ -27,20 +27,24 @@ const ROOT_CONFIG_NAMES = [".editorconfig", "Directory.Build.props"] as const;
  * upsert the AGENTS.md managed block. Order matters — the summary mentions the
  * installed configs, so the block references reality by the time it is written.
  */
-export async function runSetup({ startDir }: { startDir: string }): Promise<void> {
-  const repoRoot = await deriveRepoRoot({ startDir });
-  const installed = await installRootConfigs({
-    sourceDir: await standardsDir(),
-    names: [...ROOT_CONFIG_NAMES],
-    repoRoot,
-  });
-  for (const c of installed) {
-    console.log(`config ${c.name} — ${c.status}`);
-  }
+export async function runSetup({
+    startDir,
+}: {
+    startDir: string;
+}): Promise<void> {
+    const repoRoot = await deriveRepoRoot({ startDir });
+    const installed = await installRootConfigs({
+        sourceDir: await standardsDir(),
+        names: [...ROOT_CONFIG_NAMES],
+        repoRoot,
+    });
+    for (const c of installed) {
+        console.log(`config ${c.name} — ${c.status}`);
+    }
 
-  const block = await readMarkedBlock({
-    templatePath: await gateConfigPath({ name: "agents-block.md" }),
-  });
-  await writeMarkedBlock({ filePath: join(repoRoot, "AGENTS.md"), block });
-  console.log("AGENTS.md — defined block written or refreshed");
+    const block = await readMarkedBlock({
+        templatePath: await gateConfigPath({ name: "agents-block.md" }),
+    });
+    await writeMarkedBlock({ filePath: join(repoRoot, "AGENTS.md"), block });
+    console.log("AGENTS.md — defined block written or refreshed");
 }

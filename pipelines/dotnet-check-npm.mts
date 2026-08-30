@@ -14,19 +14,29 @@ import { appendFile } from "node:fs/promises";
 /**
  * Whether a package.json exists under the web project path.
  */
-export function hasPackageJson({ webProjectPath }: { webProjectPath: string }): boolean {
-  return existsSync(join(resolve(webProjectPath), "package.json"));
+export function hasPackageJson({
+    webProjectPath,
+}: {
+    webProjectPath: string;
+}): boolean {
+    return existsSync(join(resolve(webProjectPath), "package.json"));
 }
 
 async function main(): Promise<void> {
-  const required = hasPackageJson({ webProjectPath: process.env.WEB_PROJECT_PATH ?? "" });
+    const required = hasPackageJson({
+        webProjectPath: process.env.WEB_PROJECT_PATH ?? "",
+    });
 
-  const file = process.env.GITHUB_OUTPUT;
-  if (file) {
-    await appendFile(file, `npm-required=${required ? "true" : "false"}\n`, "utf8");
-  }
+    const file = process.env.GITHUB_OUTPUT;
+    if (file) {
+        await appendFile(
+            file,
+            `npm-required=${required ? "true" : "false"}\n`,
+            "utf8",
+        );
+    }
 }
 
 if (import.meta.main) {
-  await main();
+    await main();
 }

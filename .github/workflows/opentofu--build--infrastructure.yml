@@ -1,260 +1,260 @@
 name: "OpenTofu Build Infrastructure"
 
 on:
-  workflow_call:
-    inputs:
-      image-tag:
-        description: >-
-          Tag of the ghcr.io/markstanden/defined image to run. The image bakes
-          the pinned OpenTofu toolchain — no setup-opentofu step needed. Pin
-          to the commit short-sha of the workflow ref.
-        type: string
-        required: true
+    workflow_call:
+        inputs:
+            image-tag:
+                description: >-
+                    Tag of the ghcr.io/markstanden/defined image to run. The image bakes
+                    the pinned OpenTofu toolchain — no setup-opentofu step needed. Pin
+                    to the commit short-sha of the workflow ref.
+                type: string
+                required: true
 
-      infrastructure-directory:
-        description: "Path to the infrastructure code directory from project root"
-        type: string
-        required: false
-        default: "infrastructure"
+            infrastructure-directory:
+                description: "Path to the infrastructure code directory from project root"
+                type: string
+                required: false
+                default: "infrastructure"
 
-      environment:
-        description: "Target environment (e.g., staging, production, default)"
-        type: string
-        required: false
-        default: "default"
+            environment:
+                description: "Target environment (e.g., staging, production, default)"
+                type: string
+                required: false
+                default: "default"
 
-      project-name:
-        description: "Project name used throughout in resource naming and state file keys"
-        type: string
-        required: true
+            project-name:
+                description: "Project name used throughout in resource naming and state file keys"
+                type: string
+                required: true
 
-      backend-resource-group-name:
-        description: "Azure resource group name containing the Terraform state storage"
-        type: string
-        required: true
+            backend-resource-group-name:
+                description: "Azure resource group name containing the Terraform state storage"
+                type: string
+                required: true
 
-      backend-storage-account-name:
-        description: "Azure storage account name for Terraform state backend"
-        type: string
-        required: true
+            backend-storage-account-name:
+                description: "Azure storage account name for Terraform state backend"
+                type: string
+                required: true
 
-      backend-container-name:
-        description: "Azure storage container name for Terraform state files"
-        type: string
-        required: false
-        default: "tfstate"
+            backend-container-name:
+                description: "Azure storage container name for Terraform state files"
+                type: string
+                required: false
+                default: "tfstate"
 
-      output-artifact-name:
-        description: "Name of the uploaded OpenTofu outputs artifact"
-        type: string
-        required: true
+            output-artifact-name:
+                description: "Name of the uploaded OpenTofu outputs artifact"
+                type: string
+                required: true
 
-      output-json-filename:
-        description: "Filename for the OpenTofu outputs JSON file"
-        type: string
-        required: false
-        default: "tofu_outputs.json"
+            output-json-filename:
+                description: "Filename for the OpenTofu outputs JSON file"
+                type: string
+                required: false
+                default: "tofu_outputs.json"
 
-      terraform-lock-file:
-        description: "Name of the Terraform/OpenTofu lock file used in cache key generation"
-        type: string
-        required: false
-        default: ".terraform.lock.hcl"
+            terraform-lock-file:
+                description: "Name of the Terraform/OpenTofu lock file used in cache key generation"
+                type: string
+                required: false
+                default: ".terraform.lock.hcl"
 
-      cache-key-prefix:
-        description: "Cache key prefix for OpenTofu plugin caching"
-        type: string
-        required: false
-        default: "tofu-plugins"
+            cache-key-prefix:
+                description: "Cache key prefix for OpenTofu plugin caching"
+                type: string
+                required: false
+                default: "tofu-plugins"
 
-      retention-days:
-        description: "Number of days to retain workflow artifacts"
-        type: number
-        required: false
-        default: 1
+            retention-days:
+                description: "Number of days to retain workflow artifacts"
+                type: number
+                required: false
+                default: 1
 
-      debug-output:
-        description: "Enable verbose debug output to aid troubleshooting"
-        type: boolean
-        required: false
-        default: false
+            debug-output:
+                description: "Enable verbose debug output to aid troubleshooting"
+                type: boolean
+                required: false
+                default: false
 
-    secrets:
-      AZURE_CREDENTIALS:
-        description: |
-          A JSON object containing Azure Service Principal credentials.
-          {
-            "clientId": "********",
-            "clientSecret": "********",
-            "subscriptionId": "********",
-            "tenantId": "********"
-          }
-        required: true
+        secrets:
+            AZURE_CREDENTIALS:
+                description: |
+                    A JSON object containing Azure Service Principal credentials.
+                    {
+                      "clientId": "********",
+                      "clientSecret": "********",
+                      "subscriptionId": "********",
+                      "tenantId": "********"
+                    }
+                required: true
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 defaults:
-  run:
-    shell: bash
+    run:
+        shell: bash
 
 jobs:
-  opentofu-plan:
-    name: "OpenTofu Plan"
-    runs-on: "ubuntu-latest"
-    container:
-      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
-    env:
-      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
-      TF_IN_AUTOMATION: "true"
-      ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientId'] }}
-      ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
-      ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
-      ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
-      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"  # yamllint disable-line rule:line-length
-    outputs:
-      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-
-      - name: "Prepare plugin cache directory"
-        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
-
-      - name: "Cache OpenTofu plugin cache"
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
-        continue-on-error: true
-        with:
-          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}  # yamllint disable-line rule:line-length
-          restore-keys: |
-            ${{ inputs.cache-key-prefix }}-
-
-      - name: "Initialize and Select Workspace"
+    opentofu-plan:
+        name: "OpenTofu Plan"
+        runs-on: "ubuntu-latest"
+        container:
+            image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
         env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-          BUILD_ENV: ${{ inputs.environment }}
-          BACKEND_RG: ${{ inputs.backend-resource-group-name }}
-          BACKEND_SA: ${{ inputs.backend-storage-account-name }}
-          BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
-          BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
-        run: node /opt/defined/pipelines/tofu-init.mts
+            TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
+            TF_IN_AUTOMATION: "true"
+            ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientId'] }}
+            ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
+            ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
+            ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
+            PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}" # yamllint disable-line rule:line-length
+        outputs:
+            plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: "OpenTofu Validate"
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: tofu validate
+            - name: "Prepare plugin cache directory"
+              run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
-      - name: "OpenTofu Plan"
-        id: plan
+            - name: "Cache OpenTofu plugin cache"
+              uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
+              continue-on-error: true
+              with:
+                  path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+                  key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }} # yamllint disable-line rule:line-length
+                  restore-keys: |
+                      ${{ inputs.cache-key-prefix }}-
+
+            - name: "Initialize and Select Workspace"
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+                  BUILD_ENV: ${{ inputs.environment }}
+                  BACKEND_RG: ${{ inputs.backend-resource-group-name }}
+                  BACKEND_SA: ${{ inputs.backend-storage-account-name }}
+                  BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
+                  BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
+              run: node /opt/defined/pipelines/tofu-init.mts
+
+            - name: "OpenTofu Validate"
+              working-directory: ${{ inputs.infrastructure-directory }}
+              run: tofu validate
+
+            - name: "OpenTofu Plan"
+              id: plan
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+              run: node /opt/defined/pipelines/tofu-plan.mts
+
+            - name: "Show plan (debug)"
+              if: inputs.debug-output
+              working-directory: ${{ inputs.infrastructure-directory }}
+              run: cat plan.txt
+
+            - name: "Upload OpenTofu Plan"
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+              with:
+                  name: ${{ env.PLAN_ARTIFACT_NAME }}
+                  path: |
+                      ${{ inputs.infrastructure-directory }}/tfplan
+                      ${{ inputs.infrastructure-directory }}/plan.txt
+                  retention-days: ${{ inputs.retention-days }}
+
+    opentofu-apply:
+        needs: ["opentofu-plan"]
+        name: "OpenTofu Apply"
+        runs-on: "ubuntu-latest"
+        container:
+            image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
         env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-        run: node /opt/defined/pipelines/tofu-plan.mts
+            TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
+            TF_IN_AUTOMATION: "true"
+            ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientId'] }}
+            ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
+            ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
+            ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
+            PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}" # yamllint disable-line rule:line-length
 
-      - name: "Show plan (debug)"
-        if: inputs.debug-output
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: cat plan.txt
+        environment: ${{ inputs.environment }}
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-      - name: "Upload OpenTofu Plan"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: ${{ env.PLAN_ARTIFACT_NAME }}
-          path: |
-            ${{ inputs.infrastructure-directory }}/tfplan
-            ${{ inputs.infrastructure-directory }}/plan.txt
-          retention-days: ${{ inputs.retention-days }}
+            - name: "Prepare plugin cache directory"
+              run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
-  opentofu-apply:
-    needs: ["opentofu-plan"]
-    name: "OpenTofu Apply"
-    runs-on: "ubuntu-latest"
-    container:
-      image: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
-    env:
-      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.tofu-plugin-cache
-      TF_IN_AUTOMATION: "true"
-      ARM_CLIENT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientId'] }}
-      ARM_CLIENT_SECRET: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['clientSecret'] }}
-      ARM_SUBSCRIPTION_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['subscriptionId'] }}
-      ARM_TENANT_ID: ${{ fromJSON(secrets.AZURE_CREDENTIALS)['tenantId'] }}
-      PLAN_ARTIFACT_NAME: "opentofu-plan-${{ inputs.project-name }}-${{ inputs.environment || 'default' }}-${{ github.run_id }}-${{ github.run_attempt }}"  # yamllint disable-line rule:line-length
+            - name: "Cache OpenTofu plugin cache"
+              uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
+              continue-on-error: true
+              with:
+                  path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+                  key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }} # yamllint disable-line rule:line-length
+                  restore-keys: |
+                      ${{ inputs.cache-key-prefix }}-
 
-    environment: ${{ inputs.environment }}
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+            - name: "Download OpenTofu Plan"
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+              with:
+                  name: ${{ env.PLAN_ARTIFACT_NAME }}
+                  path: ${{ inputs.infrastructure-directory }}
 
-      - name: "Prepare plugin cache directory"
-        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+            - name: "Debug - Post-Download Check"
+              if: inputs.debug-output
+              working-directory: ${{ inputs.infrastructure-directory }}
+              run: |
+                  echo "Downloaded files:"
+                  ls -lah
+                  echo ""
+                  echo "Plan file details:"
+                  file "tfplan" 2>/dev/null || echo "tfplan not found!"
+                  if [ -f "plan.txt" ]; then
+                    echo ""
+                    echo "--- plan.txt ---"
+                    cat "plan.txt"
+                  fi
 
-      - name: "Cache OpenTofu plugin cache"
-        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
-        continue-on-error: true
-        with:
-          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
-          key: ${{ inputs.cache-key-prefix }}-${{ hashFiles(format('{0}/{1}', inputs.infrastructure-directory, inputs.terraform-lock-file)) }}  # yamllint disable-line rule:line-length
-          restore-keys: |
-            ${{ inputs.cache-key-prefix }}-
+            - name: "Initialize and Select Workspace"
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+                  BUILD_ENV: ${{ inputs.environment }}
+                  BACKEND_RG: ${{ inputs.backend-resource-group-name }}
+                  BACKEND_SA: ${{ inputs.backend-storage-account-name }}
+                  BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
+                  BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
+              run: node /opt/defined/pipelines/tofu-init.mts
 
-      - name: "Download OpenTofu Plan"
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: ${{ env.PLAN_ARTIFACT_NAME }}
-          path: ${{ inputs.infrastructure-directory }}
+            - name: "OpenTofu Apply"
+              if: needs.opentofu-plan.outputs.plan-exitcode == 2
+              working-directory: ${{ inputs.infrastructure-directory }}
+              run: tofu apply -input=false -auto-approve tfplan
 
-      - name: "Debug - Post-Download Check"
-        if: inputs.debug-output
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "Downloaded files:"
-          ls -lah
-          echo ""
-          echo "Plan file details:"
-          file "tfplan" 2>/dev/null || echo "tfplan not found!"
-          if [ -f "plan.txt" ]; then
-            echo ""
-            echo "--- plan.txt ---"
-            cat "plan.txt"
-          fi
+            - name: "Diagnose State and Outputs"
+              if: always()
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+                  SHOW_OUTPUT_KEYS: "true"
+              run: node /opt/defined/pipelines/tofu-diagnose.mts
 
-      - name: "Initialize and Select Workspace"
-        env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-          BUILD_ENV: ${{ inputs.environment }}
-          BACKEND_RG: ${{ inputs.backend-resource-group-name }}
-          BACKEND_SA: ${{ inputs.backend-storage-account-name }}
-          BACKEND_CONTAINER: ${{ inputs.backend-container-name }}
-          BACKEND_KEY: "${{ inputs.project-name }}.tfstate"
-        run: node /opt/defined/pipelines/tofu-init.mts
+            - name: "Show State"
+              if: ${{ always() && inputs.debug-output }}
+              working-directory: ${{ inputs.infrastructure-directory }}
+              run: |
+                  echo "--- OpenTofu State Inspection ---"
+                  tofu show
 
-      - name: "OpenTofu Apply"
-        if: needs.opentofu-plan.outputs.plan-exitcode == 2
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: tofu apply -input=false -auto-approve tfplan
+            - name: "Get OpenTofu Outputs"
+              env:
+                  INFRA_DIR: ${{ inputs.infrastructure-directory }}
+                  OUTPUT_JSON_FILENAME: ${{ inputs.output-json-filename }}
+              run: node /opt/defined/pipelines/tofu-outputs.mts
 
-      - name: "Diagnose State and Outputs"
-        if: always()
-        env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-          SHOW_OUTPUT_KEYS: "true"
-        run: node /opt/defined/pipelines/tofu-diagnose.mts
-
-      - name: "Show State"
-        if: ${{ always() && inputs.debug-output }}
-        working-directory: ${{ inputs.infrastructure-directory }}
-        run: |
-          echo "--- OpenTofu State Inspection ---"
-          tofu show
-
-      - name: "Get OpenTofu Outputs"
-        env:
-          INFRA_DIR: ${{ inputs.infrastructure-directory }}
-          OUTPUT_JSON_FILENAME: ${{ inputs.output-json-filename }}
-        run: node /opt/defined/pipelines/tofu-outputs.mts
-
-      - name: "Upload OpenTofu Outputs"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: ${{ inputs.output-artifact-name }}
-          path: ${{ inputs.infrastructure-directory }}/${{ inputs.output-json-filename }}
-          retention-days: ${{ inputs.retention-days }}
+            - name: "Upload OpenTofu Outputs"
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+              with:
+                  name: ${{ inputs.output-artifact-name }}
+                  path: ${{ inputs.infrastructure-directory }}/${{ inputs.output-json-filename }}
+                  retention-days: ${{ inputs.retention-days }}

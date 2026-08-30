@@ -11,8 +11,12 @@ import { realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 /** Resolve symlinks in a path, returning the real filesystem location. */
-export async function resolveRealPath({ path }: { path: string }): Promise<string> {
-  return realpath(path);
+export async function resolveRealPath({
+    path,
+}: {
+    path: string;
+}): Promise<string> {
+    return realpath(path);
 }
 
 /**
@@ -22,17 +26,23 @@ export async function resolveRealPath({ path }: { path: string }): Promise<strin
  *
  * Throws when no marker exists up to the filesystem root.
  */
-export async function deriveRepoRoot({ startDir }: { startDir: string }): Promise<string> {
-  let current = await resolveRealPath({ path: resolve(startDir) });
+export async function deriveRepoRoot({
+    startDir,
+}: {
+    startDir: string;
+}): Promise<string> {
+    let current = await resolveRealPath({ path: resolve(startDir) });
 
-  while (true) {
-    if (existsSync(join(current, ".git"))) {
-      return current;
+    while (true) {
+        if (existsSync(join(current, ".git"))) {
+            return current;
+        }
+        const parent = dirname(current);
+        if (parent === current) {
+            throw new Error(
+                `no .git found above ${startDir} — not inside a git repository`,
+            );
+        }
+        current = parent;
     }
-    const parent = dirname(current);
-    if (parent === current) {
-      throw new Error(`no .git found above ${startDir} — not inside a git repository`);
-    }
-    current = parent;
-  }
 }

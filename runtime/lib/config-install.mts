@@ -16,8 +16,8 @@ import { readContentsOrEmpty } from "./agents-block.mts";
 export type InstallStatus = "installed" | "unchanged";
 
 export interface InstalledConfig {
-  name: string;
-  status: InstallStatus;
+    name: string;
+    status: InstallStatus;
 }
 
 /**
@@ -25,29 +25,29 @@ export interface InstalledConfig {
  * first conflict; earlier installs in the same pass are already written.
  */
 export async function installRootConfigs({
-  sourceDir,
-  names,
-  repoRoot,
+    sourceDir,
+    names,
+    repoRoot,
 }: {
-  sourceDir: string;
-  names: string[];
-  repoRoot: string;
+    sourceDir: string;
+    names: string[];
+    repoRoot: string;
 }): Promise<InstalledConfig[]> {
-  const results: InstalledConfig[] = [];
-  for (const name of names) {
-    const desired = await readFile(join(sourceDir, name), "utf8");
-    const target = join(repoRoot, name);
-    const existing = await readContentsOrEmpty({ filePath: target });
-    if (existing === "") {
-      await writeFile(target, desired);
-      results.push({ name, status: "installed" });
-    } else if (existing === desired) {
-      results.push({ name, status: "unchanged" });
-    } else {
-      throw new Error(
-        `${target} differs from the gate's copy — resolve by hand; the gate never overwrites (raises-only)`,
-      );
+    const results: InstalledConfig[] = [];
+    for (const name of names) {
+        const desired = await readFile(join(sourceDir, name), "utf8");
+        const target = join(repoRoot, name);
+        const existing = await readContentsOrEmpty({ filePath: target });
+        if (existing === "") {
+            await writeFile(target, desired);
+            results.push({ name, status: "installed" });
+        } else if (existing === desired) {
+            results.push({ name, status: "unchanged" });
+        } else {
+            throw new Error(
+                `${target} differs from the gate's copy — resolve by hand; the gate never overwrites (raises-only)`,
+            );
+        }
     }
-  }
-  return results;
+    return results;
 }
