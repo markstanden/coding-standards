@@ -83,8 +83,10 @@ until first green nothing distributes configs or instructions.
 ```text
 quality/
 ├── verify.sh              # bash shim: engine detect → ensure image → mount rw → exec
-├── verify.mts             # orchestrator: step manifest, flags, summary
-├── lib/                   # testable core: paths, ctx, proc, severities (+ tests)
+├── verify.mts             # orchestrator: step manifest, flags, summary; `setup` dispatch
+├── setup.mts              # bootstrap (verify.sh setup): root configs + AGENTS.md block
+├── lib/                   # testable core: paths, ctx, proc, severities, git,
+│   │                      #   step-result, agents-block, config-install (+ tests)
 ├── steps/                 # filename == step id; one module per ecosystem
 │   ├── naming.mts         # opt-in      semantic renames BEFORE any formatting
 │   ├── node.mts           # auto-detect prettier + eslint + tsc + vitest
@@ -97,6 +99,7 @@ quality/
 │                          #   sonarqube-compatible; decide pin/delivery
 │                          #   (apt vs release tarball) when the step lands
 ├── config/                # prettier.config.mjs prettierignore yamllint.yml schema
+│   │                      #   agents-block.md root/ (installed to repo root)
 ├── container/
 │   ├── Containerfile      # ubuntu base, node 26, apt-pinned tools
 │   └── tool-versions.env  # single source of tool version pins
@@ -308,7 +311,13 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 - [x] config/ migration from prototype (incl. prettierignore CWD fix)
       (2026-08-30: prettier configs migrated and resolved from gate root;
       yamllint config baked into image — gate configs travel with the image)
-- [ ] Bootstrap/install step: configs into repo root + AGENTS.md managed block (decisions #13–14)
+- [x] Bootstrap/install step: configs into repo root + AGENTS.md managed block
+      (decisions #13–14) (2026-08-30: `verify.sh setup` → setup.mts dispatches
+      through verify.mts; config/root/ installs .editorconfig + DBP with
+      raises-only no-clobber; config/agents-block.md seeds a marker-delimited
+      block, idempotent; podman smoke on a throwaway repo: install, preserve,
+      conflict-fail all verified. Drift note: config/root/ copies the canonical
+      dotnet/ files — consolidate when the dotnet/ symlink surface retires)
 - [ ] In-container deps: shadow volumes + restore behaviour
 - [ ] CI template: publish/consume ghcr image tagged from pin hash
 - [ ] Golden-test parity on system-config

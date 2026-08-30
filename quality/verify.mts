@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 
 import { createRunContext, parseArgs, type RunContext } from "./lib/ctx.mts";
 import { trackedFiles } from "./lib/git.mts";
+import { runSetup } from "./setup.mts";
 import { runDotNetStep } from "./steps/dotnet.mts";
 import { runNamingStep } from "./steps/naming.mts";
 import { runNodeStep } from "./steps/node.mts";
@@ -71,10 +72,20 @@ function printUsage(): void {
 }
 
 async function main(): Promise<void> {
+  const positional = process.argv.slice(2);
+
+  // Setup is the gate's bootstrap (decisions #13–14): install shared configs
+  // and seed AGENTS.md. Delegate before flag parsing so verify flags never
+  // apply to it.
+  if (positional[0] === "setup") {
+    await runSetup({ startDir: process.cwd() });
+    return;
+  }
+
   // Phase 1 — pure flag parsing; exits early on help or bad input.
   let args: ReturnType<typeof parseArgs>;
   try {
-    args = parseArgs({ argv: process.argv.slice(2) });
+    args = parseArgs({ argv: positional });
   } catch (err) {
     console.error(String(err));
     process.exit(2);
@@ -86,7 +97,7 @@ async function main(): Promise<void> {
 
   // Phase 2 — async context assembly (repo-root derivation).
   const ctx = await createRunContext({
-    argv: process.argv.slice(2),
+    argv: positional,
     startDir: process.cwd(),
   });
 
