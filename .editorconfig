@@ -156,11 +156,11 @@ csharp_space_between_method_call_empty_parameter_list_parentheses = false
 csharp_preserve_single_line_statements = true
 csharp_preserve_single_line_blocks = true
 
-# XML project files. Deliberately NOT 4-space: dotnet format owns these and
-# ignores editorconfig indent_size for XML (verified 2026-08-30 — a 4-space
-# setting left a misindented csproj untouched), so aligning would make IDE
-# hint at 4 while the gate's dotnet step enforces its own XML style. 2 is
-# dotnet's own convention; keep it in step with what dotnet format emits.
+# XML project files. dotnet format is the authority here and ignores this
+# editorconfig's indent_size for XML entirely (verified 2026-08-30 — a 4-space
+# setting left a misindented csproj untouched). We set 2 anyway so that
+# editors fall in step with what dotnet format emits, reducing churn — not
+# because this file controls XML formatting.
 [*.{csproj,fsproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
 end_of_line = lf
 indent_style = space
