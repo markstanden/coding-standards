@@ -1,10 +1,8 @@
-// pipelines/summary.mts — write a heading + pass/fail line to the step summary.
+// pipelines/dotnet-summary.mts — write a heading + pass/fail line to the step summary.
 //
-// Extracted from the "Add test summary"/"Add build summary"/"Add format
-// summary" steps across dotnet-test--common-test-runner,
-// dotnet-test--playwright-tests, dotnet-build--solution and
-// dotnet-format--solution. The status (success/failure) drives the message;
-// the summary file comes from GITHUB_STEP_SUMMARY.
+// Extracted from the "Add test summary" step in
+// dotnet--test--playwright-tests.yml. The status (success/failure) drives the
+// message; the summary file comes from GITHUB_STEP_SUMMARY.
 //
 // Inputs (env): SUMMARY_HEADING, SUMMARY_STATUS ("success"/other).
 

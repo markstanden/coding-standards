@@ -1,6 +1,6 @@
-// pipelines/dotnet-env-json.mts — set environment variables from a JSON input.
+// pipelines/dotnet-json-to-env.mts — set environment variables from a JSON input.
 //
-// Extracted from dotnet-build--blazor-frontend.yml ("Set environment
+// Extracted from dotnet--build--blazor-frontend.yml ("Set environment
 // variables" step). Parses the JSON input ({"KEY1":"value1",...}) and appends
 // KEY=value lines to GITHUB_ENV. Replaces `echo ... | jq -r 'to_entries[]'`.
 //

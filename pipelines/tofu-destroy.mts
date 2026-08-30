@@ -1,6 +1,6 @@
 // pipelines/tofu-destroy.mts — OpenTofu workspace select + destroy.
 //
-// Extracted from opentofu-destroy-workspace.yml ("Select Workspace (if
+// Extracted from opentofu--destroy--workspace.yml ("Select Workspace (if
 // exists)", "Show current state" and "Destroy workspace" steps). Selects the
 // target workspace when it exists, shows the current state, then destroys it.
 // With buildEnv "default" it destroys the default workspace in place. When a
@@ -13,7 +13,7 @@
 import { appendFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { run } from "../lib/proc.mts";
+import { run, type Runner } from "../lib/proc.mts";
 
 export interface TofuDestroyInput {
   infraDir?: string;
@@ -24,11 +24,11 @@ export interface TofuDestroyInput {
  * Select the target workspace when it exists, show state, then destroy.
  * Returns whether anything was destroyed.
  */
-export function runTofuDestroy({ infraDir, buildEnv }: TofuDestroyInput): boolean {
+export function runTofuDestroy({ infraDir, buildEnv, runner = run }: TofuDestroyInput & { runner?: Runner }): boolean {
   const cwd = infraDir ? resolve(infraDir) : process.cwd();
 
   if (buildEnv !== "default") {
-    const select = run({ cmd: "tofu", args: ["workspace", "select", buildEnv], cwd });
+    const select = runner({ cmd: "tofu", args: ["workspace", "select", buildEnv], cwd });
     if (select.status !== 0) {
       return false;
     }
@@ -36,13 +36,13 @@ export function runTofuDestroy({ infraDir, buildEnv }: TofuDestroyInput): boolea
 
   // Show current state for diagnostics (the original "Show current state"
   // step; failures are non-fatal there, so ignore the status).
-  run({ cmd: "tofu", args: ["workspace", "show"], cwd });
-  run({ cmd: "tofu", args: ["state", "list"], cwd });
+  runner({ cmd: "tofu", args: ["workspace", "show"], cwd });
+  runner({ cmd: "tofu", args: ["state", "list"], cwd });
 
-  const destroy = run({ cmd: "tofu", args: ["destroy", "-auto-approve", "-input=false"], cwd });
+  const destroy = runner({ cmd: "tofu", args: ["destroy", "-auto-approve", "-input=false"], cwd });
   if (destroy.status !== 0) {
     // Mirrors the original: destroy failure prints state for diagnostics.
-    const state = run({ cmd: "tofu", args: ["state", "list"], cwd });
+    const state = runner({ cmd: "tofu", args: ["state", "list"], cwd });
     throw new Error(
       `tofu destroy failed (${destroy.status}):\n${destroy.stderr}\n${state.stdout}`,
     );

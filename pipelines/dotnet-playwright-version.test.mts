@@ -1,5 +1,5 @@
-// Tests for pipelines/playwright-version.mts: Playwright version detection.
-// Run: node --test pipelines/playwright-version.test.mts
+// Tests for pipelines/dotnet-playwright-version.mts: Playwright version detection.
+// Run: node --test pipelines/dotnet-playwright-version.test.mts
 
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { detectPlaywrightVersion } from "./playwright-version.mts";
+import { detectPlaywrightVersion } from "./dotnet-playwright-version.mts";
 
 async function makeTemp(): Promise<string> {
   return mkdtemp(join(tmpdir(), "quality-pwver-"));

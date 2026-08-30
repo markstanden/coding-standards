@@ -62,4 +62,4 @@ jobs:
           MAX_TIMEOUT: ${{ inputs.timeout }}
           RETRY_ATTEMPTS: ${{ inputs.retries }}
           RETRY_DELAY: ${{ inputs.retry-delay }}
-        run: node /opt/defined/pipelines/healthcheck-curl.mts
+        run: node /opt/defined/pipelines/healthcheck-verify.mts

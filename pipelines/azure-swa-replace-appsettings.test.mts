@@ -1,5 +1,5 @@
-// Tests for pipelines/azure-swa-appsettings.mts: appsettings token replacement.
-// Run: node --test pipelines/azure-swa-appsettings.test.mts
+// Tests for pipelines/azure-swa-replace-appsettings.mts: appsettings token replacement.
+// Run: node --test pipelines/azure-swa-replace-appsettings.test.mts
 
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { replaceAppsettings } from "./azure-swa-appsettings.mts";
+import { replaceAppsettings } from "./azure-swa-replace-appsettings.mts";
 
 async function makeTemp(): Promise<string> {
   return mkdtemp(join(tmpdir(), "quality-swa-appsettings-"));

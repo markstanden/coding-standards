@@ -1,6 +1,6 @@
 // pipelines/dotnet-check-npm.mts — detect whether a frontend project uses npm.
 //
-// Extracted from dotnet-build--blazor-frontend.yml ("Check for npm
+// Extracted from dotnet--build--blazor-frontend.yml ("Check for npm
 // requirements" step). Writes npm-required=true/false to GITHUB_OUTPUT based
 // on package.json presence.
 //

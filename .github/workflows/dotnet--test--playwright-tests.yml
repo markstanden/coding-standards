@@ -83,7 +83,7 @@ jobs:
         id: pwver
         env:
           PROJECT_DIR: ${{ inputs.test-project-path }}
-        run: node /opt/defined/pipelines/playwright-version.mts
+        run: node /opt/defined/pipelines/dotnet-playwright-version.mts
 
       - name: "Cache Playwright browsers"
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
@@ -118,7 +118,7 @@ jobs:
         env:
           SUMMARY_HEADING: ${{ inputs.test-name }} Results
           SUMMARY_STATUS: ${{ steps.run_tests.outcome }}
-        run: node /opt/defined/pipelines/summary.mts
+        run: node /opt/defined/pipelines/dotnet-summary.mts
 
       - name: "Check for test failures"
         if: steps.run_tests.outcome == 'failure'
