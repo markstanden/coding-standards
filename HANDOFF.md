@@ -3,9 +3,14 @@
 # HANDOFF — rebrand to `defined`, flat restructure, stage-2 pipeline refactor
 
 **Continuation plan for a fresh agent.** Read this first, then PLAN.md for the
-decision log and conventions. Current branch: `tidy-up-workflows` at
-`47bf0ea` (PR #5 "Portable quality stack" merged to main; this branch is at
-the merge commit, clean tree).
+decision log and conventions.
+
+> STATUS UPDATE (2026-08-30, same session): **Phase 1 is DONE** — the repo is
+> rebranded and flattened (runtime/, lib/, pipelines/, practices/, standards/).
+> 91/91 tests green, gate green except the intended workflow tripwire. Phase 2
+> (retire setup.sh + config/root) and Phase 3 (pipelines/*.mts + option B)
+> remain. Sections below marked Phase 1 are historical context; proceed to
+> "Execution phases" Phase 2.
 
 ## What the repo is (and is becoming)
 

@@ -55,3 +55,6 @@ nunit-*.xml
 
 # JetBrains
 .idea/
+
+# Node
+node_modules/

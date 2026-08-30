@@ -1,0 +1,13 @@
+# House Prettier ignores — travel inside runtime/config/, passed explicitly
+# via --ignore-path. Prettier resolves ignore files relative to CWD, not the
+# target tree, so the explicit flag is mandatory (prototype lesson).
+#
+# Lockfiles: machine-generated, reformatting them is pure churn.
+package-lock.json
+
+# Generated output — never format.
+coverage/
+.scannerwork/
+
+# TOML is editorconfig territory, not Prettier's.
+*.toml

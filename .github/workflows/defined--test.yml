@@ -1,0 +1,60 @@
+name: "Defined Tests"
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: defined-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 26
+
+      - name: Read tool pins
+        id: pins
+        shell: bash
+        run: |
+          set -a
+          # shellcheck source=runtime/tool-versions.env
+          source runtime/tool-versions.env
+          set +a
+          {
+            echo "pinhash=$(sha256sum runtime/tool-versions.env | cut -c1-12)"
+            echo "node_tag=${NODE_IMAGE_TAG}"
+            echo "node_digest=${NODE_IMAGE_DIGEST}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Pre-pull published gate image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="localhost/defined:${{ steps.pins.outputs.pinhash }}"
+          if docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+            echo "image already present"
+            exit 0
+          fi
+          # Published on main merges; reuse it so PR runs skip the build.
+          if docker pull "ghcr.io/markstanden/defined:${{ steps.pins.outputs.pinhash }}" 2>/dev/null; then
+            docker tag "ghcr.io/markstanden/defined:${{ steps.pins.outputs.pinhash }}" "${IMAGE}"
+            echo "pulled published image"
+            exit 0
+          fi
+          echo "no published image; verify.sh will build it on first run"
+
+      - name: Run test suite (unit + broken fixture)
+        shell: bash
+        run: node --test 'lib/*.test.mts' 'runtime/**/*.test.mts'

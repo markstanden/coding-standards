@@ -1,0 +1,86 @@
+# Defined runtime image.
+#
+# Official node slim base, digest-pinned via tool-versions.env (multi-arch
+# manifest list, so arm64 works unmodified). Build context is the repo root so
+# the runtime (gate code) and the shared lib/ can both be baked in: the
+# published image is fully self-contained (code + configs + tools) for CI
+# consumers who vendor nothing. Locally, verify.sh bind-mounts runtime/ and
+# lib/ read-only at /opt/defined/{runtime,lib} — shadowing the baked copies —
+# so local edits run without a rebuild; only tool pins change this image's
+# local tag. Base image pins arrive as build args from verify.sh (which sources
+# tool-versions.env) so that file remains the single source of truth.
+ARG NODE_IMAGE_TAG
+ARG NODE_IMAGE_DIGEST
+
+FROM docker.io/library/node:${NODE_IMAGE_TAG}@${NODE_IMAGE_DIGEST}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY runtime/tool-versions.env /usr/local/share/defined/tool-versions.env
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        git \
+        shellcheck \
+        shfmt \
+        yamllint \
+        curl \
+        ca-certificates \
+    ; \
+    rm -rf /var/lib/apt/lists/*; \
+    . /usr/local/share/defined/tool-versions.env; \
+    test "$(shellcheck --version | sed -n 's/^version: //p')" = "${SHELLCHECK_VERSION}"; \
+    test "$(shfmt --version)" = "${SHFMT_VERSION}"; \
+    test "$(yamllint --version | cut -d' ' -f2)" = "${YAMLLINT_VERSION}"; \
+    npm install --global "typescript@${TYPESCRIPT_VERSION}"; \
+    npm install --global "prettier@${PRETTIER_VERSION}"; \
+    tsc --version; \
+    test "$(prettier --version)" = "${PRETTIER_VERSION}"; \
+    arch="$(uname -m)"; \
+    case "${arch}" in \
+        x86_64) ARCH="amd64"; ZIZMOR_ARCH="x86_64"; GITLEAKS_ARCH="x64" ;; \
+        aarch64) ARCH="arm64"; ZIZMOR_ARCH="aarch64"; GITLEAKS_ARCH="arm64" ;; \
+        *) echo "Unsupported arch: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin actionlint; \
+    actionlint --version >/dev/null; \
+    curl -fsSL "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-${ZIZMOR_ARCH}-unknown-linux-gnu.tar.gz" | tar -xz -C /usr/local/bin zizmor; \
+    zizmor --version >/dev/null; \
+    curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_${GITLEAKS_ARCH}.tar.gz" | tar -xz -C /usr/local/bin gitleaks; \
+    gitleaks --version >/dev/null; \
+    curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${ARCH}.tar.gz" | tar -xz -C /usr/local/bin tofu; \
+    tofu --version >/dev/null; \
+    node --version
+
+# Dotnet SDK: Debian main does not ship dotnet, so add Microsoft's Debian-13
+# apt feed (x64 + arm64) and install the SDK via apt. The pinned version is
+# asserted at build time like the other tools, so feed drift fails the build.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        wget \
+        gpg \
+    ; \
+    wget -qO /tmp/packages-microsoft-prod.deb \
+        "https://packages.microsoft.com/config/debian/13/packages-microsoft-prod.deb"; \
+    dpkg -i /tmp/packages-microsoft-prod.deb; \
+    rm /tmp/packages-microsoft-prod.deb; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        dotnet-sdk-10.0 \
+    ; \
+    rm -rf /var/lib/apt/lists/*; \
+    . /usr/local/share/defined/tool-versions.env; \
+    test "$(dotnet --version)" = "${DOTNET_SDK_VERSION}"; \
+    dotnet --info >/dev/null
+
+# Bake the runtime and the shared lib in so the published image is
+# self-contained. Local runs still bind-mount runtime/ + lib/ ro over these
+# paths (live edits, no rebuild); CI consumers use the baked copies and vendor
+# nothing.
+COPY runtime /opt/defined/runtime
+COPY lib /opt/defined/lib
+
+WORKDIR /repo
+ENTRYPOINT ["node", "/opt/defined/runtime/verify.mts"]
