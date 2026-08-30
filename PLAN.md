@@ -1,4 +1,4 @@
-<!-- update: agent=opencode | date=2026-08-25 | scope=PLAN.md -->
+<!-- update: agent=opencode | date=2026-08-30 | scope=PLAN.md -->
 
 # PLAN — portable quality gate ("pick up and drop")
 
@@ -301,9 +301,37 @@ on Linux, macOS and Windows. Only the launcher shim is platform-specific:
 - [x] lib/ core via TDD: paths, ctx, proc, severities
       (2026-08-25: 20 table-driven tests; proc throws loudly naming missing
       binaries; severities is the sole owner of ranking maths)
-- [ ] Step modules + manifest wiring in naming → … → tofu order
-- [ ] config/ migration from prototype (incl. prettierignore CWD fix)
+- [x] Step modules + manifest wiring in naming → … → tofu order
+      (2026-08-30: all seven steps landed with colocated tests — naming,
+      node, dotnet, shell, yaml, workflow, tofu; fixed order enforced in
+      verify.mts; 69 tests green)
+- [x] config/ migration from prototype (incl. prettierignore CWD fix)
+      (2026-08-30: prettier configs migrated and resolved from gate root;
+      yamllint config baked into image — gate configs travel with the image)
 - [ ] Bootstrap/install step: configs into repo root + AGENTS.md managed block (decisions #13–14)
 - [ ] In-container deps: shadow volumes + restore behaviour
 - [ ] CI template: publish/consume ghcr image tagged from pin hash
 - [ ] Golden-test parity on system-config
+- [ ] Deferred: workflow-template fixes on our own tree (2026-08-30,
+      deliberately parked so the red gate keeps flagging them — see
+      "Continuous verification" below). First in-container run of
+      `./quality/verify.sh` went red; `workflow` step findings only:
+
+      - SC2086 unquoted `$VAR` in 28 `run:` blocks (split across
+        azure-swa--deploy-blazor-wasm, dotnet-build--blazor-frontend,
+        dotnet-build--solution, dotnet-format--solution,
+        dotnet-test--common-test-runner, dotnet-test--playwright-tests,
+        opentofu-build-infrastructure, opentofu-destroy-workspace)
+      - SC2129 merge redirects in dotnet-format--solution.yml:47
+      - actionlint: `codecov/codecov-action@v3` too old for GitHub Actions
+        (dotnet-test--common-test-runner.yml:108) — bump to v4
+
+## Continuous verification
+
+Host `node --test` green does not mean the gate is green: on 2026-08-30 the
+unit suite passed 69/69 while the first in-container run went red on real
+workflow-template findings. Run the full suite continuously — the host test
+suite **and** the podman end-to-end gate (`./quality/verify.sh`) — so
+deviations surface as they land, not at release time. Keeping the deferred
+fixes above unfixed is deliberate: the failing `workflow` step is the tripwire
+that proves the gate still catches these class of errors.

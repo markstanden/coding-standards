@@ -1,3 +1,5 @@
+<!-- update: agent=opencode | date=2026-08-30 | scope=AGENTS.md -->
+
 # AGENTS.md
 
 ## What this repo is
@@ -23,9 +25,9 @@ means shell/YAML sanity checks, not builds.
 
 ## Active work: portable quality gate
 
-`quality/` does not exist yet; it is being built per `PLAN.md`. Read
-`PLAN.md` before touching anything gate-related — its decisions log is law
-and exists so choices aren't relitigated:
+`quality/` is being built per `PLAN.md`. Read `PLAN.md` before touching
+anything gate-related — its decisions log is law and exists so choices aren't
+relitigated:
 
 - Container-native runtime (official `node:<ver>-slim` base, digest-pinned
   via `tool-versions.env`; global pinned `tsc` for typechecking gate code);
@@ -36,6 +38,13 @@ and exists so choices aren't relitigated:
 - Steps run in fixed order `naming → node → dotnet → shell → yaml → workflow
   → tofu`; missing tools fail loudly pointing at the Containerfile (no
   optional tier).
+- **Run the full suite continuously**: host `node --test` *and* the podman
+  end-to-end gate (`./quality/verify.sh`) — host-green does not mean
+  gate-green (2026-08-30: unit suite passed 69/69 while the gate went red on
+  real workflow-template findings). The gate is currently red on purpose
+  (deferred workflow fixes, see PLAN.md status) and must stay that way until
+  the fixes land — the failing `workflow` step is the tripwire that flags
+  deviations.
 
 ## Conventions
 
