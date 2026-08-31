@@ -55,13 +55,17 @@ record — read it before touching anything gate-related):
 dotnet-coverage → shell → smoke → yaml → workflow → tofu`; missing applicable
   tools fail loudly pointing at the Containerfile (no optional tier). Coverage
   steps activate on a `.defined.json` `coverage` entry (see `runtime/lib/config.mts`).
-- **Run the full suite continuously**: host `node --test` _and_ the podman
-  end-to-end gate (`./runtime/comply.sh`) — host-green does not mean
-  gate-green. `node --test` also runs the broken-fixture integration test
-  (`runtime/fixture.test.mts`), which drives the real gate against a
-  deliberately-broken repo and skips cleanly without a container engine.
-  Keeping the gate green is the tripwire — any workflow-template deviation
-  fails the `workflow` step again.
+- **Use the gate, not ad-hoc formatting**: after a change lands, run
+  `./runtime/comply.sh` with no flags — **one command, one output**. It bootstraps,
+  repairs (formats, fixes safe findings) and then runs a fresh verify, printing a
+  single `compliant`/`not compliant` verdict. Don't hand-invoke prettier or add a
+  `--check-only` step yourself to "check first"; plain `comply` is the whole loop.
+  Keep it green continuously: `node --test` _and_ the podman end-to-end gate
+  (`./runtime/comply.sh`) — host-green does not mean gate-green. `node --test`
+  also runs the broken-fixture integration test (`runtime/fixture.test.mts`),
+  which drives the real gate against a deliberately-broken repo and skips
+  cleanly without a container engine. Keeping the gate green is the tripwire —
+  any workflow-template deviation fails the `workflow` step again.
 - The image tag IS the toolchain — the gate image carries every pinned tool, so
   containerised CI jobs need no setup-opentofu/setup-dotnet/setup-node steps.
 
