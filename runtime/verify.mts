@@ -7,8 +7,9 @@
 //   defined verify   managed-artifact check (never writes) → complete no-fix
 //                    pass → non-zero for any drift, finding or failure.
 //
-// Steps run in fixed order (naming → node → dotnet → shell → yaml → workflow
-// → tofu), strictly sequentially. Output follows the report contract (decision
+// Steps run in fixed order (naming → node → node-coverage → dotnet →
+// dotnet-coverage → shell → yaml → workflow → tofu), strictly sequentially.
+// Output follows the report contract (decision
 // #24): green runs print exactly one `compliant` line; anything else prints a
 // stable, agent-actionable breakdown.
 
@@ -19,8 +20,10 @@ import { trackedFiles } from "../lib/git.mts";
 import { checkSetup, runSetup } from "./setup.mts";
 import { formatReport } from "./lib/report.mts";
 import { runDotNetStep } from "./steps/dotnet.mts";
+import { runDotNetCoverageStep } from "./steps/dotnet-coverage.mts";
 import { runNamingStep } from "./steps/naming.mts";
 import { runNodeStep } from "./steps/node.mts";
+import { runNodeCoverageStep } from "./steps/node-coverage.mts";
 import { runShellStep } from "./steps/shell.mts";
 import { runTofuStep } from "./steps/tofu.mts";
 import { runWorkflowStep } from "./steps/workflow.mts";
@@ -70,9 +73,19 @@ const STEPS: Step[] = [
             runNodeStep({ ctx: { mode, repoRoot }, trackedFiles: files }),
     },
     {
+        id: "node-coverage",
+        run: ({ mode, repoRoot }) =>
+            runNodeCoverageStep({ ctx: { mode, repoRoot } }),
+    },
+    {
         id: "dotnet",
         run: ({ mode, repoRoot, files }) =>
             runDotNetStep({ ctx: { mode, repoRoot }, trackedFiles: files }),
+    },
+    {
+        id: "dotnet-coverage",
+        run: ({ mode, repoRoot }) =>
+            runDotNetCoverageStep({ ctx: { mode, repoRoot } }),
     },
     {
         id: "shell",

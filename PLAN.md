@@ -54,13 +54,18 @@ catalogues generally.
 Steps run in fixed order, strictly sequentially:
 
 ```text
-naming → node → dotnet → shell → smoke → yaml → workflow → tofu
+naming → node → node-coverage → dotnet → dotnet-coverage → shell → smoke → yaml → workflow → tofu
 ```
 
 - Each ecosystem step activates on detection (a `package.json`/`*.md` for
   `node`, a `.csproj`/`.sln`/`.slnx` for `dotnet`, lowercase `*.sh` for `shell`,
   `.yml`/`.yaml` for `yaml`, workflow files for `workflow`, root tofu files for
   `tofu`); missing ecosystems skip cleanly.
+- Coverage steps (`node-coverage`, `dotnet-coverage`) activate on a `.defined.json`
+  `coverage` entry for their ecosystem; absent entry = skip. They parse the
+  existing report (lcov for node, Cobertura XML for dotnet) and enforce the
+  configured line/branch/function minimums (default 80% line). In `fix` mode
+  they run the consumer's coverage command before validating.
 - `smoke` always probes the container's git.
 - Missing applicable tools fail loudly pointing at the Containerfile — there is
   no optional tier.
@@ -73,7 +78,7 @@ defined verify   # pipeline-only: the read-only check
 ```
 
 - **`comply`** (the only verb a developer or agent reaches for): resolve git
-  root → read/validate `.defined-version` → pull image → bootstrap managed
+  root → read/validate `.defined.json` pin → pull image → bootstrap managed
   configs + AGENTS block → full internal `fix` pass → fresh internal `no-fix`
   verify pass → exit 0 only when green. The second pass is mandatory. Always
   use `comply` for local work; `verify` is not it.
@@ -91,7 +96,8 @@ defined verify   # pipeline-only: the read-only check
   installed on PATH (normally `~/.local/bin/defined`); no gate behaviour; needs
   git + podman/docker; prefers podman; mounts repo read-write for `comply`,
   read-only for `verify`.
-- `.defined-version` holds one immutable image tag; rejects empty, `latest`,
+- `.defined.json` holds the immutable image tag under its `version` field, plus
+  optional per-ecosystem coverage configuration; rejects empty, `latest`,
   malformed or conflicting overrides. Offline runs succeed only with the exact
   image present.
 - `runtime/comply.sh` is an internal source-development shim, not a third
@@ -103,14 +109,46 @@ defined verify   # pipeline-only: the read-only check
 Git SHA
 ├── reusable workflow ref: markstanden/defined/...@<sha>
 ├── image tag:             ghcr.io/markstanden/defined:<sha>
-└── consumer pin:          .defined-version → <sha>
+└── consumer pin:          .defined.json "version" → <sha>
 ```
 
 GitHub forbids an expression in a reusable workflow `uses:` ref, so the
-consumer writes the workflow SHA in YAML; `.defined-version` removes the
+consumer writes the workflow SHA in YAML; `.defined.json` removes the
 separate `image-tag` input so local and CI share one source. Local green =
-merge green only while the workflow ref and `.defined-version` pin match — the
+merge green only while the workflow ref and `.defined.json` pin match — the
 consumer keeps those in step.
+
+### Consumer configuration
+
+`.defined.json` at the repo root is the single consumer configuration file.
+Its only required field is `version` (the immutable image tag). Optional
+`coverage` configuration activates the per-ecosystem coverage gate:
+
+```jsonc
+{
+    "version": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "coverage": {
+        "node": {
+            "command": "npm run test:coverage",
+            "minimums": { "line": 80, "branch": 70, "function": 90 },
+        },
+        "dotnet": {
+            "command": "dotnet test --collect:XPlat",
+            "minimums": { "line": 80 },
+        },
+    },
+}
+```
+
+- Absent `coverage` section (or absent ecosystem entry) = that coverage step
+  skips.
+- `command` is the shell command that generates the coverage report; it runs
+  in `fix` mode, while `no-fix` mode only parses an existing report.
+- `minimums` per metric are optional; an omitted metric is not checked. When
+  the `minimums` key is absent, the step defaults to 80% line coverage.
+- The gate parses `node` reports as lcov (`coverage/lcov.info`) and `dotnet`
+  reports as Cobertura XML (`coverage.cobertura.xml` or
+  `TestResults/coverage.cobertura.xml`).
 
 ### Bootstrap contract
 
@@ -132,7 +170,7 @@ defined/
 │   ├── tool-versions.env             # tool pins used to build the image
 │   ├── verify.mts                    # comply/verify orchestration
 │   ├── setup.mts                     # internal bootstrap/check implementation
-│   ├── lib/                          # gate-specific core + tests
+│   ├── lib/                          # gate-specific core + tests (incl. config.mts)
 │   ├── steps/                        # detected ecosystem checks + tests
 │   └── config/                       # travelling tool/agent configuration
 ├── lib/                              # shared gate helpers: git, paths, proc
@@ -144,6 +182,6 @@ defined/
     └── defined--publish.yml          # image publication
 ```
 
-The producer repo does not commit a self-referential `.defined-version`
-(committing a file containing its own SHA is impossible) — it is the contract
-in consumer repos.
+The producer repo does not commit a self-referential `.defined.json`
+(committing a config whose `version` is its own SHA is impossible) — it is the
+contract in consumer repos.

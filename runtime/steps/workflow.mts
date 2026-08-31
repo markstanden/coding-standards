@@ -2,7 +2,7 @@
 //
 // Tools:    actionlint, zizmor, gitleaks (all required — missing = loud fail)
 // Config:   .gitleaksignore at repo root (optional); per-project ignores via
-//           .qualityrc.json when needed
+//           .defined.json when needed
 // Fix:      none — these are check-only tools
 //
 // Detection: actionlint/zizmor run only when tracked workflow files exist

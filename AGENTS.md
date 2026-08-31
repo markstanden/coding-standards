@@ -14,10 +14,10 @@ end-to-end gate.
 
 - `cli/defined` is the **installed host launcher** (decision #25): bash, no gate
   behaviour, needs only git + podman/docker. It reads the consumer's committed
-  `.defined-version` pin, prefers podman, mounts the repo rw for `comply` / ro
+  `.defined.json` `version` pin, prefers podman, mounts the repo rw for `comply` / ro
   for `verify`. Tested via `cli/defined.test.mts` with fake engines injected on
   PATH (no real engine needed). The producer repo does not commit its own
-  `.defined-version`.
+  `.defined.json`.
 - Root `.github/workflows/*.yml` hold one consumer-facing reusable workflow and
   two repository CI workflows. The only reusable workflow is `defined--verify.yml`
   (the gate). Naming convention: `<namespace>--<loose-verb>[--<target>].yml`
@@ -51,16 +51,21 @@ record — read it before touching anything gate-related):
 - TypeScript core, Node ≥26 strip-types: **no enums/namespaces** (bare string
   literal unions), extensioned imports, zero dependencies, tested with
   `node --test` colocated as `*.test.mts`.
-- Steps run in fixed order `naming → node → dotnet → shell → smoke → yaml → workflow
-→ tofu`; missing applicable tools fail loudly pointing at the Containerfile
-  (no optional tier).
-- **Run the full suite continuously**: host `node --test` _and_ the podman
-  end-to-end gate (`./runtime/comply.sh`) — host-green does not mean
-  gate-green. `node --test` also runs the broken-fixture integration test
-  (`runtime/fixture.test.mts`), which drives the real gate against a
-  deliberately-broken repo and skips cleanly without a container engine.
-  Keeping the gate green is the tripwire — any workflow-template deviation
-  fails the `workflow` step again.
+- Steps run in fixed order `naming → node → node-coverage → dotnet →
+dotnet-coverage → shell → smoke → yaml → workflow → tofu`; missing applicable
+  tools fail loudly pointing at the Containerfile (no optional tier). Coverage
+  steps activate on a `.defined.json` `coverage` entry (see `runtime/lib/config.mts`).
+- **Use the gate, not ad-hoc formatting**: after a change lands, run
+  `./runtime/comply.sh` with no flags — **one command, one output**. It bootstraps,
+  repairs (formats, fixes safe findings) and then runs a fresh verify, printing a
+  single `compliant`/`not compliant` verdict. Don't hand-invoke prettier or add a
+  `--check-only` step yourself to "check first"; plain `comply` is the whole loop.
+  Keep it green continuously: `node --test` _and_ the podman end-to-end gate
+  (`./runtime/comply.sh`) — host-green does not mean gate-green. `node --test`
+  also runs the broken-fixture integration test (`runtime/fixture.test.mts`),
+  which drives the real gate against a deliberately-broken repo and skips
+  cleanly without a container engine. Keeping the gate green is the tripwire —
+  any workflow-template deviation fails the `workflow` step again.
 - The image tag IS the toolchain — the gate image carries every pinned tool, so
   containerised CI jobs need no setup-opentofu/setup-dotnet/setup-node steps.
 

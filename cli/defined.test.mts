@@ -37,14 +37,17 @@ interface Fixture {
     repo: string;
 }
 
-/** Temp dir + fake bin + a git repo containing the given .defined-version. */
+/** Temp dir + fake bin + a git repo containing the given .defined.json. */
 async function makeFixture(pin?: string): Promise<Fixture> {
     const root = await mkdtemp(join(tmpdir(), "quality-launcher-"));
     const bin = join(root, "bin");
     const repo = join(root, "repo");
     await mkdir(bin);
     await mkdir(repo);
-    await writeFile(join(repo, ".defined-version"), `${pin ?? "deadbeef"}\n`);
+    const config = {
+        version: pin ?? "deadbeef",
+    };
+    await writeFile(join(repo, ".defined.json"), `${JSON.stringify(config)}\n`);
     return { root, bin, repo };
 }
 
@@ -293,20 +296,31 @@ test("rejects mutable and malformed pins", async () => {
     }
 });
 
-test("fails when the pin file is missing or empty", async () => {
+test("fails when the config file is missing, empty or has no version", async () => {
     await withFixture("abc12345", async (missing) => {
-        await rm(join(missing.repo, ".defined-version"));
+        await rm(join(missing.repo, ".defined.json"));
         const r = await runLauncher({ fixture: missing, args: ["verify"] });
         assert.equal(r.status, 1);
-        assert.match(r.stderr, /\.defined-version/u);
+        assert.match(r.stderr, /\.defined\.json/u);
         assert.deepEqual(r.log, []);
     });
 
-    await withFixture(undefined, async (empty) => {
-        await writeFile(join(empty.repo, ".defined-version"), "\n  \n");
-        const r = await runLauncher({ fixture: empty, args: ["verify"] });
+    await withFixture("abc12345", async (blank) => {
+        await writeFile(join(blank.repo, ".defined.json"), "\n  \n");
+        const r = await runLauncher({ fixture: blank, args: ["verify"] });
         assert.equal(r.status, 1);
-        assert.match(r.stderr, /empty/u);
+        assert.match(r.stderr, /no "version"/u);
+        assert.deepEqual(r.log, []);
+    });
+
+    await withFixture("abc12345", async (noVersion) => {
+        await writeFile(
+            join(noVersion.repo, ".defined.json"),
+            JSON.stringify({ coverage: {} }),
+        );
+        const r = await runLauncher({ fixture: noVersion, args: ["verify"] });
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /no "version"/u);
         assert.deepEqual(r.log, []);
     });
 });

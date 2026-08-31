@@ -13,7 +13,7 @@ hard rules (gate steps, module conventions, naming) live in
   (`tool-versions.env`); the image tag IS the release. No per-distro installer
   scripts, no drift between environments.
 - **Local green = merge green.** CI runs the same image as the developer as
-  long as the workflow ref and the `.defined-version` pin match; nothing is
+  long as the workflow ref and the `.defined.json` pin match; nothing is
   environment-specific.
 - **Two distribution channels only**: the pinned image and gitsha-pinned
   reusable-workflow refs. No submodules, no symlinks, no consumer application
