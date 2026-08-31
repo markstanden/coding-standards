@@ -56,7 +56,7 @@ aren't relitigated:
 → tofu`; missing tools fail loudly pointing at the Containerfile (no
   optional tier).
 - **Run the full suite continuously**: host `node --test` _and_ the podman
-  end-to-end gate (`./runtime/verify.sh verify`) — host-green does not mean
+  end-to-end gate (`./runtime/verify.sh comply`) — host-green does not mean
   gate-green (2026-08-30: the unit suite passed while the gate went red on
   real workflow-template findings until the stage-2 refactor fixed them).
   `node --test` also runs the broken-fixture integration test
@@ -79,6 +79,7 @@ aren't relitigated:
 This project is gated by Mark's portable defined gate.
 House standards, tool pins and the decision log live in the gate's PLAN.md;
 the canonical cross-project index is the coding-standards README. Run
-`defined comply` to bootstrap, repair and verify; `defined verify`
-for a read-only check; a missing ecosystem skips, a missing tool fails loudly.
+`defined comply` — it bootstraps, repairs and verifies in one pass; use it
+every time. (`defined verify` is the pipeline-only read-only check.)
+A missing ecosystem skips, a missing tool fails loudly.
 <!-- defined:end -->

@@ -9,7 +9,7 @@ A single source of truth for my development project configuration files, workflo
 backed by shared building blocks (`lib/`) and house standards (`standards/`).
 The design and decision log live in [PLAN.md](PLAN.md).
 
-## The gate: two verbs own verification
+## The gate: one command owns local verification
 
 Install the `defined` launcher, then run it from a project root:
 
@@ -17,8 +17,13 @@ Install the `defined` launcher, then run it from a project root:
 install -m 755 cli/defined ~/.local/bin/defined   # one-time install
 
 defined comply    # bootstrap (configs + AGENTS block) → repair → verify
-defined verify    # read-only check (never writes)
 ```
+
+**Always use `comply` for local and agent work.** It bootstraps the managed
+configs, repairs safe findings, then re-verifies — one command, exit 0 only
+when the checkout is green. `verify` exists solely for the pipeline: it is the
+read-only check `defined--verify.yml` runs in CI (never writes), and is not the
+command for a developer to reach for.
 
 The launcher needs only git + podman/docker; it prefers podman, mounts the repo
 read-write for `comply` and read-only for `verify`, and runs the exact image
@@ -37,10 +42,11 @@ the image.
    `~/.local/bin/defined`); it needs only git + podman/docker.
 2. **Commit the pin** — add a `.defined-version` file holding the immutable
    image tag you want (e.g. the git SHA of the gate commit you're adopting).
-3. **Gate locally** — `defined comply` bootstraps `.editorconfig` and
+3. **Gate locally** — run `defined comply`. It bootstraps `.editorconfig` and
    `Directory.Build.props` into the repo root and seeds the AGENTS.md managed
    block (raises-only; your tightened rules are never overwritten), repairs
-   safe findings, then re-verifies. `defined verify` is the read-only check.
+   safe findings, then re-verifies. Use `comply` every time — it is the whole
+   local loop; `verify` is reserved for CI.
 4. **Gate in CI** — call the reusable `defined--verify.yml` workflow, pinned
    to the same git sha as the pin:
 

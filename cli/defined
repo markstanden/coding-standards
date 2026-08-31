@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # cli/defined — installed host launcher for the defined gate (decision #25).
 #
-# The only public surface: `defined comply` and `defined verify`. Reads the
-# consumer's committed .defined-version pin, picks a container engine (podman
-# preferred), ensures the exact image is present, then runs it — mounting the
-# repo read-write for comply, read-only for verify. No gate behaviour lives
-# here; everything else is in the image.
+# The only public surface: `defined comply` and `defined verify`. `comply` is
+# the command to use locally and for agent work (bootstrap + repair + verify);
+# `verify` is the read-only check the pipeline runs and nothing else. Reads
+# the consumer's committed .defined-version pin, picks a container engine
+# (podman preferred), ensures the exact image is present, then runs it —
+# mounting the repo read-write for comply, read-only for verify. No gate
+# behaviour lives here; everything else is in the image.
 #
 # Needs only git + podman/docker on the host. Install: put this file on PATH
 # (normally ~/.local/bin/defined). Source development uses runtime/verify.sh.

@@ -31,12 +31,12 @@ tofu`; missing applicable tools fail loudly pointing at the Containerfile
   into repo roots (raises-only) and seeds a marker-delimited managed block in
   consumer `AGENTS.md` (raises-only, idempotent); `verify` detects
   absence/drift/corruption read-only.
-- **Two-verb runtime contract (Phase 2, 2026-08-31)** — `defined comply`
-  bootstraps → repairs → re-verifies; `defined verify` checks managed artifacts
-  then runs a complete no-fix pass, never writing. Output is one stable
-  `compliant` line on green; a stable agent-actionable breakdown otherwise.
-  The retired `setup` verb and `--fix`/`--no-fix`/`--silent` flags are usage
-  errors.
+- **Two-verb runtime contract (Phase 2, 2026-08-31)** — `defined comply` is the
+  always-use local/agent loop: bootstraps → repairs → re-verifies; `defined
+verify` is the pipeline-only check: managed artifacts then a complete no-fix
+  pass, never writing. Output is one stable `compliant` line on green; a stable
+  agent-actionable breakdown otherwise. The retired `setup` verb and
+  `--fix`/`--no-fix`/`--silent` flags are usage errors.
 - **Installed launcher + shared pin (Phase 3, 2026-08-31)** — `cli/defined`
   (bash, no gate logic) reads the consumer's `.defined-version`, prefers
   podman, mounts rw for `comply` / ro for `verify`, and runs the exact pinned
@@ -151,17 +151,19 @@ archive.
 ### Final public API
 
 ```bash
-defined comply
-defined verify
+defined comply   # always: the local/agent loop
+defined verify   # pipeline-only: the read-only check
 ```
 
-- **`comply`** (primary agent/local loop): resolve git root → read/validate
-  `.defined-version` → pull image → bootstrap managed configs + AGENTS block
-  (raises-only) → full internal `fix` pass → fresh internal `no-fix` verify
-  pass → exit 0 only when green. The second pass is mandatory.
+- **`comply`** (the only verb a developer or agent reaches for): resolve git
+  root → read/validate `.defined-version` → pull image → bootstrap managed
+  configs + AGENTS block (raises-only) → full internal `fix` pass → fresh
+  internal `no-fix` verify pass → exit 0 only when green. The second pass is
+  mandatory. Always use `comply` for local work; `verify` is not it.
 - **`verify`**: resolve pin → check managed artifacts present/current (never
   install) → full `no-fix` pass → non-zero for any drift/finding/failure.
-  The only verb callable from `defined--verify.yml`.
+  Pipeline-only — the sole verb callable from `defined--verify.yml`, and not
+  the command for local use.
 - **Output contract:** success = exit 0 + one stable `compliant` line (success
   chatter suppressed); failure = non-zero + stable agent-actionable detail
   (phase, step, tool/rule, files, whether repair attempted, what remains).
