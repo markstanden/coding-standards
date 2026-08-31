@@ -48,6 +48,19 @@ async function makeFixture(pin?: string): Promise<Fixture> {
     return { root, bin, repo };
 }
 
+/** Run a test body against a fresh fixture, always cleaning up. */
+async function withFixture<T>(
+    pin: string | undefined,
+    fn: (fixture: Fixture) => Promise<T>,
+): Promise<T> {
+    const fixture = await makeFixture(pin);
+    try {
+        return await fn(fixture);
+    } finally {
+        await rm(fixture.root, { recursive: true, force: true });
+    }
+}
+
 /**
  * Write a fake engine (podman/docker). Behaviour is controlled by env vars
  * read from its own environment at invocation time:
@@ -162,8 +175,7 @@ async function runLauncher({
 }
 
 test("prefers podman over docker", async () => {
-    const fixture = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (fixture) => {
         const r = await runLauncher({
             fixture,
             args: ["verify"],
@@ -177,14 +189,11 @@ test("prefers podman over docker", async () => {
             "only podman runs, docker is never called",
         );
         assert.match(runs[0]!, new RegExp(`${IMAGE_REPO}:abc12345 verify$`));
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("fails loudly when no engine is available", async () => {
-    const fixture = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (fixture) => {
         const r = await runLauncher({
             fixture,
             args: ["verify"],
@@ -194,14 +203,11 @@ test("fails loudly when no engine is available", async () => {
         assert.equal(r.status, 1);
         assert.match(r.stderr, /no container engine found/u);
         assert.deepEqual(r.log, []);
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("resolves the repo root via git and mounts it for comply", async () => {
-    const fixture = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (fixture) => {
         const r = await runLauncher({ fixture, args: ["comply"] });
         assert.equal(r.status, 0);
         const run = r.log.find((line) => line.startsWith("run --rm"));
@@ -209,28 +215,22 @@ test("resolves the repo root via git and mounts it for comply", async () => {
         assert.match(run!, new RegExp(`-v ${fixture.repo}:/repo( |$)`));
         assert.doesNotMatch(run!, /:ro/);
         assert.ok(run!.endsWith(`${IMAGE_REPO}:abc12345 comply`));
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("mounts the repo read-only for verify", async () => {
-    const fixture = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (fixture) => {
         const r = await runLauncher({ fixture, args: ["verify"] });
         assert.equal(r.status, 0);
         const run = r.log.find((line) => line.startsWith("run --rm"));
         assert.ok(run, "verify must invoke the engine");
         assert.match(run!, new RegExp(`-v ${fixture.repo}:/repo:ro`));
         assert.ok(run!.endsWith(`${IMAGE_REPO}:abc12345 verify`));
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("pulls the exact pinned image when it is not present locally", async () => {
-    const fixture = await makeFixture("feedface");
-    try {
+    await withFixture("feedface", async (fixture) => {
         const r = await runLauncher({
             fixture,
             args: ["verify"],
@@ -249,14 +249,11 @@ test("pulls the exact pinned image when it is not present locally", async () => 
         );
         const run = r.log.find((line) => line.startsWith("run --rm"));
         assert.ok(run!.includes(`${IMAGE_REPO}:feedface`));
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("does not pull when the image is already present", async () => {
-    const fixture = await makeFixture("feedface");
-    try {
+    await withFixture("feedface", async (fixture) => {
         const r = await runLauncher({ fixture, args: ["verify"] });
         assert.equal(r.status, 0);
         assert.ok(
@@ -268,14 +265,11 @@ test("does not pull when the image is already present", async () => {
             !r.log.some((line) => line.startsWith("pull")),
             "no pull when the image is present",
         );
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("fails when the pinned image cannot be pulled", async () => {
-    const fixture = await makeFixture("feedface");
-    try {
+    await withFixture("feedface", async (fixture) => {
         const r = await runLauncher({
             fixture,
             args: ["verify"],
@@ -285,64 +279,49 @@ test("fails when the pinned image cannot be pulled", async () => {
         assert.match(r.stderr, /unavailable/u);
         const run = r.log.find((line) => line.startsWith("run --rm"));
         assert.ok(!run, "no run when the image cannot be fetched");
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("rejects mutable and malformed pins", async () => {
     for (const pin of ["latest", "main", "dead-beef", "DEADBEEF", "v1.2.3"]) {
-        const fixture = await makeFixture(pin);
-        try {
+        await withFixture(pin, async (fixture) => {
             const r = await runLauncher({ fixture, args: ["verify"] });
             assert.equal(r.status, 1, `pin '${pin}' must be rejected`);
             assert.match(r.stderr, /immutable|invalid pin/u);
             assert.deepEqual(r.log, [], "no engine run for a bad pin");
-        } finally {
-            await rm(fixture.root, { recursive: true, force: true });
-        }
+        });
     }
 });
 
 test("fails when the pin file is missing or empty", async () => {
-    const missing = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (missing) => {
         await rm(join(missing.repo, ".defined-version"));
         const r = await runLauncher({ fixture: missing, args: ["verify"] });
         assert.equal(r.status, 1);
         assert.match(r.stderr, /\.defined-version/u);
         assert.deepEqual(r.log, []);
-    } finally {
-        await rm(missing.root, { recursive: true, force: true });
-    }
+    });
 
-    const empty = await makeFixture();
-    try {
+    await withFixture(undefined, async (empty) => {
         await writeFile(join(empty.repo, ".defined-version"), "\n  \n");
         const r = await runLauncher({ fixture: empty, args: ["verify"] });
         assert.equal(r.status, 1);
         assert.match(r.stderr, /empty/u);
         assert.deepEqual(r.log, []);
-    } finally {
-        await rm(empty.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("forwards unknown verbs to usage and exits non-zero", async () => {
-    const fixture = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (fixture) => {
         const r = await runLauncher({ fixture, args: ["setup"] });
         assert.equal(r.status, 2);
         assert.match(r.stderr, /usage/u);
         assert.deepEqual(r.log, []);
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
 
 test("honours DEFINED_ENGINE override", async () => {
-    const fixture = await makeFixture("abc12345");
-    try {
+    await withFixture("abc12345", async (fixture) => {
         const r = await runLauncher({
             fixture,
             args: ["verify"],
@@ -358,7 +337,5 @@ test("honours DEFINED_ENGINE override", async () => {
             "utf8",
         );
         assert.ok(dockerLog.includes("run --rm"));
-    } finally {
-        await rm(fixture.root, { recursive: true, force: true });
-    }
+    });
 });
