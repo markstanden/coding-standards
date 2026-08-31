@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# Defined runtime shim — the only host-side surface.
+# Defined runtime shim — the internal source-development surface.
 #
 # Locates a container engine, ensures the pinned image exists (builds it on
 # first run or when tool pins change), mounts the target repo rw and
 # runtime/ + lib/ + standards/ ro, then execs verify.mts inside the container.
 #
-# Usage: ./runtime/verify.sh [--fix] [--silent] [step flags...]
+# Usage: ./runtime/comply.sh            # local/agent loop (default): bootstrap + repair + verify
+#        ./runtime/comply.sh --check-only  # read-only no-fix pass (tests + no-write checks)
+#
+# `comply` is the always-use default; `--check-only` is the pipeline-style
+# read-only pass, kept for the fixture tests and local no-write checks. The
+# installed `defined` launcher is the public surface; this shim is gate
+# development only.
 #
 # Engine preference is podman → docker: podman adheres more strictly to OCI
 # semantics, so developing against it keeps the image honest; docker's
@@ -13,11 +19,17 @@
 
 set -euo pipefail
 
+# Map the default verb and the check-only flag to the runtime contract.
+VERB="comply"
+if [[ "${1:-}" == "--check-only" ]]; then
+    VERB="verify"
+    shift
+fi
+
 RUNTIME_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 GATE_ROOT="$(dirname "${RUNTIME_DIR}")"
 LIB_DIR="${GATE_ROOT}/lib"
 STANDARDS_DIR="${GATE_ROOT}/standards"
-PIPELINES_DIR="${GATE_ROOT}/pipelines"
 
 # Repo root comes from the invocation CWD's git root — never from where this
 # script lives — so the gate can run against any checkout.
@@ -64,10 +76,9 @@ exec "${ENGINE}" run --rm \
     -v "${RUNTIME_DIR}:/opt/defined/runtime:ro" \
     -v "${LIB_DIR}:/opt/defined/lib:ro" \
     -v "${STANDARDS_DIR}:/opt/defined/standards:ro" \
-    -v "${PIPELINES_DIR}:/opt/defined/pipelines:ro" \
     -v "defined-node-${PINHASH}-${REPO_HASH}:/repo/node_modules" \
     -v "defined-npm-${REPO_HASH}:/root/.npm" \
     -v "defined-nuget-${REPO_HASH}:/root/.nuget/packages" \
     -e "NUGET_PACKAGES=/root/.nuget/packages" \
     --workdir /repo \
-    "${IMAGE}" "$@"
+    "${IMAGE}" "${VERB}" "$@"

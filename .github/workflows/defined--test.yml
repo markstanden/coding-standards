@@ -53,8 +53,8 @@ jobs:
                     echo "pulled published image"
                     exit 0
                   fi
-                  echo "no published image; verify.sh will build it on first run"
+                  echo "no published image; comply.sh will build it on first run"
 
             - name: Run test suite (unit + broken fixture)
               shell: bash
-              run: node --test 'lib/*.test.mts' 'runtime/**/*.test.mts' 'pipelines/*.test.mts'
+              run: node --test 'cli/*.test.mts' 'lib/*.test.mts' 'runtime/**/*.test.mts'

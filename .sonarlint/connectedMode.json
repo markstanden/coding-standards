@@ -1,6 +1,6 @@
 {
     "sonarQubeCloud": true,
     "organizationKey": "markstanden",
-    "projectKey": "markstanden_coding-standards",
+    "projectKey": "markstanden_defined",
     "region": "EU"
 }

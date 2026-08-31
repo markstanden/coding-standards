@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { BLOCK_START } from "./lib/agents-block.mts";
-import { runSetup } from "./setup.mts";
+import { checkSetup, runSetup } from "./setup.mts";
 
 async function makeTempRepo(): Promise<string> {
     const root = await mkdtemp(join(tmpdir(), "quality-setup-"));
@@ -72,6 +72,42 @@ test("runSetup fails loudly when a root config conflicts (raises-only)", async (
         await assert.rejects(
             () => runSetup({ startDir: repo }),
             /raises-only/u,
+        );
+    } finally {
+        await rm(repo, { recursive: true, force: true });
+    }
+});
+
+test("checkSetup reports absent artifacts and present after setup", async () => {
+    const repo = await makeTempRepo();
+    try {
+        const before = await checkSetup({ startDir: repo });
+        assert.deepEqual(
+            before.configs.map((c) => c.status),
+            ["absent", "absent"],
+        );
+        assert.equal(before.agents, "absent");
+
+        await runSetup({ startDir: repo });
+        const after = await checkSetup({ startDir: repo });
+        assert.deepEqual(
+            after.configs.map((c) => c.status),
+            ["present", "present"],
+        );
+        assert.equal(after.agents, "present");
+    } finally {
+        await rm(repo, { recursive: true, force: true });
+    }
+});
+
+test("checkSetup reports drift when a config differs", async () => {
+    const repo = await makeTempRepo();
+    try {
+        await writeFile(join(repo, ".editorconfig"), "indent_size = 2\n");
+        const check = await checkSetup({ startDir: repo });
+        assert.equal(
+            check.configs.find((c) => c.name === ".editorconfig")?.status,
+            "drift",
         );
     } finally {
         await rm(repo, { recursive: true, force: true });

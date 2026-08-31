@@ -8,6 +8,8 @@ on:
 jobs:
     quality:
         name: Defined Quality Gate
-        uses: ./.coding-standards/.github/workflows/defined--verify.yml@main
+        # The one consumer-facing gate workflow; pin to a published short-sha.
+        # Local green = pipeline green by construction.
+        uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
         with:
             image-tag: <shortsha>

@@ -8,6 +8,7 @@ package-lock.json
 # Generated output — never format.
 coverage/
 .scannerwork/
+.terraform/
 
 # TOML is editorconfig territory, not Prettier's.
 *.toml

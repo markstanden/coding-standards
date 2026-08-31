@@ -1,4 +1,4 @@
-<!-- update: agent=opencode | date=2026-08-30 | scope=AGENTS.md -->
+<!-- update: agent=opencode | date=2026-08-31 | scope=AGENTS.md -->
 
 # AGENTS.md
 
@@ -12,12 +12,19 @@ end-to-end gate.
 
 ## Non-obvious structure
 
+- `cli/defined` is the **installed host launcher** (decision #25): bash, no gate
+  behaviour, needs only git + podman/docker. It reads the consumer's committed
+  `.defined-version` pin, prefers podman, mounts the repo rw for `comply` / ro
+  for `verify`. Tested via `cli/defined.test.mts` with fake engines injected on
+  PATH (no real engine needed). The producer repo does not commit its own
+  `.defined-version`.
 - Root `.github/workflows/*.yml` are mostly **reusable `workflow_call` templates**
-  for consumer repos, NOT CI for this repo. Naming convention:
+  for consumer repos, NOT CI for this repo. There is exactly one consumer-facing
+  template: `defined--verify.yml` (the gate). Naming convention:
   `<namespace>--<loose-verb>[--<target>].yml` (double hyphen separates the
   segments; the verb names the intent, not the tool — see
   `standards/naming.md`), inputs parameterise paths/versions.
-  Exceptions that ARE CI for this repo: `defined--publish.yml` (builds +
+  The other two ARE CI for this repo: `defined--publish.yml` (builds +
   pushes the gate image to ghcr on main) and `defined--test.yml` (runs
   the gate's own unit + broken-fixture suite on PRs and merges).
 - `standards/workflows/pipeline.example.yml` — the `.example` in the stem is
@@ -25,12 +32,12 @@ end-to-end gate.
   here. The `.yml` extension means the gate's `yaml` step lints it, so the
   template stays valid YAML.
 - `standards/.editorconfig` and `standards/Directory.Build.props` are the
-  single source of truth for shared root configs — the gate's `setup`
+  single source of truth for shared root configs — `comply`'s bootstrap
   installs them into consumer repo roots (raises-only) from the baked image.
-  The repo's own root `.editorconfig` is a copy of `standards/.editorconfig`
-  (self-hosted: `verify.sh setup` on this repo is a no-op, and drift fails
-  loudly). It drives prettier (pure-defaults config reads it natively), shfmt
-  and IDEs from one source.
+  The repo's own root `.editorconfig` and `Directory.Build.props` are copies of
+  the `standards/` versions (self-hosted: `comply` on this repo is a no-op
+  beyond the AGENTS block, and drift fails loudly). It drives prettier
+  (pure-defaults config reads it natively), shfmt and IDEs from one source.
 
 ## The gate: how it works
 
@@ -40,7 +47,8 @@ aren't relitigated:
 
 - Container-native runtime (official `node:<ver>-slim` base, digest-pinned
   via `tool-versions.env`; global pinned `tsc` for typechecking gate code);
-  only host surface is a ~30-line bash shim.
+  host surface is the installed `cli/defined` launcher (git + podman/docker
+  only) plus the internal `runtime/comply.sh` source-development shim.
 - TypeScript core, Node ≥26 strip-types: **no enums/namespaces** (bare string
   literal unions), extensioned imports, zero dependencies, tested with
   `node --test` colocated as `*.test.mts`.
@@ -48,7 +56,7 @@ aren't relitigated:
 → tofu`; missing tools fail loudly pointing at the Containerfile (no
   optional tier).
 - **Run the full suite continuously**: host `node --test` _and_ the podman
-  end-to-end gate (`./runtime/verify.sh`) — host-green does not mean
+  end-to-end gate (`./runtime/comply.sh`) — host-green does not mean
   gate-green (2026-08-30: the unit suite passed while the gate went red on
   real workflow-template findings until the stage-2 refactor fixed them).
   `node --test` also runs the broken-fixture integration test
@@ -56,15 +64,8 @@ aren't relitigated:
   deliberately-broken repo and skips cleanly without a container engine.
   The gate is now fully green; keeping it green is the tripwire — any new
   workflow-template deviation fails the `workflow` step again.
-- Pipeline modules live in `pipelines/*.mts` (thin zero-dep wrappers over the
-  shared `lib/` building blocks), baked into the image at
-  `/opt/defined/pipelines` and invoked by containerised workflow jobs as
-  `node /opt/defined/pipelines/<module>.mts` with inputs via env. Modules are
-  shared building blocks named `<namespace>-<loose-verb>.mts` — never 1:1
-  mirrors of a workflow, and runnable modules never end in `-test` (Node's
-  `*-test.*` discovery glob would execute them). See `standards/naming.md`.
-  The image tag IS the toolchain for containerised workflows — no
-  setup-opentofu/setup-dotnet/setup-node steps needed.
+- The image tag IS the toolchain — the gate image carries every pinned tool, so
+  containerised CI jobs need no setup-opentofu/setup-dotnet/setup-node steps.
 
 ## Conventions
 
@@ -75,9 +76,10 @@ aren't relitigated:
 
 <!-- defined:start -->
 
-This project is gated by Mark's portable defined gate (`runtime/`).
+This project is gated by Mark's portable defined gate.
 House standards, tool pins and the decision log live in the gate's PLAN.md;
 the canonical cross-project index is the coding-standards README. Run
-`./runtime/verify.sh` to gate (add `--fix` to repair mechanically, `--silent`
-for log-style output); a missing ecosystem skips, a missing tool fails loudly.
+`defined comply` — it bootstraps, repairs and verifies in one pass; use it
+every time. (`defined verify` is the pipeline-only read-only check.)
+A missing ecosystem skips, a missing tool fails loudly.
 <!-- defined:end -->

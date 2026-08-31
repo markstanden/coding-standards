@@ -7,7 +7,6 @@ on:
             - "runtime/**"
             - "lib/**"
             - "standards/**"
-            - "pipelines/**"
     workflow_dispatch:
 
 concurrency:

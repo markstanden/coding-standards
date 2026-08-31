@@ -50,10 +50,8 @@ export function fakeRunner(
     return { runner, calls };
 }
 
-/** Default step context: check-only, non-silent, repo at /repo. */
+/** Default step context: check-only, repo at /repo. */
 export const baseCtx = {
     mode: "no-fix" as const,
-    silent: false,
-    help: false as const,
     repoRoot: "/repo",
 };

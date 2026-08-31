@@ -1,551 +1,342 @@
-<!-- update: agent=opencode | date=2026-08-30 | scope=PLAN.md -->
+<!-- update: agent=opencode | date=2026-08-31 | scope=PLAN.md -->
 
-# PLAN — defined: portable quality gate ("pick up and drop")
+# PLAN — defined: portable quality gate
 
-## Goal
+`defined` is a portable engineering quality gate that works against **any**
+project. Standards are defined once, distilled into agent guidance, and enforced
+mechanically by one pinned container runtime, exposed through an agent-first
+local CLI and one reusable pipeline workflow: local green = pipeline green by
+construction.
 
-One `runtime/` directory (the container image) that works against **any**
-project: run the gate (from a checkout, or straight from its published image)
-and it detects what the project is, runs only the relevant checks, and
-enforces house style from tool configs baked into the pinned container image.
+`defined` is deliberately **not** a general CI/CD runtime: no release artifacts,
+deployment, infrastructure operations, hosted service wrappers, or bespoke
+build/test pipeline catalogue. A universally-applicable check belongs in the
+gate; a project-specific delivery action stays with that project.
 
-Provenance: the working prototype is
-[`~/bin/system-config/quality/`](https://github.com/markstanden/system-config)
-(gate philosophy documented in its `lib/AGENTS.md`). It currently runs green
-daily but is coupled to that one repo. This plan extracts it.
+## Where we are (2026-08-31)
 
-## Design principles (inherited, non-negotiable)
+Built and green to date:
 
-- One command owns verification: local green = merge green (CI runs the same script).
-- Config owns style; agents/humans edit config and run `verify --fix`.
-- Floors raise, never lower (see system-config's `SHELLCHECK_SEVERITY_DEFAULT`).
-- Mechanical fixes are committed as mechanical diffs.
+- **Container-native runtime** — official `node:<ver>-slim`, digest-pinned via
+  `tool-versions.env`; TypeScript core (strip-types, extensioned imports, no
+  enums/namespaces, zero deps), bash shrunk to a ~30-line shim (`comply.sh`).
+- **Fixed step order** `naming → node → dotnet → shell → yaml → workflow →
+tofu`; missing applicable tools fail loudly pointing at the Containerfile
+  (no optional tier except Sonar, outside the manifest).
+- **Self-contained image** `ghcr.io/markstanden/defined` — gate code, shared
+  `lib/` and standards baked at `/opt/defined`; local shim bind-mounts ro for
+  live edits. CI via `defined--test.yml`; publication via
+  `defined--publish.yml` (linux/amd64+arm64, pinhash + shortsha tags).
+- **Bootstrap** — `comply` installs `.editorconfig` + `Directory.Build.props`
+  into repo roots (raises-only) and seeds a marker-delimited managed block in
+  consumer `AGENTS.md` (raises-only, idempotent); `verify` detects
+  absence/drift/corruption read-only.
+- **Two-verb runtime contract (Phase 2, 2026-08-31)** — `defined comply` is the
+  always-use local/agent loop: bootstraps → repairs → re-verifies; `defined
+verify` is the pipeline-only check: managed artifacts then a complete no-fix
+  pass, never writing. Output is one stable `compliant` line on green; a stable
+  agent-actionable breakdown otherwise. The retired `setup` verb and
+  `--fix`/`--no-fix`/`--silent` flags are usage errors.
+- **Installed launcher + shared pin (Phase 3, 2026-08-31)** — `cli/defined`
+  (bash, no gate logic) reads the consumer's `.defined-version`, prefers
+  podman, mounts rw for `comply` / ro for `verify`, and runs the exact pinned
+  image. Unit tests inject fake engines on PATH; smoke-tested against a
+  throwaway consumer. `defined--verify.yml` reads `.defined-version` (no
+  `image-tag` input); `runtime/comply.sh` stays the source-development shim
+  (it builds/live-edits the local image, which the launcher does not).
+- **Product rename (Phase 4, 2026-08-31)** — GitHub repo is `markstanden/defined`
+  (redirect from the old name verified), SonarQube key is `markstanden_defined`,
+  GHCR image `ghcr.io/markstanden/defined` is public; README/workflow/tests use
+  the new identity and the local `origin` points at the renamed repo. Remaining
+  after this branch merges to `main`: `defined--publish.yml` publishes a fresh
+  image SHA, and the local checkout directory gets renamed last (machine state).
+- **Tested** — 145+ host unit tests (colocated `*.test.mts`) + a broken-fixture
+  integration test (`runtime/fixture.test.mts`) driving the real gate
+  in-container (hash-proves `verify` is side-effect free) + the podman
+  end-to-end gate (`./runtime/comply.sh`). Run the full suite
+  continuously: host-green does not mean gate-green.
+- **Current repo target** — `runtime/`, root `lib/`, `standards/`, `practices/`,
+  `.github/workflows/{defined--verify|defined--test|defined--publish}.yml`.
+- **Scope correction applied (Phase 1 of the refocus, 2026-08-31)** — the ten
+  delivery workflow templates, the `pipelines/` layer (14 modules + 14 tests +
+  helper) and the orphaned `lib/gha.mts`/`lib/json.mts` helpers are removed;
+  `defined--verify.yml` is the sole consumer-facing workflow. Git history is
+  the archive.
 
-## Decisions log (2026-08-24 design review)
+## Decisions log (condensed)
 
-| #   | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Container is the runtime** — Ubuntu image, tools pinned via `tool-versions.env`; host needs only podman/docker + git                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| 2   | **No native fallback** — missing container engine fails loudly with install guidance; one path, no drift                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| 3   | **In-container project deps** — named volumes shadow `node_modules`/`obj`/`bin`; gate restores inside the container (avoids host↔image ABI mismatch, e.g. Arch-built native modules)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 4   | **Build local, publish for CI** — `verify.sh` builds a cached local image on first run; CI consumes/publishes `ghcr.io/markstanden/defined:<tag>`, tag derived from tool-pin hash                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| 5   | **Step order**: `naming → node → dotnet → shell → yaml → workflow → tofu` — semantic renames precede mechanical formatting so renamed symbols never land unformatted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 6   | **Tofu**: `fmt` always (fixable); `init` + `validate` accepted despite provider-download cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 7   | **Types**: bare string-literal unions (`StepMode`, `StepStatus`) — enums banned under strip-types; a rankable `as const` object is reserved for severity-floor maths only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| 8   | **Params**: public functions take a single destructured object (named-parameter style); positional params only for genuinely unary operations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 9   | **Tool policy**: no optional tier — missing tool = loud fail pointing at the Containerfile; degradation exists nowhere except sonar, which stays outside the manifest                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 10  | **Scanning**: git-tracked files only (`git ls-files -co --exclude-standard`); per-tool ignores travel in `runtime/config/` for committed-but-generated exceptions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| 11  | **Detection**: sync only (`fs` existence checks); execution strictly sequential — `--fix` writes files, and ordered output keeps `--silent` log-dumps trustworthy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| 12  | **Overrides**: `.qualityrc.json` at target repo root; raises-only; unknown step ids or lowered floors are config errors                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| 13  | **Gate is the bootstrap** — gate setup installs shared configs (`.editorconfig`, `Directory.Build.props`) into the repo root from versions baked into the image; `verify` fails loudly on drift. Editors read these files only from the project root, so install is part of setup, not verify                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 14  | **Agent instructions are seeded, not owned** — gate setup writes a marker-delimited managed block (`<!-- defined:start -->…<!-- defined:end -->`) into consumer `AGENTS.md`: house standards summary + pointer home to this repo's README as canonical index. Idempotent re-runs rewrite the block only; project content outside it is never clobbered (raises-only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| 15  | **Distribution end-state: two channels only** — the pinned image (configs + bootstrap) and gitsha-pinned reusable-workflow `uses:` refs. Symlinks, submodules and release artifacts all retired; no release pipeline needed since the image tag _is_ the release                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 16  | **Standalone lint/security workflow templates dropped** — shellcheck/yamllint/gitleaks arrive via the image's `shell`/`yaml`/`workflow` steps consumed through a single `defined--verify.yml`; thin wrapper templates would be immediate deletion work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| 17  | **Base image: official `node:<ver>-slim`, digest-pinned** (2026-08-25, supersedes the "Ubuntu image" wording of #1) — multi-arch manifest digest gives arm64 free, deletes hand-maintained Node install code, Node team handles base patching. Digest lives in `tool-versions.env` and reaches `FROM` via build args so that file stays the single source of truth. Global pinned `tsc` is baked in for typechecking the gate's own code; the gate still _runs_ on strip-types with no build step                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| 18  | **Shellcheck floor raised `error` → `style`** (2026-08-25, supersedes the 2026-08-23 "floor error universally" rule) — every shellcheck finding gates; inconsistencies are forced away, not tolerated. Raises-only means floors move up, never down. First run at this floor found 4 real findings, all fixed mechanically rather than suppressed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| 19  | **Brand: `defined`; repo flattened** (2026-08-30) — the container's role outgrew "quality gate" (it is also the workflow runtime base), so consumer-visible naming is `defined`: image `ghcr.io/markstanden/defined`, workflows `defined--*.yml`, AGENTS.md markers `<!-- defined:start/end -->`. The repo restructures flat: `quality/` → `runtime/` (the image), root `lib/` (shared building blocks used by both runtime and pipelines), `pipelines/` (thin zero-dep pipeline modules consuming `lib/`), `dotnet/` → `standards/`, docs under `practices/`. The GitHub repo keeps the name `coding-standards` for now — renamed once SHAs stabilise. Legacy `dotnet/setup.sh` retired (decision #15 made real)                                                                                                                                                                                                                   |
-| 20  | **Filename grammar: `<namespace>--<loose-verb>[--<target>]` for workflows, `<namespace>-<loose-verb>` for pipeline modules** (2026-08-30) — `--` separates the segments (so single-hyphen words like `azure-swa`/`common-test-runner` fit inside a segment), and the middle segment is a _loose verb_ naming the intent (`verify`, `analyse`) rather than the tool (`curl`, `swa`). Workflows are jobs (three segments, target optional); `pipelines/*.mts` are shared building blocks (no target, never 1:1 workflow mirrors). Hard rule: **runnable modules never end in `-test`** — Node's `*-test.*` discovery glob executes them (the `dotnet-test.mts` discovery bug that turned the suite red). Renamed all 16 non-conforming workflows and 6 modules; `simple.test.mts` grab-bag split into colocated tests; tofu modules gained an injected-runner parameter + colocated tests. Canonical reference: `standards/naming.md` |
-| 21  | **tflint folded into the `tofu` step** (2026-08-30, resolves the 2026-08-25 [NEEDS DECISION]) — sonarqube-compatible HCL lint runs alongside `tofu fmt/init/validate`; pinned `TFLINT_VERSION="0.64.0"` delivered as a release zip (like the workflow Go tools) with an `unzip` install and a build-time version assertion. `--init` first (so a project's `.tflint.hcl` plugins land in the plugin cache), `--fix` in fix mode, then a check that gates on any finding (exit 0 clean / 1 error / 2 issues). Step order: fmt → tflint → init → validate. The broken-fixture `main.tf` is now tflint-clean (required_version + required_providers) so only its fmt drift gates                                                                                                                                                                                                                                                       |
+1. **Container is the runtime** — tools pinned via `tool-versions.env`; host needs only podman/docker + git.
+2. **No native fallback** — missing engine fails loudly; one path, no drift.
+3. **In-container project deps** — named volumes shadow `node_modules`/`obj`/`bin`; restore inside the container (avoids host↔image ABI mismatch).
+4. **Build local, publish for CI** — `comply.sh` builds a cached local image; CI consumes/publishes `ghcr.io/markstanden/defined:<tag>`.
+5. **Step order** — `naming → node → dotnet → shell → yaml → workflow → tofu`; semantic renames precede mechanical formatting.
+6. **Tofu** — `fmt` always (fixable); `init` + `validate` accepted despite provider cost.
+7. **Types** — bare string-literal unions; enums banned under strip-types.
+8. **Params** — public functions take a single destructured object.
+9. **Tool policy** — no optional tier; missing tool = loud fail pointing at the Containerfile.
+10. **Scanning** — git-tracked files only; per-tool ignores travel in `runtime/config/`.
+11. **Detection** — sync, sequential execution; `--fix` writes files, ordered output keeps `--silent` trustworthy.
+12. **Overrides** — `.qualityrc.json` raises-only; unknown ids or lowered floors are config errors.
+13. **Gate is the bootstrap** — setup installs shared root configs from image-baked versions; verify fails loudly on drift.
+14. **Agent instructions seeded, not owned** — managed `<!-- defined:start/end -->` block in consumer AGENTS.md, rewritten idempotently, never clobbering project content.
+15. **Distribution: two channels** — pinned image + gitsha-pinned reusable-workflow `uses:` refs.
+16. **Standalone lint/security workflow templates dropped** — arrive via the gate's steps through one `defined--verify.yml`.
+17. **Base image `node:<ver>-slim`, digest-pinned** — multi-arch manifest digest; pins live in `tool-versions.env`, reach `FROM` via build args.
+18. **Shellcheck floor `error → style`** (raises-only) — every finding gates.
+19. **Brand: `defined`; repo flattened** — image/workflows/markers named `defined`; `quality/`→`runtime/`, root `lib/`, `dotnet/`→`standards/`, docs under `practices/`.
+20. **Filename grammar** — `<namespace>--<loose-verb>[--<target>]` for workflows, `<namespace>-<loose-verb>` for pipeline modules; runnable modules never end in `-test`. Canonical: `standards/naming.md`.
+21. **tflint folded into `tofu`** — pinned release zip; order fmt → tflint → init → validate.
+22. **Scope contracts to the universal quality gate** (2026-08-31, supersedes delivery parts of #19-20) — three surfaces (agent, local, pipeline); other consumer workflows and the `pipelines/` layer are removed. Git history is the archive.
+23. **Public CLI: `comply` + `verify`** (2026-08-31) — `comply` bootstraps, repairs, then verifies; `verify` is side-effect-free and the only pipeline verb.
+24. **Agent-first output** (2026-08-31) — success = exit 0 + one status line; failure = non-zero + stable agent-actionable breakdown.
+25. **Installed thin launcher + project-owned image pin** (2026-08-31) — users install a small `defined` launcher; each consumer commits `.defined-version` (immutable image tag) read by both launcher and workflow.
+26. **Repository becomes `markstanden/defined`** (2026-08-31, completes #19) — rename repo, README identity, links, launcher source and SonarQube key (`markstanden_coding-standards` → `markstanden_defined`, preserving history).
 
-## Roadmap (2026-08-25 brainstorm)
+## Scope and API refocus (2026-08-31) — current plan
 
-Three stages, strictly sequential — stage 1 unblocks everything else because
-until first green nothing distributes configs or instructions.
+Follows the 2026-08-30 feedback review (`practices/defined-feedback.md`) and
+supersedes the earlier assumption that `defined` hosts common delivery
+workflows.
 
-1. **Gate to first green** — scaffold → lib/ via TDD → step modules →
-   config/ migration → container dep volumes → ghcr CI template → golden-test
-   parity. Includes the bootstrap/install step (decisions #13–14): shared
-   configs into repo roots + AGENTS.md managed block seeding.
-   [DONE 2026-08-30 — see Status]
-2. **Pipelines consume the gate** — `defined--verify.yml` pulls the
-   pinned ghcr image against consumer repos (local green = merge green by
-   construction). Remaining genuinely pipeline-specific inline scripts
-   extract to zero-dep `pipelines/*.mts` modules with `node --test` coverage —
-   same strip-types conventions, thin consumers of the shared `lib/` building
-   blocks, run on plain Node in the runner.
-   [DONE 2026-08-30 — see Status]
-3. **Single static entrypoint** — this repo's README becomes the canonical
-   human+agent index linking standards docs, pipeline catalogue and gate
-   usage; expand standards docs (standards/testing/unit-testing.md, node
-   equivalents, architecture preferences). Consumer adoption = pin a sha;
-   the legacy submodule/symlink flow is retired.
-   [DONE 2026-08-30 — see Status]
+### Product boundary
 
-## Current couplings to remove (audit of system-config `quality/`, 2026-08-23)
-
-| Coupling                                                                                   | Where                                                  | Fix                                                                                       |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Tool configs live at repo root (`prettier.config.mjs`, `.prettierignore`, `.yamllint.yml`) | `typescript.sh`, `yaml.sh`                             | Move into `runtime/config/`; pass explicitly (`--config`, `--ignore-path`, `yamllint -c`) |
-| Prettier resolves `.prettierignore` relative to CWD, not target tree                       | `typescript.sh` (already carries a comment about this) | Always pass `--ignore-path`                                                               |
-| Hardcoded `lib/` TypeScript package                                                        | `typescript.sh` (`LIB_DIR`)                            | Auto-detect: run only if a JS/TS package with the right scripts exists                    |
-| Repo-specific naming doctrine                                                              | `naming.sh`                                            | Opt-in step, not default-on                                                               |
-| Fixed step list + LocalQube probe in orchestrator                                          | `verify.sh`                                            | Manifest-driven steps; sonar stays a separate opt-in tool                                 |
-| Symlink-blind path resolution                                                              | `lib.sh:5` (`dirname BASH_SOURCE`, no `readlink -f`)   | Resolve symlinks; derive repo root from invocation CWD's git root                         |
-| `.gitleaksignore` expected at scan root                                                    | `workflow.sh`                                          | Absence must be fine (it is); document as per-project file                                |
-
-## Target shape
-
-```text
-runtime/                 # the container image (was quality/ + container/)
-├── verify.sh            # bash shim: engine detect → ensure image → mount rw → exec
-├── verify.mts           # orchestrator: step manifest, flags, summary; `setup` dispatch
-├── setup.mts            # bootstrap (verify.sh setup): root configs + AGENTS.md block
-├── Containerfile        # node 26 slim base, pinned tools, bakes runtime/ + lib/
-├── tool-versions.env    # single source of tool version pins
-├── lib/                 # gate-specific core: ctx, severities, step-result,
-│   │                    #   agents-block, config-path, config-install, fixture
-│   │                    #   (+ tests); imports ../../lib for shared modules
-├── steps/               # filename == step id; one module per ecosystem
-│   ├── naming.mts       # opt-in      semantic renames BEFORE any formatting
-│   ├── node.mts         # auto-detect prettier + eslint + tsc + vitest
-│   ├── dotnet.mts       # auto-detect format + build + test (workspace discovery)
-│   ├── shell.mts        # default-on  shfmt + shellcheck over tracked *.sh
-│   ├── yaml.mts         # default-on  yamllint over tracked YAML
-│   ├── workflow.mts     # default-on* actionlint + zizmor + gitleaks (*needs .github/)
-│   └── tofu.mts         # default-on* tofu fmt + tflint + init/validate (*needs tracked *.tf)
-├── config/              # prettier.config.mjs prettierignore yamllint.yml schema
-│   │                    #   agents-block.md root/ (installed to repo root)
-└── (tests)              # fixture.test.mts, setup.test.mts, test-helpers.mts
-lib/                     # shared building blocks: paths, proc, git (+ tests)
-pipelines/               # zero-dep pipeline modules (stage 2), consume ../lib
-standards/               # house standards (was dotnet/): .editorconfig,
-                         #   Directory.Build.props, naming.md, git-hooks/,
-                         #   testing/, workflows/pipeline.example.yml
-practices/               # docs / how-to
-```
-
-- Steps are idempotent, accept `--fix/--no-fix/--silent`, and skip cleanly
-  (exit 0 with a notice) when their ecosystem is absent. Missing _tools_, by
-  contrast, fail loudly pointing at the Containerfile — no optional tier.
-- Per-project tailoring via `.qualityrc.json` in the target repo, following
-  the raises-only philosophy: projects may add strictness, never remove
-  defaults.
-- Module conventions (unions not enums, object params, filename == step id,
-  header comments stating tools/config/fix behaviour, `lib/` never knows
-  steps, steps never import each other) are law, recorded in AGENTS.md.
-
-## Research: scour existing solutions before building
-
-Mine these for patterns worth stealing (gates, hooks, CI templates):
-
-- [x] `~/bin/system-config` — the prototype (source of the audit above)
-- [x] `~/code/rdd-astro` — original inspiration for the verify gate
-- [x] `~/code/template` — project template; likely CI skeleton to replace
-- [x] `~/code/dev-tools`, `~/code/simple-greeter`, `~/code/cv-server--ts`,
-      `~/code/eph-db` — assorted Node/shell projects; what do they actually run today?
-- [x] `dotnet/` here — editorconfig/hooks/workflows already standardise .NET;
-      the new `steps/dotnet.mts` should wrap, not duplicate, these
-- [x] External worth a look: bloom-style `scripts/verify.sh` pattern
-      (single entry point), pre-commit framework (config-driven hooks)
-
-Output of research: notes appended below, then a step inventory before any code moves.
-
-### Research findings (2026-08-23)
-
-**The same idea evolved independently at least four times** — every repo
-converges on "one verify entry point", but with drifted implementations:
-
-| Repo                         | Local entry point                                               | CI                          | Ecosystem                 | Maturity                                              |
-| ---------------------------- | --------------------------------------------------------------- | --------------------------- | ------------------------- | ----------------------------------------------------- |
-| `system-config`              | `quality/verify.sh` (+ `--fix/--silent`, raises-only floor)     | same script in `verify.yml` | node+shell+yaml+workflows | highest — repo-wide prettier, workflow gate           |
-| `rdd-astro`                  | `code-quality-checks/all.sh` (`npm run check/fix`, `--e2e`)     | 16 per-area workflows       | astro/node+shell+yaml     | high — but CI is fragmented into many small workflows |
-| `template`, `simple-greeter` | `scripts/verify.sh` (shellcheck → dotnet-format → build → test) | identical `verify.yml` ×2   | dotnet+shell              | medium — one monolithic script, no --fix/--silent     |
-| `dev-tools`                  | `tools/check.sh` (lint → validate, `--workspace` discovery)     | `check.yml`                 | dotnet+shell              | medium — best-in-show workspace/solution discovery    |
-| `cv-server--ts`              | none (npm scripts called directly by CI)                        | `run-tests.yml`             | node                      | gap — no local/CI parity                              |
-| `eph-db`                     | none                                                            | none                        | dotnet+bicep?             | gap — nothing                                         |
-
-**Reusable patterns worth uniting on:**
-
-1. **`lib.sh` helper lineage** — `check_run` / `check_section` /
-   `check_init_silent` exist in three repos with visible drift
-   (system-config and rdd-astro share ancestry). This becomes the shared core;
-   one implementation. (2026-08-24: delivered as TS `lib/`, container-distributed.)
-2. **dev-tools' workspace discovery** (`discover_workspace`: explicit flag →
-   env → single `.slnx`/`.sln` at root → repo root) — adopt verbatim for
-   `gate.d/dotnet.sh`.
-3. **system-config's skip semantics** (shfmt optional-but-loud,
-   sonar probe-degrade) and **raises-only severity floors** — the default
-   posture for all steps. (2026-08-24: the optional-tool tier is superseded —
-   see decisions log #9; only sonar's probe-degrade survives, outside the
-   manifest.)
-4. **template/simple-greeter's identical CI** proves the "one verify job"
-   template works across repos — the drip-feed target shape for CI.
-
-**Ruleset divergences that must be united (decisions, not preferences):**
-
-Guiding principle (Mark, 2026-08-23): **hard rules, autofixing, stay close to
-global standards** — prefer pre-accepted sensible defaults so prompt fatigue
-never turns into rubber-stamping. Where repos disagree, the fix is mechanical
-(`--fix` + commit the diff), never a debate.
-
-- **DECIDED — Indentation: 4 spaces everywhere** (no tabs). rdd-astro's
-  tab-formatted tree gets reformatted when the gate drip-feeds into it.
-  `.editorconfig` is the **single source of truth** for indent: prettier's
-  config is pure defaults and reads the project `.editorconfig` natively
-  (verified 2026-08-30: prettier gives `.editorconfig` higher priority than an
-  explicit config), shfmt reads it too, and every EditorConfig-aware IDE falls
-  in step automatically. Gate setup installs `.editorconfig` into consumer
-  roots; this repo carries its own root copy (identical to `standards/`) so
-  the gate's own tree is self-hosted — `verify.sh setup` on it is a no-op,
-  and drift fails loudly (raises-only). Exception: **XML stays at 2-space** —
-  dotnet format owns `.csproj`/`.props` and ignores editorconfig `indent_size`
-  for XML (verified 2026-08-30: a 4-space setting left a misindented csproj
-  untouched), so aligning XML would make IDEs hint at 4 while the gate enforces
-  dotnet's own 2-space style.
-- **DECIDED — Shellcheck floor `error` universally**, raises-only per run
-  (system-config's model).
-- **DECIDED — Prettier scope is repo-wide** (markdown, JSONC, YAML, CSS),
-  with `runtime/config/prettierignore` travelling in the gate.
-- **DECIDED — `.editorconfig` at each repo root is installed by gate setup**,
-  not hand-maintained per repo (editors only read it from the project root).
-
-**Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
-parity; eph-db gets any gating at all.
-
-### Confirmed: prettier resolves ignore patterns relative to the ignore file, not CWD (2026-08-30)
-
-Experiment (golden-test debug against system-config, prettier 3.9.6 in the
-gate image) overturned the prototype's "resolves relative to CWD" assumption:
-
-- Prettier source (`index.mjs`, `createSingleIsIgnoredFunction`):
-  `ignore.checkIgnore(slash(getRelativePath(file, ignoreFile)))` — the matched
-  path is computed **relative to the ignore file's location**, then tested
-  against the ignore patterns.
-- Consequence: a travelling ignore file at `/opt/defined/runtime/config/prettierignore`
-  (or a merged temp file in `/tmp`) yields `../../…`-prefixed relative paths,
-  so repo-root-relative patterns like `dotfiles/nvim` **never match**. Only
-  patterns that match against _any_ path segment (`coverage/`, `*.toml`,
-  `**/lazy-lock.json`) survive.
-- The prototype "worked" only because its `.prettierignore` sat at the repo
-  root **and** prettier ran from the repo root — ignore file and CWD
-  coincided, so `getRelativePath` produced repo-relative paths.
-- Design consequence (RESOLVED 2026-08-30): prettier's CLI accepts _repeated_
-  `--ignore-path` (its `ignorePath` is an array), each file's patterns
-  resolving against its own location. The node step now passes both the
-  travelling ignore AND the host's own `.prettierignore` — no merged temp file
-  needed, and host directory patterns (e.g. `dotfiles/nvim/`) match correctly
-  because the host file sits at the repo root. Verified on system-config and
-  in the broken-fixture integration test.
-
-**Gaps the portable gate closes immediately:** cv-server--ts gets local/CI
-parity; eph-db gets any gating at all.
-
-## Delivery mechanism
-
-[DECIDED 2026-08-24] The container image **is** the delivery mechanism — the
-submodule/symlink/package-manager trilemma dissolves:
-
-- **Local**: `verify.sh` builds `localhost/defined:<pinhash>` on first
-  run (layer-cached; rebuilds only when pins change) and runs it against the
-  mounted repo.
-- **CI**: workflows pull `ghcr.io/markstanden/defined:<tag>`; the image
-  is self-contained (gate code + shared lib baked at /opt/defined), so
-  consumers vendor nothing. Two tags are pushed: `<pinhash>` (stable
-  toolchain) and `:<shortsha>` (pinned release) — consumers pin the shortsha
-  for full reproducibility. An identical tag means identical toolchain, so
-  local green = merge green by construction.
-- **Target projects vendor nothing.** A project may install a ~5-line shim
-  that invokes the image (setup scripts can drop it alongside the standards)
-  plus its own `.qualityrc.json`. The shim's first-run bootstrap also installs
-  shared configs into the repo root and seeds `AGENTS.md` (decisions #13–14) —
-  one wiring step covers configs, instructions and docs.
-- End-state (decision #15): this image plus gitsha-pinned workflow refs are
-  the _only_ distribution channels; the submodule/symlink model is legacy
-  during transition, retired once the gate's bootstrap lands.
-
-## Verification of the migration itself
-
-- Every step keeps behaviour identical on system-config (golden test: same
-  results before/after on the same tree).
-- New-repo smoke tests: drop into a node-only project, a shell-only project,
-  a dotnet project, an empty dir — expect clean skips, no false failures.
-
-(2026-08-24: with the gate running inside a pinned image, golden-test parity
-reduces to "run the same image tag on system-config before and after the
-migration" — same tag, same results.)
-
-## Architecture decision: TypeScript core, bash shim
-
-[DECIDED 2026-08-23, pending first green] The gate is **TypeScript end to end**
-(Node ≥ 26 strip-types, zero dependencies), tested with the experimental
-`node --test` runner. Bash shrinks to a single locator shim.
+One universal quality gate, three execution surfaces:
 
 ```text
-runtime/
-├── verify.sh          # ~30 lines: locate podman/docker, ensure pinned image,
-│                      # mount repo rw, exec verify.mts inside; loud failure
-│                      # with install guidance when an engine is absent
-├── verify.mts         # orchestrator: step manifest, detection, skip semantics
-├── lib/*.mts          # gate-specific core; shared helpers live in lib/ at the
-│                      # repo root (proc/paths/git) — the testable core
-├── steps/*.mts        # one module per check; linters invoked via child_process
-└── *.test.mts         # node --test, colocated, zero-dep
+                         STANDARDS
+                             │
+                ┌────────────┴────────────┐
+                ▼                         ▼
+        AGENT GUIDANCE               DEFINED IMAGE
+                │                         │
+                │              ┌──────────┼──────────┐
+                ▼              ▼          ▼          ▼
+              AGENT         comply     verify     CI verify
+                │              │          │          │
+                └──────────────┴──────────┴──────────┘
+                                      │
+                                      ▼
+                                COMPLIANT CODE
 ```
 
-Why:
+- **Standards** define what good looks like (shared config, practices, floors).
+- **Agent guidance** gives an LLM the minimum completion contract.
+- **The image** is the only enforcement runtime — detects ecosystems, repairs
+  safe findings, verifies the rest.
+- **Local/agent** execution uses the installed `defined` launcher; **pipeline**
+  execution uses only `defined--verify.yml` (read-only verify).
 
-- The bug-prone surface (path resolution, auto-detection, ignore parsing,
-  severity maths) is exactly what bash cannot unit-test cheaply. In TS each
-  rule gets a table-driven test.
-- `node --test` over vitest for this repo: zero dependencies keeps the
-  "drop in anywhere" promise honest — no `npm ci` to run the tests.
-- Portability contract restated honestly (2026-08-24 revision): _any project
-  on a machine with podman or docker_. Host Node is irrelevant to running the
-  gate — it matters only for developing the gate's own tests. The shim fails
-  loudly instead of silently skipping when no engine exists.
-- Fresh build in mts beats porting working bash later — no translation step,
-  no untested-shell-logic inheritance.
+Explicitly **outside** the product: release-artifact build/publish, SWA/app
+deployment, OpenTofu plan/apply/destroy, healthcheck orchestration, bespoke
+Playwright runners, hosted SonarQube wrappers, and workflow/pipeline-module
+catalogues generally. No replacement delivery repository: git history is the
+archive.
 
-Risks / mitigations:
+### ChatGPT feedback disposition
 
-- Type-stripping constraints apply (no enums/namespaces, extensioned imports)
-  — same rules as system-config `lib/`.
-- External tools remain external binaries; steps assert presence up front and
-  skip loudly (never silently) when absent.
-- Parity with system-config's bash gate still verified by running both on the
-  same tree during migration (results diff, not code diff).
+- **Adopt:** defined is the product; local green = pipeline green; standards
+  authoritative; agent completion gate-owned; auto-fix first-class; missing
+  tools fail loudly; verify deterministic; instructions small; adoption
+  raises-only; release identity immutable; no red-X surprises.
+- **Amend #11-12:** repair verb is `comply`, not `fix`; `setup` not public
+  (bootstrap is the first phase of `comply`).
+- **Amend #15:** pipeline is an execution surface for the gate, not a separate
+  delivery responsibility hosted by this repo.
+- **Defer #4:** full guidance compilation from standards is a later design
+  problem, not a prerequisite for the scope correction.
+- **Defer #7:** FIX/REPORT/REVIEW stays diagnostic language, not a new type
+  hierarchy.
+- **Defer `explain` / `--verbose`:** not in the initial public API.
 
-### Runtime: container-native (2026-08-24)
+### Final public API
 
-The gate executes exclusively inside a node slim image built from
-`runtime/Containerfile`, with every tool version pinned in
-`tool-versions.env`. Consequences recorded here so they aren't relitigated:
+```bash
+defined comply   # always: the local/agent loop
+defined verify   # pipeline-only: the read-only check
+```
 
-- Tool installation _is_ the Containerfile — no per-distro installer script.
-  Missing binaries cannot occur at runtime: the image has them or the build
-  fails.
-- Project dependencies (`node_modules`, NuGet, `obj/`/`bin/`) resolve inside
-  the container via named volumes shadowing those paths; the gate restores as
-  needed. This sidesteps host↔image ABI mismatch (native modules built on a
-  newer host glibc won't load under the image's older one, and vice versa).
-- Golden-test parity collapses to "same image tag".
-- The cross-platform note below predates this decision; the only host-side
-  surface left is `verify.sh` (~30 lines), so the platform question reduces
-  to "is there a container engine".
+- **`comply`** (the only verb a developer or agent reaches for): resolve git
+  root → read/validate `.defined-version` → pull image → bootstrap managed
+  configs + AGENTS block (raises-only) → full internal `fix` pass → fresh
+  internal `no-fix` verify pass → exit 0 only when green. The second pass is
+  mandatory. Always use `comply` for local work; `verify` is not it.
+- **`verify`**: resolve pin → check managed artifacts present/current (never
+  install) → full `no-fix` pass → non-zero for any drift/finding/failure.
+  Pipeline-only — the sole verb callable from `defined--verify.yml`, and not
+  the command for local use.
+- **Output contract:** success = exit 0 + one stable `compliant` line (success
+  chatter suppressed); failure = non-zero + stable agent-actionable detail
+  (phase, step, tool/rule, files, whether repair attempted, what remains).
+  Diagnostics distinguish FIX / REPORT / REVIEW without making them types.
 
-Cross-platform note (2026-08-23, corrected): the TS core _increases_
-portability, not less — Node ≥ 26 goes LTS within two months and runs natively
-on Linux, macOS and Windows. Only the launcher shim is platform-specific:
+### Launcher and release identity
 
-- `verify.sh` — `#!/usr/bin/env bash`, keeping house style (`[[ ]]`). macOS's
-  bash 3.2 handles `[[ ]]` fine (it predates 3.x); the shim merely avoids
-  post-3.2 features (`mapfile`, associative arrays, `${var,,}`). Never
-  `#!/bin/sh` — that is dash on Debian/Ubuntu, which lacks `[[ ]]`.
-- `verify.ps1` — same logic for Windows, added only if/when a Windows project
-  actually needs it.
-- Everything above the shim is identical everywhere. This also suits a public
-  portfolio repo: the standards travel with the runtime, not the OS.
+- Installable `cli/defined` bash launcher (`#!/usr/bin/env bash`, `[[ ]]`),
+  installed on PATH (normally `~/.local/bin/defined`); no gate behaviour; needs
+  only git + podman/docker; prefers podman; mounts repo read-write for
+  `comply`, read-only for `verify`.
+- `.defined-version` holds one immutable image tag; rejects empty, `latest`,
+  malformed or conflicting overrides. Offline runs succeed only with the exact
+  image present.
+- `runtime/comply.sh` stays an internal source-development shim until the
+  launcher covers local image development; not a third public API. It defaults
+  to the `comply` verb; `--check-only` runs the read-only no-fix pass.
+- Release identity is immutable (same SHA across all three):
 
-## Status
+```text
+Git SHA
+├── reusable workflow ref: markstanden/defined/...@<sha>
+├── image tag:             ghcr.io/markstanden/defined:<sha>
+└── consumer pin:          .defined-version → <sha>
+```
 
-- [x] Audit current couplings (2026-08-23)
-- [x] Research pass over ~/code/* (2026-08-23 — findings above)
-- [x] Ruleset decisions (2026-08-23: 4-space, shellcheck floor `error`,
-      prettier repo-wide, .editorconfig installed by gate setup)
-- [x] Architecture: TypeScript core (strip-types, node --test)
-- [x] Design review: manifest shape, naming/modularity conventions,
-      container-native runtime, delivery mechanism, override file
-      (2026-08-24 — decisions log above)
-- [x] Scaffold runtime/ (verify.sh shim, Containerfile, empty orchestrator)
-      — first green container run (2026-08-25: podman-first shim, pinhash
-      tag from tool-versions.env, node 26 tarball with build-time sha
-      verification, smoke step proves in-container exec)
-- [x] lib/ core via TDD: paths, ctx, proc, severities
-      (2026-08-25: 20 table-driven tests; proc throws loudly naming missing
-      binaries; severities is the sole owner of ranking maths)
-- [x] Step modules + manifest wiring in naming → … → tofu order
-      (2026-08-30: all seven steps landed with colocated tests — naming,
-      node, dotnet, shell, yaml, workflow, tofu; fixed order enforced in
-      verify.mts; 69 tests green)
-- [x] config/ migration from prototype (incl. prettierignore CWD fix)
-      (2026-08-30: prettier configs migrated and resolved from gate root;
-      yamllint config baked into image — gate configs travel with the image)
-- [x] Bootstrap/install step: configs into repo root + AGENTS.md managed block
-      (decisions #13–14) (2026-08-30: `verify.sh setup` → setup.mts dispatches
-      through verify.mts; installs .editorconfig + DBP from the single-source
-      standards/ dir (config/root/ copies retired, decision #19) with
-      raises-only no-clobber; config/agents-block.md seeds a marker-delimited
-      block, idempotent; podman smoke on a throwaway repo: install, preserve,
-      conflict-fail all verified)
-- [x] In-container deps: shadow volumes + restore behaviour
-      (2026-08-30: verify.sh mounts named volumes — node_modules keyed
-      pinhash+repo, npm/nuget caches repo-keyed; dotnet step restores first
-      into the shadowed NuGet cache, then format/build/test with --no-restore;
-      podman smoke on throwaway node + dotnet repos: volumes mount, host
-      node_modules/nuget cache stay untouched, writes land in the volumes.
-      DECIDED 2026-08-30: dotnet SDK 10 lands via apt from Microsoft's
-      Debian-13 feed (Debian main ships no dotnet; MS feed is x64+arm64) —
-      `DOTNET_SDK_VERSION` pin + build-time assertion + first-run priming
-      (`dotnet --info`) so the first real invocation is clean. Also fixed
-      workspace discovery: a lone nested .csproj is passed by path, since the
-      CLI cannot operate on a bare directory that merely contains a project;
-      multiple projects with no solution now fail loudly)
-- [x] CI template: publish/consume ghcr image tagged from pin hash
-      (2026-08-30: image made self-contained — build context is now the repo
-      root and the gate code + shared lib + standards + pipelines are baked at
-      /opt/defined, so CI consumers vendor nothing; local verify.sh still
-      bind-mounts runtime/ + lib/ + standards/ + pipelines/ ro, shadowing the
-      baked copies for live edits. Publish workflow
-      `.github/workflows/defined--publish.yml` (main push on runtime/** +
-      lib/** + standards/** + pipelines/** + dispatch) builds linux/amd64+arm64
-      via buildx and pushes `ghcr.io/markstanden/defined:<pinhash>` +
-      `:<shortsha>`. Consumer template `defined--verify.yml` is a reusable
-      workflow_call taking `image-tag`/`fix`/`silent`. DECIDED: tag scheme is
-      pinhash (stable toolchain) AND shortsha (pinned release) — consumers pin
-      shortsha for full reproducibility. CI shadow volumes intentionally
-      omitted: a fresh runner has no host deps to leak, and the NuGet cache
-      volume is pointless on ephemeral runners. 2026-08-30: added
-      `defined--test.yml` — fires on PRs + main merges, sets up Node 26,
-      pre-pulls the published image (falls back to verify.sh building), runs
-      `node --test` (unit + broken-fixture) from the repo root. Consumer
-      template `defined--verify.yml` tightened: `image-tag` is now REQUIRED
-      (the publish workflow never pushes `latest`; consumers pin shortsha),
-      misleading `working-directory` input removed (the gate scans the whole
-      repo regardless of cwd), usage comment added. NOTE: the local shim's
-      image tag keys only on tool-versions.env, so a Containerfile change
-      without a pin change leaves a stale cached local image — CI is immune
-      (always fresh build); dev must rm the tag)
-- [x] Golden-test parity on system-config
-      (2026-08-30: ran the new gate in-container against ~/bin/system-config
-      (the prototype repo — plan's `~/code/system-config` path corrected, it
-      lives at ~/bin). Result: node/yaml/workflow pass identically to the
-      prototype's bash gate; shell flags 2 SC2129 style findings in
-      bootstrap.sh:233/238 that the prototype's lenient `-S info` floor hid —
-      the intended decision #18 raise, not a regression. The run exposed
-      prettier's ignore-file-relative resolution (see "Confirmed:" note above);
-      resolved by passing both the travelling ignore AND the host's own
-      `.prettierignore` via repeated --ignore-path. Parity verdict: gate
-      detects and gates the same ecosystems on the real tree; divergences are
-      raises-only by design. Remaining divergence is a mechanical `--fix` on
-      the prototype, not a gate defect)
-- [x] Broken-fixture integration test
-      (2026-08-30: runtime/fixture.test.mts + runtime/lib/fixture.mts build a
-      deliberately-broken git repo at test time (never stored in the gate's
-      tracked tree, which would poison the coding-standards repo's own gate)
-      and drive the real gate in-container: check mode fails on every broken
-      ecosystem (node/shell/yaml/workflow/tofu), --fix repairs the
-      auto-fixable ones (workflow stays red — actionlint is check-only), and a
-      file behind the host .prettierignore is proven untouched. Skips cleanly
-      without a container engine)
-- [x] Workflow-template fixes on our own tree (2026-08-30, resolved in the
-      stage-2 refactor below — the deferred findings and the gate's own
-      tripwire are gone): - SC2086 unquoted `$VAR` in 28 `run:` blocks → eliminated by extracting
-      the bash into pipelines/*.mts modules (no bash left to flag) - SC2129 merge redirects in dotnet-format--solution.yml:47 → inline fix - `codecov/codecov-action@v3` too old → bumped to v4 (SHA-pinned) - zizmor errors (previously masked by actionlint short-circuiting):
-      unpinned `uses:` → full-SHA pins across all templates; template-
-      injection (`${{ inputs.* }}` in run:) → moved into env: and referenced
-      by env var; workflow step now runs zizmor with `--min-severity high`
-      so accepted warnings (upload-artifact artipacked, fromJSON secret
-      projection) don't fail the gate. Gate is now FULLY GREEN (exit 0).
-- [x] Rebrand to `defined` + flat restructure (2026-08-30, decision #19)
-      — quality/ → runtime/, shared core to root lib/, dotnet/ → standards/,
-      pipelines/ + practices/ skeletons; image, workflows, markers, mount
-      paths (/opt/defined) and docs renamed; gateConfigPath moved to
-      runtime/lib/config-path.mts so shared lib/ never resolves the runtime's
-      config; shell step now flags the legacy standards/*.sh (they gained a
-      .editorconfig ancestor after the flatten) — fixed mechanically via
-      --fix (tabs → 4-space, whitespace only); gate still red on the
-      workflow tripwire only. 91/91 unit + fixture green
-- [x] Retire legacy setup.sh + config/root drift (2026-08-30, decision #15/#19)
-      — `standards/setup.sh` + `standards/git-hooks/setup-hooks.sh` deleted
-      (submodule/symlink distribution retired); `runtime/config/root/` copies
-      deleted — setup.mts now installs `.editorconfig` + `Directory.Build.props`
-      from the single-source `standards/` dir (installRootConfigs takes an
-      explicit names list), baked into the image at /opt/defined/standards and
-      mounted ro by verify.sh; publish workflow triggers on standards/**;
-      README/AGENTS submodule instructions removed
-- [x] Stage 2: pipelines consume the gate (2026-08-30) — heavy multi-line
-      `run:` bash extracted to zero-dep `pipelines/*.mts` modules (thin
-      wrappers over the shared lib/ building blocks: json, gha, proc) with
-      colocated `node --test` tests. The 7 heaviest workflows (opentofu
-      build/destroy, both azure-swa deploys, dotnet common-test/playwright/
-      blazor-frontend) are containerised (option B): jobs run in
-      `container: ghcr.io/markstanden/defined:<image-tag>` with
-      `defaults.run.shell: bash`; redundant setup-opentofu/setup-dotnet/
-      azure-login/setup-node steps dropped (tools baked in the image);
-      modules invoked as `node /opt/defined/pipelines/<module>.mts` with
-      inputs via env. `pipelines/` baked into the image and mounted ro by
-      verify.sh. jq eliminated (Node JSON parsing); playwright stays in-run.
-      Light workflows: healthcheck containerised; node-* command inputs passed
-      via env + `bash -c` (template-injection fix); build/format solution
-      summary blocks fixed inline (SC2086/SC2129). All actions SHA-pinned
-      (zizmor unpinned-uses + Sonar S7637). `dotnet-version`/`opentofu-version`
-      inputs retired from containerised workflows — the image tag IS the
-      toolchain. 120/120 tests green; gate FULLY green (exit 0).
-- [x] Filename grammar standardised (2026-08-30, decision #20) — workflow
-      templates renamed to `<namespace>--<loose-verb>[--<target>]` (all 16
-      non-conforming files; `defined--*` already conformed) and pipeline
-      modules to `<namespace>-<loose-verb>` verb forms (`healthcheck-curl` →
-      `healthcheck-verify`, `azure-swa-appsettings` →
-      `azure-swa-replace-appsettings`, `dotnet-env-json` →
-      `dotnet-json-to-env`, `summary` → `dotnet-summary`, `playwright-version`
-      → `dotnet-playwright-version`, `dotnet-test` → `dotnet-test-runner`).
-      The `dotnet-test.mts` rename fixed the hidden suite-red: Node's default
-      `*-test.*` discovery glob was executing the module's `main()` and
-      running a real `dotnet test` with no solution (CI's explicit
-      `*.test.mts` globs had been masking it). `simple.test.mts` grab-bag
-      split into colocated per-module tests. Tofu modules gained an optional
-      injected `runner` param (the `steps/*.mts` pattern) + colocated tests —
-      the 5 previously untested modules now covered (init arg construction,
-      plan exit-code passthrough, diagnose never-throws, outputs JSON fallback + verify, destroy select-gating). Canonical reference:
-      `standards/naming.md`. 142/142 host tests green.
-- [x] Standalone dotnet format/build/test templates retired (2026-08-30,
-      decision #20 follow-through) — the gate's `dotnet` step (restore →
-      format → build → test over workspace discovery) fully subsumed
-      `dotnet--format--solution`, `dotnet--build--solution`,
-      `dotnet--test--{common-test-runner,unit-tests,integration-tests}`;
-      deleted all five plus the now-orphaned `pipelines/dotnet-test-runner.mts`
-      (its only consumer was common-test-runner). The consumer pipeline
-      example (`standards/workflows/pipeline.example.yml`) now calls only
-      `defined--verify.yml`. Surviving dotnet templates are genuinely
-      not-subsumed: `dotnet--build--blazor-frontend` (npm/node frontend),
-      `dotnet--test--playwright-tests` (playwright stays in-run),
-      `dotnet--analyse--sonarqube` (outside the gate manifest, decision #9).
-      Public API shrinks towards "the defined standards" — one gate entry
-      point plus pipeline-specific wrappers.
-- [x] tflint folded into the tofu step (2026-08-30, decision #21) — pinned
-      `TFLINT_VERSION="0.64.0"` (release zip + unzip install + build-time
-      version assertion); tofu step now runs fmt → tflint (--init, --fix in
-      fix mode, then gate on any finding) → init → validate; broken-fixture
-      `main.tf` made tflint-clean so only its fmt drift gates. Unit tests
-      cover tflint init/issue/fix phases; fixture drives the real gate
-      in-container green.
-- [x] `node--check--quality.yml` retired (2026-08-30) — parameterised npm
-      quality scripts fully subsumed by the gate's node step (prettier/eslint/
-      tsc/vitest with the baked configs). Public API now 11 consumer templates.
-- [x] Stage 3: single static entrypoint (2026-08-30) — README is the canonical
-      human+agent index (gate usage, adoption quick-start, 11-template
-      catalogue, standards links); added `standards/testing/node-testing.md`
-      and `practices/architecture.md`; research checklist ticked; roadmap
-      closed. 145/145 host tests green, gate exit 0.
+GitHub forbids an expression in a reusable workflow `uses:` ref, so the
+consumer writes the workflow SHA in YAML; `.defined-version` removes the
+separate `image-tag` input so local and CI share one source.
 
-## Local workflow testing (2026-08-30)
+### Target repository shape
 
-Three ways to test `.github/workflows/*.yml` before merge; trade-offs:
+```text
+defined/
+├── cli/
+│   └── defined                       # installed host launcher; no gate logic
+├── runtime/
+│   ├── Containerfile                 # pinned, self-contained gate image
+│   ├── tool-versions.env             # tool pins used to build the image
+│   ├── verify.mts                    # comply/verify orchestration
+│   ├── setup.mts                     # internal bootstrap/check implementation
+│   ├── lib/                          # gate-specific core + tests
+│   ├── steps/                        # detected ecosystem checks + tests
+│   └── config/                       # travelling tool/agent configuration
+├── lib/                              # shared gate helpers: git, paths, proc
+├── standards/                        # authoritative house standards/config
+├── practices/                        # explanatory guidance
+└── .github/workflows/
+    ├── defined--verify.yml           # sole consumer-facing workflow
+    ├── defined--test.yml             # this repo's CI
+    └── defined--publish.yml          # image publication
+```
 
-| Approach                                             | Offline?                                                                                                      | Fidelity                                                     | Gate-in-container                                                                                                                                                                                                                  | Verdict                                |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `act` (nektos/act)                                   | yes — runs working tree, any branch                                                                           | good for unit steps, weak for actions needing GitHub context | ❌ impossible — step runs in act's runner container; the gate nests a container via `verify.sh`, and the fixture's temp repo lives in the runner's namespace, invisible to the host engine (even with `--container-daemon-socket`) | daily iteration + syntax checks        |
-| Real self-hosted runner (`actions/runner` in podman) | no — registers with GitHub, polls for jobs; workflow must be on a remote ref, triggered via `gh workflow run` | highest — actual runner, real `actions/` execution           | ✅ possible in principle (socket mount) but runner label must match `runs-on` (self-hosted ≠ `ubuntu-latest` without relabelling)                                                                                                  | final pre-merge fidelity check on main |
-| Direct podman / `verify.sh`                          | yes                                                                                                           | exact for the gate's own steps                               | ✅ the gate itself                                                                                                                                                                                                                 | the gate's own suite (unit + fixture)  |
+No `pipelines/`; `lib/` is shared only where runtime modules need it. The
+producer repo does not commit a self-referential `.defined-version` (committing
+a file containing its own SHA is impossible) — it is the contract in consumer
+repos.
 
-Notes from the `act` experiment on this box:
+## Refocus implementation roadmap
 
-- `act` connects to podman via `DOCKER_HOST=unix:///run/user/1000/podman/podman.sock`
-  (podman exposes a Docker-compatible API). `--container-daemon-socket` mounts
-  it into the runner container, so `docker` CLI inside acts against the host
-  engine — but the fixture still can't work (namespace boundary, see table).
-- The broken-fixture integration test therefore skips under `act`
-  (`ACT=true`), and runs for real under host podman / the real runner. The
-  skip is deliberate and documented in `runtime/fixture.test.mts`.
-- `act` used Node 24.19.0 (setup-node resolved the workflow's `26` to a
-  cached 24 on the box) — another reason real CI is the authority on tool
-  versions, not `act`.
+### Phase 1 — Remove the workflow catalogue
 
-Host `node --test` green does not mean the gate is green: on 2026-08-30 the
-unit suite passed while the first in-container run went red on real
-workflow-template findings (the deferred findings, resolved in stage 2). Run
-the full suite continuously — the host test suite **and** the podman
-end-to-end gate (`./runtime/verify.sh`) — so deviations surface as they land,
-not at release time. The gate is now fully green; keeping it green is the
-tripwire — any new workflow-template deviation fails the `workflow` step
-again.
+- [x] Delete the ten consumer workflows outside the gate boundary:
+      `azure-swa--deploy--blazor-wasm.yml`, `azure-swa--deploy--static-site.yml`,
+      `dotnet--analyse--sonarqube.yml`, `dotnet--build--blazor-frontend.yml`,
+      `dotnet--test--playwright-tests.yml`, `healthcheck--verify--endpoints.yml`,
+      `node--build--frontend.yml`, `node--test--playwright.yml`,
+      `opentofu--build--infrastructure.yml`, `opentofu--destroy--workspace.yml`.
+- [x] Keep exactly one consumer-facing workflow, `defined--verify.yml`; keep
+      `defined--test.yml` and `defined--publish.yml` as this repo's own CI.
+- [x] Delete `pipelines/` in full (14 modules + 14 tests + helper). Git history
+      is the archive; no `archive/` directory.
+- [x] Delete root `lib/gha.mts`, `lib/json.mts` + tests after proving no runtime
+      consumers; retain `git.mts`, `paths.mts`, `proc.mts`.
+- [x] Remove `pipelines/` from the Containerfile copy, the comply.sh bind mount,
+      the publish path trigger and the pipeline test glob. Keep `curl` (image
+      build still fetches gate tools).
+- [x] Reduce `standards/naming.md` to conventions exercised by the gate and its
+      three `defined--*.yml` workflows.
+- [x] Update README, AGENTS, architecture guidance and the pipeline example to
+      describe one gate workflow, not a catalogue.
+- [x] Add a status entry recording the scope correction and exact removals.
+- [x] Host tests + full podman gate green; workflow step green against the
+      smaller `.github/workflows/` tree.
+
+### Phase 2 — Two-verb runtime contract
+
+- [x] Positional verb parsing tests: only `comply`/`verify`; no verb, unknown
+      verbs, public `setup`, `--fix`, `--no-fix`, `--silent` → concise usage
+      errors, non-zero.
+- [x] Split bootstrap into write vs check: `comply` idempotent/no-clobber;
+      `verify` detects absence/drift/marker corruption without writing a byte.
+- [x] `comply` = bootstrap → complete fix pass → fresh complete verify pass;
+      prove the second pass runs after repairs and surviving failures set exit.
+- [x] `verify` = managed-artifact check → complete no-fix pass; hash fixture
+      files to prove side-effect freedom.
+- [x] Success = one stable line, chatter suppressed; table-driven failure-output
+      tests for bootstrap drift, findings, failed builds, missing tools.
+- [x] Broken fixture drives both verbs: `verify` fails read-only; `comply`
+      repairs safe findings, stays red for check-only ones; both green after
+      semantic repair.
+- [x] Keep internal `StepMode = "fix" | "no-fix"` unless simplification shows
+      otherwise.
+- [x] Host tests + podman gate after each behaviour slice.
+
+### Phase 3 — Installed launcher and shared pin
+
+- [x] `.defined-version` parsing unit: trim, validate immutable tag, reject
+      mutable aliases, report path in errors.
+- [x] `cli/defined` tests: engine preference, absent engine, repo-root
+      discovery, exact image selection, missing image/pull failure, arg
+      forwarding, mount modes (inject runner; no real engine for unit tests).
+- [x] Launcher smoke against throwaway consumer with podman: first pull, cached
+      run, `comply` bootstrap/repair, side-effect-free `verify`, malformed/
+      unavailable pin.
+- [x] Keep `.defined-version` out of this producer repo; test with fixture
+      consumers; use `runtime/comply.sh` for source development.
+- [x] `defined--verify.yml` takes no `fix`/`silent`/`image-tag` inputs; reads
+      `.defined-version`, runs the exact image with `verify`, fails clearly on
+      invalid pin.
+- [x] Document install into `~/.local/bin`, `.defined-version` adoption, and the
+      workflow-ref/image-pin match invariant.
+- [x] Decide whether internal `runtime/comply.sh` still adds value; retire only
+      when equivalent local image build/live-edit is covered elsewhere.
+- [x] Launcher unit/integration + host + podman gate.
+
+### Phase 4 — Rename the product repository
+
+- [x] Confirm `markstanden/defined` is available and GHCR publication
+      permissions hold. (GitHub repo already renamed externally; GHCR image
+      `ghcr.io/markstanden/defined` verified public + fetchable.)
+- [x] Replace active `markstanden/coding-standards` links/names with
+      `markstanden/defined` in README, workflow examples, generated AGENTS and
+      tests (historical prose may retain the old name as provenance).
+- [x] Rename the GitHub repo only after the new default branch is green; update
+      the local `origin` URL; do not rewrite history. (Repo renamed externally;
+      local origin now `git@github.com:markstanden/defined.git`.)
+- [x] Rename the SonarQube project key `markstanden_coding-standards` →
+      `markstanden_defined` via its supported update (preserves history); update
+      `sonar-project.properties`, `.sonarlint/connectedMode.json`, README
+      badge/link together. (Key renamed externally; local files aligned.)
+- [x] Verify old repo URL redirects and a historical pinned workflow remains
+      fetchable (migration grace, not a guarantee).
+- [ ] Rename the local checkout directory last (machine state, not a diff).
+      (Pending: do after this branch lands, so the session's working tree stays
+      intact.)
+- [ ] Publish a matching image SHA and run final host, podman, launcher and
+      reusable-workflow checks under the new name via a throwaway consumer.
+      (Image publishes on `main` via `defined--publish.yml` after this branch
+      merges; the current GHCR pinhash tag predates the two-verb runtime, so
+      the final launcher check must run against the freshly published SHA.)
+
+### Consumer migration
+
+One consumer (`rdd-astro`) pins nine workflow calls to an older
+`coding-standards` SHA; none uses current filenames or
+`ghcr.io/markstanden/defined`, so the refocus does not break existing pins.
+Leave `rdd-astro` untouched; historical SHA pins keep resolving via the repo
+redirect; migrate it separately (adopt `.defined-version` + `defined--verify.yml`,
+move its delivery logic into its own pipeline). The pinned old workflows are an
+exit ramp, not supported.
+
+### Completion criteria
+
+- Public CLI surface is exactly `defined comply` and `defined verify`.
+- Only consumer-facing reusable workflow is `defined--verify.yml`.
+- Local and pipeline execution select the exact image from the same committed
+  `.defined-version`.
+- `comply` bootstraps → repairs → verifies; `verify` provably never writes to
+  the checkout.
+- Success is one stable line; every failure is agent-actionable.
+- `pipelines/`, delivery workflows and orphaned helpers are absent.
+- Active identity is `markstanden/defined` across GitHub, GHCR, SonarQube,
+  generated guidance and docs.
+- Host tests, broken fixture, podman gate and launcher smoke tests all pass
+  under the renamed product.

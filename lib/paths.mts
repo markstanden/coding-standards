@@ -1,8 +1,8 @@
 // lib/paths.mts — shared path resolution.
 //
 // Symlink resolution and repo-root derivation — generic building blocks
-// shared by the runtime (quality gate) and pipelines. Never imports steps;
-// steps and the orchestrator import this.
+// shared by the runtime (quality gate). Never imports steps; steps and the
+// orchestrator import this.
 //
 // Public functions take a single destructured object (named-parameter style).
 

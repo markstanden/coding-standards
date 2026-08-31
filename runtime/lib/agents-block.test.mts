@@ -10,6 +10,7 @@ import { test } from "node:test";
 import {
     BLOCK_END,
     BLOCK_START,
+    checkMarkedBlock,
     readMarkedBlock,
     readContentsOrEmpty,
     writeMarkedBlock,
@@ -17,7 +18,7 @@ import {
 
 const BLOCK = [
     BLOCK_START,
-    "House standards index: https://github.com/markstanden/coding-standards",
+    "House standards index: https://github.com/markstanden/defined",
     BLOCK_END,
 ].join("\n");
 
@@ -145,6 +146,41 @@ test("readContentsOrEmpty returns empty string for a missing file", async () => 
         assert.equal(
             await readContentsOrEmpty({ filePath: join(root, "nope") }),
             "",
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("checkMarkedBlock reports present, absent, drift and corrupt", async () => {
+    const root = await makeTempTree();
+    try {
+        const target = join(root, "AGENTS.md");
+
+        assert.equal(
+            await checkMarkedBlock({ filePath: target, block: BLOCK }),
+            "absent",
+        );
+
+        await writeFile(target, BLOCK);
+        assert.equal(
+            await checkMarkedBlock({ filePath: target, block: BLOCK }),
+            "present",
+        );
+
+        const drifted = [BLOCK_START, "Out-of-date pointer.", BLOCK_END].join(
+            "\n",
+        );
+        await writeFile(target, drifted);
+        assert.equal(
+            await checkMarkedBlock({ filePath: target, block: BLOCK }),
+            "drift",
+        );
+
+        await writeFile(target, `${BLOCK_END} without its start\n`);
+        assert.equal(
+            await checkMarkedBlock({ filePath: target, block: BLOCK }),
+            "corrupt",
         );
     } finally {
         await rm(root, { recursive: true, force: true });

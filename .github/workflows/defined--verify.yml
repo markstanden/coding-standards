@@ -5,35 +5,16 @@ name: "Defined Gate"
 #
 #   jobs:
 #     quality:
-#       uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
-#       with:
-#         image-tag: <shortsha>   # match the pinned ref for full reproducibility
+#       uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
 #
-# The image tag IS the release: publish the image and pin this workflow to the
-# same commit short-sha so local green = merge green by construction.
+# The image tag comes from the repo's committed .defined-version — the same
+# pin the local `defined` launcher reads — so local green = merge green by
+# construction. Release identity is immutable: the workflow ref SHA and the
+# .defined-version pin must match (see PLAN.md). The pipeline verb is always
+# read-only `verify`; `comply` is the local/agent loop, never CI.
 
 on:
     workflow_call:
-        inputs:
-            image-tag:
-                description: >-
-                    Tag of the ghcr.io/markstanden/defined image to run. Pin to the
-                    commit short-sha of the workflow ref (or a published tool-pin hash
-                    for a stable toolchain with the current gate code).
-                type: string
-                required: true
-
-            fix:
-                description: "Run the gate in --fix mode (rewrites files in the checkout)."
-                type: boolean
-                required: false
-                default: false
-
-            silent:
-                description: "Pass --silent to the gate for log-style output."
-                type: boolean
-                required: false
-                default: false
 
 jobs:
     defined-gate:
@@ -44,27 +25,41 @@ jobs:
             - name: Checkout
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
+            - name: Read image pin
+              id: pin
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  if [[ ! -f .defined-version ]]; then
+                    echo "::error::no .defined-version in the repo root — commit one (see PLAN.md release identity)"
+                    exit 1
+                  fi
+                  PIN="$(tr -d '[:space:]' < .defined-version)"
+                  if [[ -z "${PIN}" ]]; then
+                    echo "::error::.defined-version is empty — it must hold an immutable image tag"
+                    exit 1
+                  fi
+                  if [[ "${PIN}" == "latest" ]]; then
+                    echo "::error::.defined-version must pin an immutable tag, not 'latest'"
+                    exit 1
+                  fi
+                  if [[ ! "${PIN}" =~ ^[0-9a-f]{7,40}$ ]]; then
+                    echo "::error::.defined-version has an invalid pin '${PIN}' — expected a git SHA"
+                    exit 1
+                  fi
+                  echo "pin=${PIN}" >> "$GITHUB_OUTPUT"
+
             - name: Run defined gate
               env:
-                  IMAGE: ghcr.io/markstanden/defined:${{ inputs.image-tag }}
-                  FIX: ${{ inputs.fix }}
-                  SILENT: ${{ inputs.silent }}
+                  IMAGE: ghcr.io/markstanden/defined:${{ steps.pin.outputs.pin }}
               shell: bash
               run: |
                   set -euo pipefail
 
-                  ARGS=()
-                  if [[ "${FIX}" == "true" ]]; then
-                    ARGS+=("--fix")
-                  fi
-                  if [[ "${SILENT}" == "true" ]]; then
-                    ARGS+=("--silent")
-                  fi
-
                   REPO_ROOT="$(git -C "${GITHUB_WORKSPACE}" rev-parse --show-toplevel)"
 
                   docker run --rm \
-                    -v "${REPO_ROOT}:/repo" \
+                    -v "${REPO_ROOT}:/repo:ro" \
                     -e "NUGET_PACKAGES=/root/.nuget/packages" \
                     --workdir /repo \
-                    "${IMAGE}" "${ARGS[@]}"
+                    "${IMAGE}" verify
