@@ -3,7 +3,6 @@
 // Run: node --test steps/dotnet-coverage.test.mts
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 
 import {
@@ -12,10 +11,9 @@ import {
     runDotNetCoverageStep,
 } from "./dotnet-coverage.mts";
 import {
-    baseCtx,
     cleanupTempDirs,
-    fakeRunner,
     makeTempDir,
+    runCoverageScenario,
     setupCoverageRepo,
     TEST_SHA,
 } from "../test-helpers.mts";
@@ -138,12 +136,10 @@ test("checkMinimums reports multiple failures", () => {
 test("skips when no coverage.dotnet in config", async () => {
     const dir = await makeTempDir("quality-dc-");
     await setupCoverageRepo({ root: dir, config: { version: TEST_SHA } });
-    const { runner, calls } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
+    const { result, calls } = await runCoverageScenario({
+        step: runDotNetCoverageStep,
+        repoRoot: dir,
         trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
     });
     assert.equal(result.status, "skip");
     assert.equal(calls.length, 0);
@@ -151,12 +147,10 @@ test("skips when no coverage.dotnet in config", async () => {
 
 test("skips when no .defined.json exists", async () => {
     const dir = await makeTempDir("quality-dc-");
-    const { runner, calls } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
+    const { result, calls } = await runCoverageScenario({
+        step: runDotNetCoverageStep,
+        repoRoot: dir,
         trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
     });
     assert.equal(result.status, "skip");
     assert.equal(calls.length, 0);
@@ -171,12 +165,12 @@ test("fails when fix mode command fails", async () => {
             coverage: { dotnet: { command: "false" } },
         },
     });
-    const { runner } = fakeRunner({ sh: { status: 1, stderr: "boom" } });
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
+    const { result } = await runCoverageScenario({
+        step: runDotNetCoverageStep,
+        repoRoot: dir,
+        mode: "fix",
         trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
+        runnerOutcomes: { sh: { status: 1, stderr: "boom" } },
     });
     assert.equal(result.status, "fail");
     assert.match(result.notice ?? "", /coverage command failed/u);
@@ -191,107 +185,84 @@ test("fails when no cobertura report after fix mode command", async () => {
             coverage: { dotnet: { command: "echo ok" } },
         },
     });
-    const { runner } = fakeRunner({ sh: { status: 0 } });
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
+    const { result } = await runCoverageScenario({
+        step: runDotNetCoverageStep,
+        repoRoot: dir,
+        mode: "fix",
         trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
+        runnerOutcomes: { sh: { status: 0 } },
     });
     assert.equal(result.status, "fail");
     assert.match(result.notice ?? "", /no coverage report/u);
 });
 
-test("passes when coverage meets default 80% minimum (root report)", async () => {
-    const dir = await makeTempDir("quality-dc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: {
-            version: TEST_SHA,
-            coverage: { dotnet: { command: "dotnet test" } },
-        },
-        reportPath: "coverage.cobertura.xml",
-        reportContent: SAMPLE_XML,
-    });
-    const { runner } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "pass");
-    assert.match(result.notice ?? "", /85\.0%/u);
-});
-
-test("passes when coverage report lives under TestResults/", async () => {
-    const dir = await makeTempDir("quality-dc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: {
-            version: TEST_SHA,
-            coverage: { dotnet: { command: "dotnet test" } },
-        },
-        reportPath: "TestResults/coverage.cobertura.xml",
-        reportContent: SAMPLE_XML,
-    });
-    const { runner } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "pass");
-    assert.match(result.notice ?? "", /85\.0%/u);
-});
-
-test("fails when coverage below default 80% line minimum", async () => {
-    const dir = await makeTempDir("quality-dc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: {
-            version: TEST_SHA,
-            coverage: { dotnet: { command: "dotnet test" } },
-        },
-        reportPath: "coverage.cobertura.xml",
-        reportContent:
-            '<coverage line-rate="0.5" branch-rate="0.5"></coverage>',
-    });
-    const { runner } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "fail");
-    assert.match(result.notice ?? "", /50\.0%.*80%/u);
-});
-
-test("uses custom minimum when configured", async () => {
-    const dir = await makeTempDir("quality-dc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: {
-            version: TEST_SHA,
-            coverage: {
-                dotnet: { command: "dotnet test", minimums: { line: 50 } },
+test("passes when coverage meets default 80% minimum", async () => {
+    for (const reportPath of [
+        "coverage.cobertura.xml",
+        "TestResults/coverage.cobertura.xml",
+    ]) {
+        const dir = await makeTempDir("quality-dc-");
+        await setupCoverageRepo({
+            root: dir,
+            config: {
+                version: TEST_SHA,
+                coverage: { dotnet: { command: "dotnet test" } },
             },
+            reportPath,
+            reportContent: SAMPLE_XML,
+        });
+        const { result } = await runCoverageScenario({
+            step: runDotNetCoverageStep,
+            repoRoot: dir,
+            trackedFiles: ["App.csproj"],
+        });
+        assert.equal(result.status, "pass");
+        assert.match(result.notice ?? "", /85\.0%/, reportPath);
+    }
+});
+
+test("gates line and branch coverage against the minimum", async () => {
+    const SCENARIOS = [
+        {
+            label: "below default 80% line",
+            minimums: undefined,
+            xml: '<coverage line-rate="0.5" branch-rate="0.5"></coverage>',
+            re: /50\.0%.*80%/u,
+            status: "fail",
         },
-        reportPath: "coverage.cobertura.xml",
-        reportContent:
-            '<coverage line-rate="0.6" branch-rate="0.5"></coverage>',
-    });
-    const { runner } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "pass");
-    assert.match(result.notice ?? "", /60\.0%/u);
+        {
+            label: "meets custom 50% line",
+            minimums: { line: 50 },
+            xml: '<coverage line-rate="0.6" branch-rate="0.5"></coverage>',
+            re: /60\.0%/u,
+            status: "pass",
+        },
+    ] as const;
+    for (const { label, minimums, xml, re, status } of SCENARIOS) {
+        const config: Record<string, unknown> = {
+            version: TEST_SHA,
+            coverage: { dotnet: { command: "dotnet test" } },
+        };
+        if (minimums) {
+            (
+                config.coverage as { dotnet: { minimums?: unknown } }
+            ).dotnet.minimums = minimums;
+        }
+        const dir = await makeTempDir("quality-dc-");
+        await setupCoverageRepo({
+            root: dir,
+            config,
+            reportPath: "coverage.cobertura.xml",
+            reportContent: xml,
+        });
+        const { result } = await runCoverageScenario({
+            step: runDotNetCoverageStep,
+            repoRoot: dir,
+            trackedFiles: ["App.csproj"],
+        });
+        assert.equal(result.status, status, label);
+        assert.match(result.notice ?? "", re, label);
+    }
 });
 
 test("no-fix mode does not run the coverage command", async () => {
@@ -305,12 +276,10 @@ test("no-fix mode does not run the coverage command", async () => {
         reportPath: "coverage.cobertura.xml",
         reportContent: SAMPLE_XML,
     });
-    const { runner, calls } = fakeRunner({});
-    const result = await runDotNetCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
+    const { result, calls } = await runCoverageScenario({
+        step: runDotNetCoverageStep,
+        repoRoot: dir,
         trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
     });
     assert.equal(result.status, "pass");
     assert.equal(calls.filter((c) => c[0] === "sh").length, 0);
@@ -327,12 +296,12 @@ test("fix mode runs the consumer command", async () => {
         reportPath: "coverage.cobertura.xml",
         reportContent: SAMPLE_XML,
     });
-    const { runner, calls } = fakeRunner({ sh: { status: 0 } });
-    await runDotNetCoverageStep({
-        ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
+    const { calls } = await runCoverageScenario({
+        step: runDotNetCoverageStep,
+        repoRoot: dir,
+        mode: "fix",
         trackedFiles: ["App.csproj"],
-        runner,
-        readFileFn: readFile,
+        runnerOutcomes: { sh: { status: 0 } },
     });
     assert.equal(calls.length, 1);
     assert.equal(calls[0]![0], "sh");

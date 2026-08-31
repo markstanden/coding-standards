@@ -5,13 +5,21 @@
 // gate. Single source of truth now: step/config tests import from here.
 // Not a lib/ module — it is test-only and must never be imported by gate code.
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { CommandResult } from "../lib/proc.mts";
 
 type RunResult = { status: number; stdout?: string; stderr?: string };
+
+type StepArgs = {
+    ctx: { mode: "fix" | "no-fix"; repoRoot: string };
+    trackedFiles: string[];
+    runner: typeof import("../lib/proc.mts").run;
+    readFileFn: typeof readFile;
+};
+type StepFn<T> = (args: StepArgs) => Promise<T>;
 
 /** A valid immutable image pin used across the gate's own tests. */
 export const TEST_SHA = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
@@ -60,6 +68,34 @@ export async function setupCoverageRepo({
         });
         await writeFile(join(root, reportPath), reportContent);
     }
+}
+
+/**
+ * Run a coverage step against a temp repo with an injected fake runner,
+ * returning the step result plus the recorded runner calls. Removes the
+ * identical invocation tail every coverage test used to repeat.
+ */
+export async function runCoverageScenario<T>({
+    step,
+    repoRoot,
+    mode = "no-fix",
+    trackedFiles,
+    runnerOutcomes = {},
+}: {
+    step: StepFn<T>;
+    repoRoot: string;
+    mode?: "fix" | "no-fix";
+    trackedFiles: string[];
+    runnerOutcomes?: Record<string, RunResult>;
+}): Promise<{ result: T; calls: string[][] }> {
+    const { runner, calls } = fakeRunner(runnerOutcomes);
+    const result = await step({
+        ctx: { mode, repoRoot },
+        trackedFiles,
+        runner,
+        readFileFn: readFile,
+    });
+    return { result, calls };
 }
 
 /**

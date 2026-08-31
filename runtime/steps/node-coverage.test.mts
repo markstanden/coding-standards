@@ -3,7 +3,6 @@
 // Run: node --test steps/node-coverage.test.mts
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 
 import {
@@ -12,10 +11,9 @@ import {
     runNodeCoverageStep,
 } from "./node-coverage.mts";
 import {
-    baseCtx,
     cleanupTempDirs,
-    fakeRunner,
     makeTempDir,
+    runCoverageScenario,
     setupCoverageRepo,
     TEST_SHA,
 } from "../test-helpers.mts";
@@ -192,12 +190,10 @@ test("checkMinimums treats zero lines found as 0%", () => {
 test("skips when no coverage.node in config", async () => {
     const dir = await makeTempDir("quality-nc-");
     await setupCoverageRepo({ root: dir, config: { version: TEST_SHA } });
-    const { runner, calls } = fakeRunner({});
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
+    const { result, calls } = await runCoverageScenario({
+        step: runNodeCoverageStep,
+        repoRoot: dir,
         trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
     });
     assert.equal(result.status, "skip");
     assert.equal(calls.length, 0);
@@ -205,12 +201,10 @@ test("skips when no coverage.node in config", async () => {
 
 test("skips when no .defined.json exists", async () => {
     const dir = await makeTempDir("quality-nc-");
-    const { runner, calls } = fakeRunner({});
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
+    const { result, calls } = await runCoverageScenario({
+        step: runNodeCoverageStep,
+        repoRoot: dir,
         trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
     });
     assert.equal(result.status, "skip");
     assert.equal(calls.length, 0);
@@ -222,12 +216,12 @@ test("fails when fix mode command fails", async () => {
         root: dir,
         config: { version: TEST_SHA, coverage: { node: { command: "false" } } },
     });
-    const { runner } = fakeRunner({ sh: { status: 1, stderr: "boom" } });
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
+    const { result } = await runCoverageScenario({
+        step: runNodeCoverageStep,
+        repoRoot: dir,
+        mode: "fix",
         trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
+        runnerOutcomes: { sh: { status: 1, stderr: "boom" } },
     });
     assert.equal(result.status, "fail");
     assert.match(result.notice ?? "", /coverage command failed/u);
@@ -242,75 +236,66 @@ test("fails when no lcov.info after fix mode command", async () => {
             coverage: { node: { command: "echo ok" } },
         },
     });
-    const { runner } = fakeRunner({ sh: { status: 0 } });
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
+    const { result } = await runCoverageScenario({
+        step: runNodeCoverageStep,
+        repoRoot: dir,
+        mode: "fix",
         trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
+        runnerOutcomes: { sh: { status: 0 } },
     });
     assert.equal(result.status, "fail");
     assert.match(result.notice ?? "", /no coverage report/u);
 });
 
-test("passes when coverage meets default 80% minimum", async () => {
-    const dir = await makeTempDir("quality-nc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: { version: TEST_SHA, coverage: { node: { command: "npm t" } } },
-        reportPath: "coverage/lcov.info",
-        reportContent: ["LF:100", "LH:85"].join("\n"),
-    });
-    const { runner } = fakeRunner({});
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "pass");
-    assert.match(result.notice ?? "", /85\.0%/u);
-});
-
-test("fails when coverage below default 80% minimum", async () => {
-    const dir = await makeTempDir("quality-nc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: { version: TEST_SHA, coverage: { node: { command: "npm t" } } },
-        reportPath: "coverage/lcov.info",
-        reportContent: ["LF:100", "LH:50"].join("\n"),
-    });
-    const { runner } = fakeRunner({});
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "fail");
-    assert.match(result.notice ?? "", /50\.0%.*80%/u);
-});
-
-test("uses custom minimum when configured", async () => {
-    const dir = await makeTempDir("quality-nc-");
-    await setupCoverageRepo({
-        root: dir,
-        config: {
-            version: TEST_SHA,
-            coverage: { node: { command: "npm t", minimums: { line: 50 } } },
+test("gates line coverage against the effective minimum", async () => {
+    const SCENARIOS = [
+        {
+            label: "meets default 80%",
+            minimums: undefined,
+            lh: 85,
+            re: /85\.0%/u,
+            status: "pass",
         },
-        reportPath: "coverage/lcov.info",
-        reportContent: ["LF:100", "LH:60"].join("\n"),
-    });
-    const { runner } = fakeRunner({});
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
-        trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
-    });
-    assert.equal(result.status, "pass");
-    assert.match(result.notice ?? "", /60\.0%/u);
+        {
+            label: "below default 80%",
+            minimums: undefined,
+            lh: 50,
+            re: /50\.0%.*80%/u,
+            status: "fail",
+        },
+        {
+            label: "meets custom 50%",
+            minimums: { line: 50 },
+            lh: 60,
+            re: /60\.0%/u,
+            status: "pass",
+        },
+    ] as const;
+    for (const { label, minimums, lh, re, status } of SCENARIOS) {
+        const config: Record<string, unknown> = {
+            version: TEST_SHA,
+            coverage: { node: { command: "npm t" } },
+        };
+        if (minimums) {
+            (
+                config.coverage as { node: { minimums?: unknown } }
+            ).node.minimums = minimums;
+        }
+        const dir = await makeTempDir("quality-nc-");
+        await setupCoverageRepo({
+            root: dir,
+            config,
+            reportPath: "coverage/lcov.info",
+            reportContent: ["LF:100", `LH:${lh}`].join("\n"),
+        });
+        const { result } = await runCoverageScenario({
+            step: runNodeCoverageStep,
+            repoRoot: dir,
+            trackedFiles: ["package.json"],
+        });
+        assert.equal(result.status, status, label);
+        assert.match(result.notice ?? "", re, label);
+    }
 });
 
 test("no-fix mode does not run the coverage command", async () => {
@@ -321,12 +306,10 @@ test("no-fix mode does not run the coverage command", async () => {
         reportPath: "coverage/lcov.info",
         reportContent: ["LF:100", "LH:90"].join("\n"),
     });
-    const { runner, calls } = fakeRunner({});
-    const result = await runNodeCoverageStep({
-        ctx: { ...baseCtx, repoRoot: dir },
+    const { result, calls } = await runCoverageScenario({
+        step: runNodeCoverageStep,
+        repoRoot: dir,
         trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
     });
     assert.equal(result.status, "pass");
     assert.equal(calls.filter((c) => c[0] === "sh").length, 0);
@@ -343,12 +326,12 @@ test("fix mode runs the consumer command", async () => {
         reportPath: "coverage/lcov.info",
         reportContent: ["LF:100", "LH:90"].join("\n"),
     });
-    const { runner, calls } = fakeRunner({ sh: { status: 0 } });
-    await runNodeCoverageStep({
-        ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
+    const { calls } = await runCoverageScenario({
+        step: runNodeCoverageStep,
+        repoRoot: dir,
+        mode: "fix",
         trackedFiles: ["package.json"],
-        runner,
-        readFileFn: readFile,
+        runnerOutcomes: { sh: { status: 0 } },
     });
     assert.equal(calls.length, 1);
     assert.equal(calls[0]![0], "sh");

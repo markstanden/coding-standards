@@ -14,6 +14,19 @@ async function writeConfig(dir: string, content: string): Promise<void> {
     await writeFile(`${dir}/.defined.json`, content);
 }
 
+async function rejectsLoad({
+    dir,
+    config,
+    re,
+}: {
+    dir: string;
+    config: Record<string, unknown>;
+    re: RegExp;
+}): Promise<void> {
+    await writeConfig(dir, JSON.stringify(config));
+    await assert.rejects(() => loadConfig({ repoRoot: dir }), re);
+}
+
 const SHA = TEST_SHA;
 
 test("loadConfig returns empty config when file is absent", async () => {
@@ -99,55 +112,28 @@ test("loadConfig rejects array root", async () => {
     );
 });
 
-test("loadConfig rejects missing version", async () => {
-    const dir = await makeTempDir("quality-config-");
-    await writeConfig(dir, JSON.stringify({ coverage: {} }));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"version" must be a 7–40 character hex SHA/u,
-    );
-});
-
-test("loadConfig rejects short SHA", async () => {
-    const dir = await makeTempDir("quality-config-");
-    await writeConfig(dir, JSON.stringify({ version: "abc123" }));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"version" must be a 7–40 character hex SHA/u,
-    );
-});
-
-test("loadConfig rejects non-hex version", async () => {
-    const dir = await makeTempDir("quality-config-");
-    await writeConfig(
-        dir,
-        JSON.stringify({ version: "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" }),
-    );
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"version" must be a 7–40 character hex SHA/u,
-    );
-});
-
-test("loadConfig rejects version with uppercase", async () => {
-    const dir = await makeTempDir("quality-config-");
-    await writeConfig(
-        dir,
-        JSON.stringify({ version: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2" }),
-    );
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"version" must be a 7–40 character hex SHA/u,
-    );
-});
-
-test("loadConfig rejects non-string version", async () => {
-    const dir = await makeTempDir("quality-config-");
-    await writeConfig(dir, JSON.stringify({ version: 1234567 }));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"version" must be a 7–40 character hex SHA/u,
-    );
+test("loadConfig rejects invalid version values", async () => {
+    const BAD_VERSIONS = [
+        { label: "missing", config: { coverage: {} } },
+        { label: "too short", config: { version: "abc123" } },
+        {
+            label: "non-hex",
+            config: { version: "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" },
+        },
+        {
+            label: "uppercase",
+            config: { version: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2" },
+        },
+        { label: "non-string", config: { version: 1234567 } },
+    ] as const;
+    for (const { label, config } of BAD_VERSIONS) {
+        await rejectsLoad({
+            dir: await makeTempDir("quality-config-"),
+            config,
+            re: /"version" must be a 7–40 character hex SHA/u,
+        });
+        assert.ok(true, `rejects ${label}`);
+    }
 });
 
 test("loadConfig rejects coverage with unknown ecosystem", async () => {
@@ -163,50 +149,28 @@ test("loadConfig rejects coverage with unknown ecosystem", async () => {
     );
 });
 
-test("loadConfig rejects coverage entry with missing command", async () => {
-    const dir = await makeTempDir("quality-config-");
-    const cfg = { version: SHA, coverage: { node: {} } };
-    await writeConfig(dir, JSON.stringify(cfg));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"coverage.node.command" must be a non-empty string/u,
-    );
+test("loadConfig rejects coverage command that is not non-empty", async () => {
+    for (const command of [undefined, "  "]) {
+        const coverage = command === undefined ? {} : { command };
+        await rejectsLoad({
+            dir: await makeTempDir("quality-config-"),
+            config: { version: SHA, coverage: { node: coverage } },
+            re: /"coverage.node.command" must be a non-empty string/u,
+        });
+    }
 });
 
-test("loadConfig rejects coverage entry with empty command", async () => {
-    const dir = await makeTempDir("quality-config-");
-    const cfg = { version: SHA, coverage: { node: { command: "  " } } };
-    await writeConfig(dir, JSON.stringify(cfg));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /"coverage.node.command" must be a non-empty string/u,
-    );
-});
-
-test("loadConfig rejects minimum out of range", async () => {
-    const dir = await makeTempDir("quality-config-");
-    const cfg = {
-        version: SHA,
-        coverage: { node: { command: "npm t", minimums: { line: 101 } } },
-    };
-    await writeConfig(dir, JSON.stringify(cfg));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /must be a number 0–100/u,
-    );
-});
-
-test("loadConfig rejects negative minimum", async () => {
-    const dir = await makeTempDir("quality-config-");
-    const cfg = {
-        version: SHA,
-        coverage: { node: { command: "npm t", minimums: { line: -5 } } },
-    };
-    await writeConfig(dir, JSON.stringify(cfg));
-    await assert.rejects(
-        () => loadConfig({ repoRoot: dir }),
-        /must be a number 0–100/u,
-    );
+test("loadConfig rejects minimum outside 0–100", async () => {
+    for (const line of [101, -5]) {
+        await rejectsLoad({
+            dir: await makeTempDir("quality-config-"),
+            config: {
+                version: SHA,
+                coverage: { node: { command: "npm t", minimums: { line } } },
+            },
+            re: /must be a number 0–100/u,
+        });
+    }
 });
 
 test("loadConfig rejects unknown minimum metric", async () => {
@@ -222,24 +186,17 @@ test("loadConfig rejects unknown minimum metric", async () => {
     );
 });
 
-test("loadConfig accepts minimum of exactly 0", async () => {
-    const dir = await makeTempDir("quality-config-");
-    const cfg = {
-        version: SHA,
-        coverage: { node: { command: "npm t", minimums: { line: 0 } } },
-    };
-    await writeConfig(dir, JSON.stringify(cfg));
-    const config = await loadConfig({ repoRoot: dir });
-    assert.equal(config.coverage?.node?.minimums?.line, 0);
-});
-
-test("loadConfig accepts minimum of exactly 100", async () => {
-    const dir = await makeTempDir("quality-config-");
-    const cfg = {
-        version: SHA,
-        coverage: { node: { command: "npm t", minimums: { line: 100 } } },
-    };
-    await writeConfig(dir, JSON.stringify(cfg));
-    const config = await loadConfig({ repoRoot: dir });
-    assert.equal(config.coverage?.node?.minimums?.line, 100);
+test("loadConfig accepts minimum at the boundary of 0 and 100", async () => {
+    for (const line of [0, 100]) {
+        const dir = await makeTempDir("quality-config-");
+        await writeConfig(
+            dir,
+            JSON.stringify({
+                version: SHA,
+                coverage: { node: { command: "npm t", minimums: { line } } },
+            }),
+        );
+        const config = await loadConfig({ repoRoot: dir });
+        assert.equal(config.coverage?.node?.minimums?.line, line);
+    }
 });
