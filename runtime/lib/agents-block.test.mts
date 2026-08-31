@@ -18,7 +18,7 @@ import {
 
 const BLOCK = [
     BLOCK_START,
-    "House standards index: https://github.com/markstanden/coding-standards",
+    "House standards index: https://github.com/markstanden/defined",
     BLOCK_END,
 ].join("\n");
 

@@ -1,4 +1,4 @@
-[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=markstanden_coding-standards)](https://sonarcloud.io/summary/new_code?id=markstanden_coding-standards)
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=markstanden_defined)](https://sonarcloud.io/summary/new_code?id=markstanden_defined)
 
 # defined
 
@@ -47,7 +47,7 @@ the image.
     ```yaml
     jobs:
         quality:
-            uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
+            uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
     ```
 
     The workflow reads `.defined-version` for the image tag — the same pin the
@@ -100,7 +100,7 @@ pipeline via a gitsha-pinned ref. Filename grammar:
 ```yaml
 jobs:
     quality:
-        uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
+        uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
         with:
             image-tag: <shortsha>
 ```

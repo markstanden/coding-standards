@@ -283,22 +283,29 @@ repos.
 
 ### Phase 4 — Rename the product repository
 
-- [ ] Confirm `markstanden/defined` is available and GHCR publication
-      permissions hold.
-- [ ] Replace active `markstanden/coding-standards` links/names with
+- [x] Confirm `markstanden/defined` is available and GHCR publication
+      permissions hold. (GitHub repo already renamed externally; GHCR image
+      `ghcr.io/markstanden/defined` verified public + fetchable.)
+- [x] Replace active `markstanden/coding-standards` links/names with
       `markstanden/defined` in README, workflow examples, generated AGENTS and
       tests (historical prose may retain the old name as provenance).
-- [ ] Rename the GitHub repo only after the new default branch is green; update
-      the local `origin` URL; do not rewrite history.
-- [ ] Rename the SonarQube project key `markstanden_coding-standards` →
+- [x] Rename the GitHub repo only after the new default branch is green; update
+      the local `origin` URL; do not rewrite history. (Repo renamed externally;
+      local origin now `git@github.com:markstanden/defined.git`.)
+- [x] Rename the SonarQube project key `markstanden_coding-standards` →
       `markstanden_defined` via its supported update (preserves history); update
       `sonar-project.properties`, `.sonarlint/connectedMode.json`, README
-      badge/link together.
-- [ ] Verify old repo URL redirects and a historical pinned workflow remains
+      badge/link together. (Key renamed externally; local files aligned.)
+- [x] Verify old repo URL redirects and a historical pinned workflow remains
       fetchable (migration grace, not a guarantee).
 - [ ] Rename the local checkout directory last (machine state, not a diff).
+      (Pending: do after this branch lands, so the session's working tree stays
+      intact.)
 - [ ] Publish a matching image SHA and run final host, podman, launcher and
       reusable-workflow checks under the new name via a throwaway consumer.
+      (Image publishes on `main` via `defined--publish.yml` after this branch
+      merges; the current GHCR pinhash tag predates the two-verb runtime, so
+      the final launcher check must run against the freshly published SHA.)
 
 ### Consumer migration
 
