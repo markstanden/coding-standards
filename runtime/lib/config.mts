@@ -65,7 +65,7 @@ function validateMinimums(
         return undefined;
     }
     if (typeof raw !== "object" || Array.isArray(raw)) {
-        throw new Error(
+        throw new TypeError(
             `.defined.json: "coverage.${key}.minimums" must be an object`,
         );
     }
@@ -109,7 +109,7 @@ function validateCoverage(raw: unknown): DefinedConfig["coverage"] {
         return undefined;
     }
     if (typeof raw !== "object" || Array.isArray(raw)) {
-        throw new Error(`.defined.json: "coverage" must be an object`);
+        throw new TypeError(`.defined.json: "coverage" must be an object`);
     }
     const coverage = raw as Record<string, unknown>;
     const result: NonNullable<DefinedConfig["coverage"]> = {};
