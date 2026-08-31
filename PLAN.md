@@ -53,7 +53,7 @@ verify` is the pipeline-only check: managed artifacts then a complete no-fix
 - **Tested** — 145+ host unit tests (colocated `*.test.mts`) + a broken-fixture
   integration test (`runtime/fixture.test.mts`) driving the real gate
   in-container (hash-proves `verify` is side-effect free) + the podman
-  end-to-end gate (`./runtime/verify.sh verify`). Run the full suite
+  end-to-end gate (`./runtime/verify.sh comply`). Run the full suite
   continuously: host-green does not mean gate-green.
 - **Current repo target** — `runtime/`, root `lib/`, `standards/`, `practices/`,
   `.github/workflows/{defined--verify|defined--test|defined--publish}.yml`.
