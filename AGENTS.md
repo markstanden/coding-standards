@@ -52,7 +52,7 @@ record — read it before touching anything gate-related):
   literal unions), extensioned imports, zero dependencies, tested with
   `node --test` colocated as `*.test.mts`.
 - Steps run in fixed order `naming → node → node-coverage → dotnet →
-  dotnet-coverage → shell → smoke → yaml → workflow → tofu`; missing applicable
+dotnet-coverage → shell → smoke → yaml → workflow → tofu`; missing applicable
   tools fail loudly pointing at the Containerfile (no optional tier). Coverage
   steps activate on a `.defined.json` `coverage` entry (see `runtime/lib/config.mts`).
 - **Run the full suite continuously**: host `node --test` _and_ the podman

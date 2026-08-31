@@ -126,17 +126,17 @@ Its only required field is `version` (the immutable image tag). Optional
 
 ```jsonc
 {
-  "version": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-  "coverage": {
-    "node": {
-      "command": "npm run test:coverage",
-      "minimums": { "line": 80, "branch": 70, "function": 90 }
+    "version": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "coverage": {
+        "node": {
+            "command": "npm run test:coverage",
+            "minimums": { "line": 80, "branch": 70, "function": 90 },
+        },
+        "dotnet": {
+            "command": "dotnet test --collect:XPlat",
+            "minimums": { "line": 80 },
+        },
     },
-    "dotnet": {
-      "command": "dotnet test --collect:XPlat",
-      "minimums": { "line": 80 }
-    }
-  }
 }
 ```
 

@@ -72,10 +72,7 @@ export function parseCobertura({
  * attribute is not present.
  */
 function extractAttribute(xml: string, name: string): string | undefined {
-    const re = new RegExp(
-        `${name}\\s*=\\s*["']([^"']*)["']`,
-        "u",
-    );
+    const re = new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`, "u");
     const match = xml.match(re);
     return match?.[1];
 }

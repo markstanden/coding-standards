@@ -48,23 +48,24 @@ the image.
 
     ```jsonc
     {
-      "version": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-      "coverage": {
-        "node": {
-          "command": "npm run test:coverage",
-          "minimums": { "line": 80, "branch": 70 }
+        "version": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+        "coverage": {
+            "node": {
+                "command": "npm run test:coverage",
+                "minimums": { "line": 80, "branch": 70 },
+            },
+            "dotnet": {
+                "command": "dotnet test --collect:XPlat",
+                "minimums": { "line": 80 },
+            },
         },
-        "dotnet": {
-          "command": "dotnet test --collect:XPlat",
-          "minimums": { "line": 80 }
-        }
-      }
     }
     ```
 
     Absent `coverage` (or an absent ecosystem entry) skips that coverage step;
     `command` generates the report in `comply` mode; omitted minimums default
     to 80% line coverage.
+
 3. **Gate locally** — run `defined comply`. It bootstraps `.editorconfig` and
    `Directory.Build.props` into the repo root and seeds the AGENTS.md managed
    block, repairs safe findings, then re-verifies. Managed files are installed

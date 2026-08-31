@@ -88,14 +88,9 @@ function validateMinimums(
     return result;
 }
 
-function validateCoverageEntry(
-    key: string,
-    raw: unknown,
-): CoverageConfig {
+function validateCoverageEntry(key: string, raw: unknown): CoverageConfig {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-        throw new Error(
-            `.defined.json: "coverage.${key}" must be an object`,
-        );
+        throw new Error(`.defined.json: "coverage.${key}" must be an object`);
     }
     const entry = raw as Record<string, unknown>;
     if (typeof entry.command !== "string" || entry.command.trim() === "") {
@@ -109,9 +104,7 @@ function validateCoverageEntry(
     };
 }
 
-function validateCoverage(
-    raw: unknown,
-): DefinedConfig["coverage"] {
+function validateCoverage(raw: unknown): DefinedConfig["coverage"] {
     if (raw === undefined || raw === null) {
         return undefined;
     }
