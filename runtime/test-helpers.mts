@@ -1,13 +1,66 @@
 // test-helpers.mts — shared scaffolding for the gate's own tests.
 //
-// Every step test used to carry its own byte-identical fakeRunner and baseCtx;
-// SonarQube flagged the duplication (new_duplicated_lines_density 9.2% on the
-// PR gate). Single source of truth now: step tests import from here.
+// Every step test used to carry its own byte-identical fakeRunner, baseCtx and
+// temp-dir/cleanup block; SonarQube kept flagging the duplication on the PR
+// gate. Single source of truth now: step/config tests import from here.
 // Not a lib/ module — it is test-only and must never be imported by gate code.
+
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import type { CommandResult } from "../lib/proc.mts";
 
 type RunResult = { status: number; stdout?: string; stderr?: string };
+
+/** A valid immutable image pin used across the gate's own tests. */
+export const TEST_SHA = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+
+/**
+ * Create a temp dir and register it for auto-cleanup. Coverage/config tests
+ * that used to each carry their own tempDirs[]/afterEach block now get it
+ * free — one source of truth.
+ */
+export async function makeTempDir(prefix = "quality-test-"): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), prefix));
+    tempDirs.push(dir);
+    return dir;
+}
+
+const tempDirs: string[] = [];
+
+/** Remove every temp dir registered since the last call. */
+export async function cleanupTempDirs(): Promise<void> {
+    await Promise.all(
+        tempDirs
+            .splice(0)
+            .map((dir) => rm(dir, { recursive: true, force: true })),
+    );
+}
+
+/**
+ * Write a .defined.json into root and (optionally) a coverage report file at a
+ * nested path. Filters remove the boilerplate the coverage tests all shared.
+ */
+export async function setupCoverageRepo({
+    root,
+    config,
+    reportPath,
+    reportContent,
+}: {
+    root: string;
+    config: Record<string, unknown>;
+    reportPath?: string;
+    reportContent?: string;
+}): Promise<void> {
+    await writeFile(join(root, ".defined.json"), `${JSON.stringify(config)}\n`);
+    if (reportPath !== undefined && reportContent !== undefined) {
+        await mkdir(join(root, reportPath.split("/").slice(0, -1).join("/")), {
+            recursive: true,
+        });
+        await writeFile(join(root, reportPath), reportContent);
+    }
+}
 
 /**
  * Scriptable fake runner: maps command name (or "cmd subcommand") to canned

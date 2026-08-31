@@ -3,9 +3,7 @@
 // Run: node --test steps/node-coverage.test.mts
 
 import assert from "node:assert/strict";
-import { mkdir, readFile, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { afterEach, test } from "node:test";
 
 import {
@@ -13,30 +11,16 @@ import {
     parseLcov,
     runNodeCoverageStep,
 } from "./node-coverage.mts";
-import { baseCtx, fakeRunner } from "../test-helpers.mts";
+import {
+    baseCtx,
+    cleanupTempDirs,
+    fakeRunner,
+    makeTempDir,
+    setupCoverageRepo,
+    TEST_SHA,
+} from "../test-helpers.mts";
 
-const SHA = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
-
-const tempDirs: string[] = [];
-
-async function tempDir(): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), "quality-nc-"));
-    tempDirs.push(dir);
-    return dir;
-}
-
-async function writeLcov(dir: string, content: string): Promise<void> {
-    await mkdir(join(dir, "coverage"), { recursive: true });
-    await writeFile(join(dir, "coverage", "lcov.info"), content);
-}
-
-afterEach(async () => {
-    await Promise.all(
-        tempDirs
-            .splice(0)
-            .map((dir) => rm(dir, { recursive: true, force: true })),
-    );
-});
+afterEach(cleanupTempDirs);
 
 // --- parseLcov ---
 
@@ -206,11 +190,8 @@ test("checkMinimums treats zero lines found as 0%", () => {
 // --- runNodeCoverageStep ---
 
 test("skips when no coverage.node in config", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({ version: SHA }),
-    );
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({ root: dir, config: { version: TEST_SHA } });
     const { runner, calls } = fakeRunner({});
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, repoRoot: dir },
@@ -223,7 +204,7 @@ test("skips when no coverage.node in config", async () => {
 });
 
 test("skips when no .defined.json exists", async () => {
-    const dir = await tempDir();
+    const dir = await makeTempDir("quality-nc-");
     const { runner, calls } = fakeRunner({});
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, repoRoot: dir },
@@ -236,14 +217,11 @@ test("skips when no .defined.json exists", async () => {
 });
 
 test("fails when fix mode command fails", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
-            coverage: { node: { command: "false" } },
-        }),
-    );
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: { version: TEST_SHA, coverage: { node: { command: "false" } } },
+    });
     const { runner } = fakeRunner({ sh: { status: 1, stderr: "boom" } });
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
@@ -256,14 +234,14 @@ test("fails when fix mode command fails", async () => {
 });
 
 test("fails when no lcov.info after fix mode command", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: {
+            version: TEST_SHA,
             coverage: { node: { command: "echo ok" } },
-        }),
-    );
+        },
+    });
     const { runner } = fakeRunner({ sh: { status: 0 } });
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
@@ -276,15 +254,13 @@ test("fails when no lcov.info after fix mode command", async () => {
 });
 
 test("passes when coverage meets default 80% minimum", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
-            coverage: { node: { command: "npm t" } },
-        }),
-    );
-    await writeLcov(dir, ["LF:100", "LH:85"].join("\n"));
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: { version: TEST_SHA, coverage: { node: { command: "npm t" } } },
+        reportPath: "coverage/lcov.info",
+        reportContent: ["LF:100", "LH:85"].join("\n"),
+    });
     const { runner } = fakeRunner({});
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, repoRoot: dir },
@@ -297,15 +273,13 @@ test("passes when coverage meets default 80% minimum", async () => {
 });
 
 test("fails when coverage below default 80% minimum", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
-            coverage: { node: { command: "npm t" } },
-        }),
-    );
-    await writeLcov(dir, ["LF:100", "LH:50"].join("\n"));
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: { version: TEST_SHA, coverage: { node: { command: "npm t" } } },
+        reportPath: "coverage/lcov.info",
+        reportContent: ["LF:100", "LH:50"].join("\n"),
+    });
     const { runner } = fakeRunner({});
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, repoRoot: dir },
@@ -318,17 +292,16 @@ test("fails when coverage below default 80% minimum", async () => {
 });
 
 test("uses custom minimum when configured", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
-            coverage: {
-                node: { command: "npm t", minimums: { line: 50 } },
-            },
-        }),
-    );
-    await writeLcov(dir, ["LF:100", "LH:60"].join("\n"));
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: {
+            version: TEST_SHA,
+            coverage: { node: { command: "npm t", minimums: { line: 50 } } },
+        },
+        reportPath: "coverage/lcov.info",
+        reportContent: ["LF:100", "LH:60"].join("\n"),
+    });
     const { runner } = fakeRunner({});
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, repoRoot: dir },
@@ -341,15 +314,13 @@ test("uses custom minimum when configured", async () => {
 });
 
 test("no-fix mode does not run the coverage command", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
-            coverage: { node: { command: "npm t" } },
-        }),
-    );
-    await writeLcov(dir, ["LF:100", "LH:90"].join("\n"));
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: { version: TEST_SHA, coverage: { node: { command: "npm t" } } },
+        reportPath: "coverage/lcov.info",
+        reportContent: ["LF:100", "LH:90"].join("\n"),
+    });
     const { runner, calls } = fakeRunner({});
     const result = await runNodeCoverageStep({
         ctx: { ...baseCtx, repoRoot: dir },
@@ -362,15 +333,16 @@ test("no-fix mode does not run the coverage command", async () => {
 });
 
 test("fix mode runs the consumer command", async () => {
-    const dir = await tempDir();
-    await writeFile(
-        join(dir, ".defined.json"),
-        JSON.stringify({
-            version: SHA,
+    const dir = await makeTempDir("quality-nc-");
+    await setupCoverageRepo({
+        root: dir,
+        config: {
+            version: TEST_SHA,
             coverage: { node: { command: "npm run test:coverage" } },
-        }),
-    );
-    await writeLcov(dir, ["LF:100", "LH:90"].join("\n"));
+        },
+        reportPath: "coverage/lcov.info",
+        reportContent: ["LF:100", "LH:90"].join("\n"),
+    });
     const { runner, calls } = fakeRunner({ sh: { status: 0 } });
     await runNodeCoverageStep({
         ctx: { ...baseCtx, mode: "fix", repoRoot: dir },
