@@ -16,7 +16,12 @@
 
 import { spawnSync } from "node:child_process";
 
-import { createRunContext, parseCommand, type StepMode } from "./lib/ctx.mts";
+import {
+    createRunContext,
+    parseCommand,
+    type StepMode,
+    type Verb,
+} from "./lib/ctx.mts";
 import { trackedFiles } from "../lib/git.mts";
 import { checkSetup, runSetup } from "./setup.mts";
 import { formatReport } from "./lib/report.mts";
@@ -48,7 +53,7 @@ interface Step {
  * fixed absolute path (/usr/bin/git — the image installs git via apt on
  * Debian slim), so no PATH lookup is involved and the probe is deterministic.
  */
-async function runSmoke(_input: StepInput): Promise<StepResult> {
+export async function runSmoke(_input: StepInput): Promise<StepResult> {
     const probe = spawnSync("/usr/bin/git", ["--version"], {
         encoding: "utf8",
     });
@@ -112,28 +117,104 @@ const STEPS: Step[] = [
 ];
 
 /** Run every step in order in the given mode; nothing may crash silently. */
-async function runPass({
+export async function runPass({
     mode,
     repoRoot,
     files,
+    steps = STEPS,
 }: {
     mode: StepMode;
     repoRoot: string;
     files: string[];
+    steps?: readonly Step[];
 }): Promise<Map<string, StepResult>> {
     const results = new Map<string, StepResult>();
-    for (const step of STEPS) {
+    for (const step of steps) {
         results.set(step.id, failed({ notice: "not started" }));
     }
-    for (const step of STEPS) {
+    for (const step of steps) {
         const result = await step.run({ mode, repoRoot, files });
         results.set(step.id, result);
     }
     return results;
 }
 
-function printUsage(): void {
+export function printUsage(): void {
     console.log("usage: defined comply | defined verify");
+}
+
+export interface RunGateDeps {
+    /** Bootstrap (comply only). Injected so tests need no real checkout. */
+    runSetupFn?: typeof runSetup;
+    /** Read-only bootstrap check (verify only). */
+    checkSetupFn?: typeof checkSetup;
+    /** Pass runner; injected so tests drive fake step results. */
+    runPassFn?: typeof runPass;
+    /** Report renderer. */
+    reportFn?: typeof formatReport;
+    /** Output sink. */
+    printFn?: (line: string) => void;
+    /** Process exit; injected so tests observe the exit code. */
+    exitFn?: (code: number) => void;
+}
+
+/**
+ * Run the full two-verb flow against a repo. `comply` bootstraps → repair
+ * (fix) pass → fresh verify (no-fix) pass; `verify` checks bootstrap state
+ * then a complete no-fix pass. Green = report's first line is `compliant`,
+ * anything else exits 1. All deps are injectable for tests.
+ */
+export async function runGate({
+    verb,
+    repoRoot,
+    files,
+    deps = {},
+}: {
+    verb: Verb;
+    repoRoot: string;
+    files: string[];
+    deps?: RunGateDeps;
+}): Promise<void> {
+    const {
+        runSetupFn = runSetup,
+        checkSetupFn = checkSetup,
+        runPassFn = runPass,
+        reportFn = formatReport,
+        printFn = (line) => console.log(line),
+        exitFn = (code) => process.exit(code),
+    } = deps;
+
+    if (verb === "comply") {
+        await runSetupFn({ startDir: repoRoot });
+        await runPassFn({ mode: "fix", repoRoot, files });
+        const verify = await runPassFn({ mode: "no-fix", repoRoot, files });
+        const lines = reportFn({
+            verb: "comply",
+            steps: [...verify].map(([id, result]) => ({ id, result })),
+        });
+        for (const line of lines) {
+            printFn(line);
+        }
+        if (lines[0] !== "compliant") {
+            exitFn(1);
+        }
+        return;
+    }
+
+    // `verify`: read-only bootstrap check → complete no-fix pass.
+    const setup = await checkSetupFn({ startDir: repoRoot });
+    const results = await runPassFn({ mode: "no-fix", repoRoot, files });
+    const lines = reportFn({
+        verb: "verify",
+        setup,
+        steps: [...results].map(([id, result]) => ({ id, result })),
+    });
+    for (const line of lines) {
+        printFn(line);
+    }
+    if (lines[0] !== "compliant") {
+        exitFn(1);
+    }
 }
 
 async function main(): Promise<void> {
@@ -157,49 +238,9 @@ async function main(): Promise<void> {
         startDir: process.cwd(),
     });
     const files = trackedFiles({ repoRoot: ctx.repoRoot });
-
-    // `comply`: bootstrap (write, raises-only) → fix pass → fresh verify pass.
-    // The second pass is mandatory: repairs must be re-checked, and any
-    // surviving failure sets the exit code.
-    if (ctx.verb === "comply") {
-        await runSetup({ startDir: process.cwd() });
-        await runPass({ mode: "fix", repoRoot: ctx.repoRoot, files });
-        const verify = await runPass({
-            mode: "no-fix",
-            repoRoot: ctx.repoRoot,
-            files,
-        });
-        const lines = formatReport({
-            verb: "comply",
-            steps: [...verify].map(([id, result]) => ({ id, result })),
-        });
-        for (const line of lines) {
-            console.log(line);
-        }
-        if (lines[0] !== "compliant") {
-            process.exit(1);
-        }
-        return;
-    }
-
-    // `verify`: read-only bootstrap check → complete no-fix pass.
-    const setup = await checkSetup({ startDir: process.cwd() });
-    const results = await runPass({
-        mode: "no-fix",
-        repoRoot: ctx.repoRoot,
-        files,
-    });
-    const lines = formatReport({
-        verb: "verify",
-        setup,
-        steps: [...results].map(([id, result]) => ({ id, result })),
-    });
-    for (const line of lines) {
-        console.log(line);
-    }
-    if (lines[0] !== "compliant") {
-        process.exit(1);
-    }
+    await runGate({ verb: ctx.verb, repoRoot: ctx.repoRoot, files });
 }
 
-await main();
+if (import.meta.main) {
+    await main();
+}
