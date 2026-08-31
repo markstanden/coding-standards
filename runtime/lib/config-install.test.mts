@@ -1,4 +1,4 @@
-// Tests for lib/config-install.mts: raises-only root config install + check.
+// Tests for lib/config-install.mts: byte-identical root config install + check.
 // Run: node --test lib/config-install.test.mts
 
 import assert from "node:assert/strict";
@@ -106,7 +106,7 @@ test("throws loudly on a differing existing file and does not overwrite it", asy
                     names: [".editorconfig"],
                     repoRoot: repo,
                 }),
-            /raises-only/u,
+            /byte-identical/u,
         );
         assert.equal(
             await readFile(join(repo, ".editorconfig"), "utf8"),

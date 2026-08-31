@@ -51,7 +51,7 @@ export async function installRootConfigs({
             results.push({ name, status: "unchanged" });
         } else {
             throw new Error(
-                `${target} differs from the gate's copy — resolve by hand; the gate never overwrites (raises-only)`,
+                `${target} differs from the gate's managed copy — it must be byte-identical; resolve by hand, the gate never overwrites or merges`,
             );
         }
     }

@@ -11,7 +11,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <!-- Includes source from non-tracked files (helpful for debugging modified but uncommitted code) -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <!-- Generates symbol files alongside assemblies -->
+    <!-- Includes symbol packages when packing a NuGet package (snupkg) -->
     <IncludeSymbols>true</IncludeSymbols>
     <!-- Uses the modern symbol package format that's more compatible with NuGet -->
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

@@ -65,13 +65,13 @@ test("runSetup is idempotent: re-run leaves AGENTS.md byte-identical", async () 
     }
 });
 
-test("runSetup fails loudly when a root config conflicts (raises-only)", async () => {
+test("runSetup fails loudly when a root config drifts from the managed copy", async () => {
     const repo = await makeTempRepo();
     try {
         await writeFile(join(repo, ".editorconfig"), "indent_size = 2\n");
         await assert.rejects(
             () => runSetup({ startDir: repo }),
-            /raises-only/u,
+            /byte-identical/u,
         );
     } finally {
         await rm(repo, { recursive: true, force: true });
