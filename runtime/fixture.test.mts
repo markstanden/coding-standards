@@ -1,23 +1,23 @@
 // Integration test: the two-verb runtime contract against a real gate run.
 //
 // Builds a deliberately-broken git repo (lib/fixture.mts), drives the real
-// gate against it in-container via runtime/verify.sh, and asserts:
-//   1. `verify` FAILS non-zero, read-only (every broken ecosystem picked up,
-//      bootstrap drift detected, and every file byte-identical after — hash
-//      proof that verify never writes to the checkout).
-//   2. `comply` bootstraps, repairs the auto-fixable ones (node/shell/yaml/tofu
-//      go green), stays red for the check-only workflow step, and reports
-//      `not compliant after repair`.
+// gate against it in-container via runtime/comply.sh, and asserts:
+//   1. `--check-only` FAILS non-zero, read-only (every broken ecosystem picked
+//      up, bootstrap drift detected, and every file byte-identical after —
+//      hash proof that the read-only pass never writes to the checkout).
+//   2. `comply` (the default) bootstraps, repairs the auto-fixable ones
+//      (node/shell/yaml/tofu go green), stays red for the check-only workflow
+//      step, and reports `not compliant after repair`.
 //   3. A file behind the host .prettierignore is never touched — even by
 //      comply's repair pass.
-//   4. After semantic repair of the workflow file, both `verify` and `comply`
-//      exit 0 with the single stable `compliant` line.
+//   4. After semantic repair of the workflow file, both `--check-only` and
+//      `comply` exit 0 with the single stable `compliant` line.
 //
-// Requires a container engine + the gate image (verify.sh builds it on first
+// Requires a container engine + the gate image (comply.sh builds it on first
 // run). Skips cleanly when no engine is usable so `node --test` stays
 // runnable on a bare machine. It also skips under `act`: act runs each step
 // in its own runner container, and the fixture nests the gate *inside* that —
-// verify.sh mounts a temp repo path, but that path lives in the runner
+// comply.sh mounts a temp repo path, but that path lives in the runner
 // container's namespace, which the host engine (reached via the mounted
 // socket) cannot see. Gate-in-container cannot work under act; the real
 // runner or direct podman is required. See PLAN.md "Local workflow testing".
@@ -42,8 +42,8 @@ function hasEngine(): boolean {
 }
 
 function gateShim(): string {
-    // runtime/fixture.test.mts → runtime/verify.sh (two levels up via lib/).
-    return resolve(import.meta.dirname, "verify.sh");
+    // runtime/fixture.test.mts → runtime/comply.sh (two levels up via lib/).
+    return resolve(import.meta.dirname, "comply.sh");
 }
 
 async function makeTemp(): Promise<string> {
@@ -80,40 +80,40 @@ function assertTreeUntouched(root: string, before: Map<string, string>): void {
 }
 
 test(
-    "verify fails read-only on broken code; comply repairs safe findings and stays red for check-only ones",
+    "check-only fails read-only on broken code; comply repairs safe findings and stays red for check-only ones",
     { skip: !hasEngine() },
     async () => {
         const root = await makeTemp();
         try {
             await createBrokenFixture({ root });
 
-            // ---- verify: non-zero, every ecosystem picked up, no writes ----
+            // ---- check-only: non-zero, every ecosystem picked up, no writes ----
             const before = hashTree(root);
-            const verify = run({
+            const checkOnly = run({
                 cmd: gateShim(),
-                args: ["verify"],
+                args: ["--check-only"],
                 cwd: root,
             });
             assert.equal(
-                verify.status,
+                checkOnly.status,
                 1,
-                `verify should fail, got:\n${verify.stdout}`,
+                `check-only should fail, got:\n${checkOnly.stdout}`,
             );
             for (const step of ["node", "shell", "yaml", "workflow", "tofu"]) {
                 assert.match(
-                    verify.stdout,
+                    checkOnly.stdout,
                     new RegExp(`^fail ${step} `, "m"),
-                    `${step} should be picked up by verify`,
+                    `${step} should be picked up by the check-only pass`,
                 );
             }
-            // Bootstrap drift is a verify finding too (fixture has no configs).
-            assert.match(verify.stdout, /^fail bootstrap /m);
+            // Bootstrap drift is a check-only finding too (fixture has no configs).
+            assert.match(checkOnly.stdout, /^fail bootstrap /m);
             assertTreeUntouched(root, before);
 
-            // ---- comply: bootstraps, repairs safe findings, workflow stays red ----
+            // ---- comply (default): bootstraps, repairs, workflow stays red ----
             const comply = run({
                 cmd: gateShim(),
-                args: ["comply"],
+                args: [],
                 cwd: root,
             });
             assert.equal(
@@ -151,18 +151,18 @@ test(
 );
 
 test(
-    "verify and comply are both green after semantic repair",
+    "check-only and comply are both green after semantic repair",
     { skip: !hasEngine() },
     async () => {
         const root = await makeTemp();
         try {
             await createBrokenFixture({ root });
 
-            // comply bootstraps configs + repairs safe findings; workflow stays
-            // red until a human/agent fixes the check-only finding.
+            // comply (default) bootstraps configs + repairs safe findings;
+            // workflow stays red until a human/agent fixes the check-only finding.
             const comply = run({
                 cmd: gateShim(),
-                args: ["comply"],
+                args: [],
                 cwd: root,
             });
             assert.equal(comply.status, 1, "workflow is still check-only-red");
@@ -183,21 +183,22 @@ test(
             ].join("\n");
             await writeFile(workflowPath, repaired);
 
-            for (const verb of ["verify", "comply"]) {
+            for (const args of [["--check-only"], []]) {
+                const label = args.length === 0 ? "comply" : args[0];
                 const result = run({
                     cmd: gateShim(),
-                    args: [verb],
+                    args,
                     cwd: root,
                 });
                 assert.equal(
                     result.status,
                     0,
-                    `${verb} should pass after semantic repair, got:\n${result.stdout}`,
+                    `${label} should pass after semantic repair, got:\n${result.stdout}`,
                 );
                 assert.deepEqual(
                     result.stdout.trim().split("\n"),
                     ["compliant"],
-                    `${verb} must print exactly one compliant line`,
+                    `${label} must print exactly one compliant line`,
                 );
             }
         } finally {

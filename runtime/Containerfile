@@ -4,10 +4,10 @@
 # manifest list, so arm64 works unmodified). Build context is the repo root so
 # the runtime (gate code), the shared lib/ and the standards/ dir can all be
 # baked in: the published image is fully self-contained (code + configs +
-# standards + tools) for CI consumers who vendor nothing. Locally, verify.sh bind-mounts runtime/, lib/
+# standards + tools) for CI consumers who vendor nothing. Locally, comply.sh bind-mounts runtime/, lib/
 # and standards/ read-only at /opt/defined/* — shadowing the baked copies — so
 # local edits run without a rebuild; only tool pins change this image's local
-# tag. Base image pins arrive as build args from verify.sh (which sources
+# tag. Base image pins arrive as build args from comply.sh (which sources
 # tool-versions.env) so that file remains the single source of truth.
 ARG NODE_IMAGE_TAG
 ARG NODE_IMAGE_DIGEST

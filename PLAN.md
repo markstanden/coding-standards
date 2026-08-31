@@ -19,7 +19,7 @@ Built and green to date:
 
 - **Container-native runtime** — official `node:<ver>-slim`, digest-pinned via
   `tool-versions.env`; TypeScript core (strip-types, extensioned imports, no
-  enums/namespaces, zero deps), bash shrunk to a ~30-line shim (`verify.sh`).
+  enums/namespaces, zero deps), bash shrunk to a ~30-line shim (`comply.sh`).
 - **Fixed step order** `naming → node → dotnet → shell → yaml → workflow →
 tofu`; missing applicable tools fail loudly pointing at the Containerfile
   (no optional tier except Sonar, outside the manifest).
@@ -42,7 +42,7 @@ verify` is the pipeline-only check: managed artifacts then a complete no-fix
   podman, mounts rw for `comply` / ro for `verify`, and runs the exact pinned
   image. Unit tests inject fake engines on PATH; smoke-tested against a
   throwaway consumer. `defined--verify.yml` reads `.defined-version` (no
-  `image-tag` input); `runtime/verify.sh` stays the source-development shim
+  `image-tag` input); `runtime/comply.sh` stays the source-development shim
   (it builds/live-edits the local image, which the launcher does not).
 - **Product rename (Phase 4, 2026-08-31)** — GitHub repo is `markstanden/defined`
   (redirect from the old name verified), SonarQube key is `markstanden_defined`,
@@ -53,7 +53,7 @@ verify` is the pipeline-only check: managed artifacts then a complete no-fix
 - **Tested** — 145+ host unit tests (colocated `*.test.mts`) + a broken-fixture
   integration test (`runtime/fixture.test.mts`) driving the real gate
   in-container (hash-proves `verify` is side-effect free) + the podman
-  end-to-end gate (`./runtime/verify.sh comply`). Run the full suite
+  end-to-end gate (`./runtime/comply.sh`). Run the full suite
   continuously: host-green does not mean gate-green.
 - **Current repo target** — `runtime/`, root `lib/`, `standards/`, `practices/`,
   `.github/workflows/{defined--verify|defined--test|defined--publish}.yml`.
@@ -68,7 +68,7 @@ verify` is the pipeline-only check: managed artifacts then a complete no-fix
 1. **Container is the runtime** — tools pinned via `tool-versions.env`; host needs only podman/docker + git.
 2. **No native fallback** — missing engine fails loudly; one path, no drift.
 3. **In-container project deps** — named volumes shadow `node_modules`/`obj`/`bin`; restore inside the container (avoids host↔image ABI mismatch).
-4. **Build local, publish for CI** — `verify.sh` builds a cached local image; CI consumes/publishes `ghcr.io/markstanden/defined:<tag>`.
+4. **Build local, publish for CI** — `comply.sh` builds a cached local image; CI consumes/publishes `ghcr.io/markstanden/defined:<tag>`.
 5. **Step order** — `naming → node → dotnet → shell → yaml → workflow → tofu`; semantic renames precede mechanical formatting.
 6. **Tofu** — `fmt` always (fixable); `init` + `validate` accepted despite provider cost.
 7. **Types** — bare string-literal unions; enums banned under strip-types.
@@ -178,8 +178,9 @@ defined verify   # pipeline-only: the read-only check
 - `.defined-version` holds one immutable image tag; rejects empty, `latest`,
   malformed or conflicting overrides. Offline runs succeed only with the exact
   image present.
-- `runtime/verify.sh` stays an internal source-development shim until the
-  launcher covers local image development; not a third public API.
+- `runtime/comply.sh` stays an internal source-development shim until the
+  launcher covers local image development; not a third public API. It defaults
+  to the `comply` verb; `--check-only` runs the read-only no-fix pass.
 - Release identity is immutable (same SHA across all three):
 
 ```text
@@ -237,7 +238,7 @@ repos.
       is the archive; no `archive/` directory.
 - [x] Delete root `lib/gha.mts`, `lib/json.mts` + tests after proving no runtime
       consumers; retain `git.mts`, `paths.mts`, `proc.mts`.
-- [x] Remove `pipelines/` from the Containerfile copy, the verify.sh bind mount,
+- [x] Remove `pipelines/` from the Containerfile copy, the comply.sh bind mount,
       the publish path trigger and the pipeline test glob. Keep `curl` (image
       build still fetches gate tools).
 - [x] Reduce `standards/naming.md` to conventions exercised by the gate and its
@@ -279,13 +280,13 @@ repos.
       run, `comply` bootstrap/repair, side-effect-free `verify`, malformed/
       unavailable pin.
 - [x] Keep `.defined-version` out of this producer repo; test with fixture
-      consumers; use `runtime/verify.sh` for source development.
+      consumers; use `runtime/comply.sh` for source development.
 - [x] `defined--verify.yml` takes no `fix`/`silent`/`image-tag` inputs; reads
       `.defined-version`, runs the exact image with `verify`, fails clearly on
       invalid pin.
 - [x] Document install into `~/.local/bin`, `.defined-version` adoption, and the
       workflow-ref/image-pin match invariant.
-- [x] Decide whether internal `runtime/verify.sh` still adds value; retire only
+- [x] Decide whether internal `runtime/comply.sh` still adds value; retire only
       when equivalent local image build/live-edit is covered elsewhere.
 - [x] Launcher unit/integration + host + podman gate.
 

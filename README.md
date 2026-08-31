@@ -135,7 +135,7 @@ coding-standards/
 ├── runtime/                         # the container image (the gate)
 │   ├── Containerfile                # node 26 slim base, pinned tools
 │   ├── tool-versions.env            # single source of tool version pins
-│   ├── verify.sh                    # internal source-development shim
+│   ├── comply.sh                    # internal source-development shim
 │   ├── verify.mts                   # comply/verify orchestration
 │   ├── setup.mts                    # bootstrap/check implementation
 │   ├── lib/                         # gate-specific core (ctx, severities, blocks)

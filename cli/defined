@@ -10,7 +10,7 @@
 # behaviour lives here; everything else is in the image.
 #
 # Needs only git + podman/docker on the host. Install: put this file on PATH
-# (normally ~/.local/bin/defined). Source development uses runtime/verify.sh.
+# (normally ~/.local/bin/defined). Source development uses runtime/comply.sh.
 # The runtime's .defined-version parser is exercised here end-to-end; the
 # producer repo does not commit its own pin (a file containing its own SHA is
 # impossible by construction).

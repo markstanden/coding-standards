@@ -48,7 +48,7 @@ aren't relitigated:
 - Container-native runtime (official `node:<ver>-slim` base, digest-pinned
   via `tool-versions.env`; global pinned `tsc` for typechecking gate code);
   host surface is the installed `cli/defined` launcher (git + podman/docker
-  only) plus the internal `runtime/verify.sh` source-development shim.
+  only) plus the internal `runtime/comply.sh` source-development shim.
 - TypeScript core, Node ≥26 strip-types: **no enums/namespaces** (bare string
   literal unions), extensioned imports, zero dependencies, tested with
   `node --test` colocated as `*.test.mts`.
@@ -56,7 +56,7 @@ aren't relitigated:
 → tofu`; missing tools fail loudly pointing at the Containerfile (no
   optional tier).
 - **Run the full suite continuously**: host `node --test` _and_ the podman
-  end-to-end gate (`./runtime/verify.sh comply`) — host-green does not mean
+  end-to-end gate (`./runtime/comply.sh`) — host-green does not mean
   gate-green (2026-08-30: the unit suite passed while the gate went red on
   real workflow-template findings until the stage-2 refactor fixed them).
   `node --test` also runs the broken-fixture integration test
