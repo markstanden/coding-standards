@@ -1,6 +1,6 @@
-# Coding Standards
-
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=markstanden_coding-standards)](https://sonarcloud.io/summary/new_code?id=markstanden_coding-standards)
+
+# defined
 
 A single source of truth for my development project configuration files, workflow templates, and development tools to ensure consistency across projects.
 
