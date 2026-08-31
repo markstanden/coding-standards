@@ -2,7 +2,7 @@
 //
 // Tools:    dotnet SDK (restore, format, build, test)
 // Config:   .editorconfig, Directory.Build.props installed by gate setup;
-//           projects may add stricter rules via .qualityrc.json
+//           projects may add stricter rules via .defined.json
 // Fix:      dotnet format rewrites, then step re-verifies — a fix that
 //           leaves diffs can never read as success
 // Restore:  always runs first into the container-shadowed NuGet cache

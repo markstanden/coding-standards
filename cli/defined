@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-VERSION_FILE=".defined-version"
+CONFIG_FILE=".defined.json"
 IMAGE_REPO="ghcr.io/markstanden/defined"
 PROGRAM="$(basename "${BASH_SOURCE[0]}")"
 
@@ -37,20 +37,22 @@ repo_root() {
         die "not inside a git repository"
 }
 
-# Read and validate the immutable image pin from .defined-version.
+# Read and validate the immutable image pin from .defined.json.
 # Prints the validated pin on success; errors name the path. Mutable aliases
 # (empty, latest, non-SHA tokens) are rejected so local and CI always run the
 # exact same image (release identity, PLAN.md).
 read_pin() {
     local root="$1"
-    local file="${root}/${VERSION_FILE}"
+    local file="${root}/${CONFIG_FILE}"
     if [[ ! -f "${file}" ]]; then
-        die "no ${VERSION_FILE} in ${root} — commit a pin first"
+        die "no ${CONFIG_FILE} in ${root} — commit one first"
     fi
+    # Extract the "version" field from the JSON document without jq: target the
+    # `"version": "<hex>"` line/segment and strip quotes + surrounding chars.
     local pin
-    pin="$(tr -d '[:space:]' <"${file}")"
+    pin="$(tr -d '[:space:]' <"${file}" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
     if [[ -z "${pin}" ]]; then
-        die "${file} is empty — it must hold an immutable image tag"
+        die "${file} has no \"version\" field — it must hold an immutable image tag"
     fi
     if [[ "${pin}" == "latest" ]]; then
         die "${file} must pin an immutable tag, not 'latest'"

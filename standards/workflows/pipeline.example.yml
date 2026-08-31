@@ -9,6 +9,6 @@ jobs:
     quality:
         name: Defined Quality Gate
         # The one consumer-facing gate workflow; pin to a published short-sha.
-        # Also commit a matching .defined-version image pin (the workflow reads
+        # Also commit a matching .defined.json image pin (the workflow reads
         # it — no inputs) so local and CI run the exact same image.
         uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>

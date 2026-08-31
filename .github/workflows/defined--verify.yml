@@ -30,21 +30,21 @@ jobs:
               shell: bash
               run: |
                   set -euo pipefail
-                  if [[ ! -f .defined-version ]]; then
-                    echo "::error::no .defined-version in the repo root — commit one (see PLAN.md release identity)"
+                  if [[ ! -f .defined.json ]]; then
+                    echo "::error::no .defined.json in the repo root — commit one (see PLAN.md release identity)"
                     exit 1
                   fi
-                  PIN="$(tr -d '[:space:]' < .defined-version)"
+                  PIN="$(jq -r '.version // empty' .defined.json)"
                   if [[ -z "${PIN}" ]]; then
-                    echo "::error::.defined-version is empty — it must hold an immutable image tag"
+                    echo "::error::.defined.json is missing the version field — it must hold an immutable image tag"
                     exit 1
                   fi
                   if [[ "${PIN}" == "latest" ]]; then
-                    echo "::error::.defined-version must pin an immutable tag, not 'latest'"
+                    echo "::error::.defined.json must pin an immutable tag, not 'latest'"
                     exit 1
                   fi
                   if [[ ! "${PIN}" =~ ^[0-9a-f]{7,40}$ ]]; then
-                    echo "::error::.defined-version has an invalid pin '${PIN}' — expected a git SHA"
+                    echo "::error::.defined.json has an invalid pin '${PIN}' — expected a git SHA"
                     exit 1
                   fi
                   echo "pin=${PIN}" >> "$GITHUB_OUTPUT"

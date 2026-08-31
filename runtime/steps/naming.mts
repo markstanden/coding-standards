@@ -1,10 +1,10 @@
 // steps/naming.mts — semantic naming conventions (opt-in).
 //
 // Tools:    none (project-defined)
-// Config:   .qualityrc.json at repo root, "naming" key — raises-only
+// Config:   .defined.json at repo root, "naming" key — raises-only
 // Fix:      not implemented; naming conventions are validated only
 //
-// Detection is explicit opt-in: step only runs when .qualityrc.json
+// Detection is explicit opt-in: step only runs when .defined.json
 // enables it. The prototype's naming.sh was repo-specific (system-config's
 // functions/ + installers/ doctrine); the portable gate provides the
 // framework, projects bring their own rules.
@@ -35,12 +35,12 @@ export async function runNamingStep({
 }): Promise<StepResult> {
     if (!enabled) {
         return skipped({
-            notice: "naming: not enabled (opt-in via .qualityrc.json)",
+            notice: "naming: not enabled (opt-in via .defined.json)",
         });
     }
 
     // Placeholder for project-specific naming rules.
-    // When .qualityrc.json enables naming, it should also provide
+    // When .defined.json enables naming, it should also provide
     // a config pointing at the project's naming rule module.
     // For now, skip with a notice so the gate stays green.
     return skipped({

@@ -27,13 +27,14 @@ command for a developer to reach for.
 The launcher is a bash script needing git + podman/docker (plus the standard
 coreutils any bash environment has); it prefers podman, mounts the repo
 read-write for `comply` and read-only for `verify`, and runs the exact image
-pinned in the repo's `.defined-version` — so local green = merge green: CI runs
-that same image as long as the workflow ref and the `.defined-version` pin
+pinned in the repo's `.defined.json` — so local green = merge green: CI runs
+that same image as long as the workflow ref and the `.defined.json` pin
 match (keep them in step).
 
-The gate detects the stack (steps run in order `naming → node → dotnet → shell
-→ smoke → yaml → workflow → tofu`), skips cleanly when an ecosystem is absent,
-and fails loudly when a pinned tool is missing. Tool versions are pinned in
+The gate detects the stack (steps run in order `naming → node → node-coverage →
+dotnet → dotnet-coverage → shell → smoke → yaml → workflow → tofu`), skips
+cleanly when an ecosystem is absent, and fails loudly when a pinned tool is
+missing. Tool versions are pinned in
 [`runtime/tool-versions.env`](runtime/tool-versions.env) — a pin change rebuilds
 the image.
 
@@ -41,8 +42,29 @@ the image.
 
 1. **Install the launcher** — copy `cli/defined` onto PATH (normally
    `~/.local/bin/defined`); a bash script needing git + podman/docker.
-2. **Commit the pin** — add a `.defined-version` file holding the immutable
-   image tag you want (e.g. the git SHA of the gate commit you're adopting).
+2. **Commit the config** — add a `.defined.json` file holding the immutable
+   image tag under its `version` field (e.g. the git SHA of the gate commit
+   you're adopting), plus optional `coverage` configuration:
+
+    ```jsonc
+    {
+      "version": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "coverage": {
+        "node": {
+          "command": "npm run test:coverage",
+          "thresholds": { "line": 80, "branch": 70 }
+        },
+        "dotnet": {
+          "command": "dotnet test --collect:XPlat",
+          "thresholds": { "line": 80 }
+        }
+      }
+    }
+    ```
+
+    Absent `coverage` (or an absent ecosystem entry) skips that coverage step;
+    `command` generates the report in `comply` mode; omitted thresholds default
+    to 80% line coverage.
 3. **Gate locally** — run `defined comply`. It bootstraps `.editorconfig` and
    `Directory.Build.props` into the repo root and seeds the AGENTS.md managed
    block, repairs safe findings, then re-verifies. Managed files are installed
@@ -58,9 +80,9 @@ the image.
             uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
     ```
 
-    The workflow reads `.defined-version` for the image tag — the same pin the
+    The workflow reads `.defined.json` for the image tag — the same pin the
     local launcher reads — so local and CI run the same image. Keep the
-    workflow ref SHA and the `.defined-version` pin in step: only when they
+    workflow ref SHA and the `.defined.json` pin in step: only when they
     match is local green = merge green.
 
 ## Quality badges
@@ -113,7 +135,7 @@ jobs:
         uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
 ```
 
-The workflow reads the repo's committed `.defined-version` for the image tag —
+The workflow reads the repo's committed `.defined.json` for the image tag —
 no inputs — so it runs the same pinned image as the local launcher.
 `defined--test.yml` and `defined--publish.yml` are this repo's own CI (tests
 and image publication); they are not consumer templates.
@@ -150,6 +172,7 @@ defined/
 └── .github/workflows/                # defined--verify/test/publish
 ```
 
-Consumers commit a `.defined-version` (one immutable image tag) read by both the
-launcher and `defined--verify.yml`; this producer repo does not commit its own
-(a file containing its own SHA is impossible by construction).
+Consumers commit a `.defined.json` (immutable image tag under `version`, plus
+optional coverage config) read by both the launcher and `defined--verify.yml`;
+this producer repo does not commit its own (a config whose `version` is its own
+SHA is impossible by construction).
