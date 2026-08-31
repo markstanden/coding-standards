@@ -44,6 +44,12 @@ tofu`; missing applicable tools fail loudly pointing at the Containerfile
   throwaway consumer. `defined--verify.yml` reads `.defined-version` (no
   `image-tag` input); `runtime/verify.sh` stays the source-development shim
   (it builds/live-edits the local image, which the launcher does not).
+- **Product rename (Phase 4, 2026-08-31)** — GitHub repo is `markstanden/defined`
+  (redirect from the old name verified), SonarQube key is `markstanden_defined`,
+  GHCR image `ghcr.io/markstanden/defined` is public; README/workflow/tests use
+  the new identity and the local `origin` points at the renamed repo. Remaining
+  after this branch merges to `main`: `defined--publish.yml` publishes a fresh
+  image SHA, and the local checkout directory gets renamed last (machine state).
 - **Tested** — 145+ host unit tests (colocated `*.test.mts`) + a broken-fixture
   integration test (`runtime/fixture.test.mts`) driving the real gate
   in-container (hash-proves `verify` is side-effect free) + the podman
