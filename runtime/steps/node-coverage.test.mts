@@ -1,4 +1,4 @@
-// Tests for steps/node-coverage.mts: lcov parser + threshold gate.
+// Tests for steps/node-coverage.mts: lcov parser + minimum gate.
 // Runner injected, so no host binaries are needed here.
 // Run: node --test steps/node-coverage.test.mts
 
@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { afterEach, test } from "node:test";
 
 import {
-    checkThresholds,
+    checkMinimums,
     parseLcov,
     runNodeCoverageStep,
 } from "./node-coverage.mts";
@@ -103,10 +103,10 @@ test("parseLcov returns zeros for empty content", () => {
     assert.equal(summary.functionsHit, 0);
 });
 
-// --- checkThresholds ---
+// --- checkMinimums ---
 
-test("checkThresholds passes when above threshold", () => {
-    const result = checkThresholds({
+test("checkMinimums passes when above minimum", () => {
+    const result = checkMinimums({
         summary: {
             linesFound: 100,
             linesHit: 90,
@@ -115,14 +115,14 @@ test("checkThresholds passes when above threshold", () => {
             functionsFound: 0,
             functionsHit: 0,
         },
-        thresholds: { line: 80 },
+        minimums: { line: 80 },
     });
     assert.equal(result.pass, true);
     assert.equal(result.failures.length, 0);
 });
 
-test("checkThresholds fails when below threshold", () => {
-    const result = checkThresholds({
+test("checkMinimums fails when below minimum", () => {
+    const result = checkMinimums({
         summary: {
             linesFound: 100,
             linesHit: 70,
@@ -131,15 +131,15 @@ test("checkThresholds fails when below threshold", () => {
             functionsFound: 0,
             functionsHit: 0,
         },
-        thresholds: { line: 80 },
+        minimums: { line: 80 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /line:.*70\.0%.*80%/u);
 });
 
-test("checkThresholds checks branch when configured", () => {
-    const result = checkThresholds({
+test("checkMinimums checks branch when configured", () => {
+    const result = checkMinimums({
         summary: {
             linesFound: 100,
             linesHit: 90,
@@ -148,15 +148,15 @@ test("checkThresholds checks branch when configured", () => {
             functionsFound: 0,
             functionsHit: 0,
         },
-        thresholds: { line: 80, branch: 70 },
+        minimums: { line: 80, branch: 70 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /branch:.*60\.0%.*70%/u);
 });
 
-test("checkThresholds checks function when configured", () => {
-    const result = checkThresholds({
+test("checkMinimums checks function when configured", () => {
+    const result = checkMinimums({
         summary: {
             linesFound: 100,
             linesHit: 90,
@@ -165,15 +165,15 @@ test("checkThresholds checks function when configured", () => {
             functionsFound: 10,
             functionsHit: 5,
         },
-        thresholds: { line: 80, function: 70 },
+        minimums: { line: 80, function: 70 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /function:.*50\.0%.*70%/u);
 });
 
-test("checkThresholds reports multiple failures", () => {
-    const result = checkThresholds({
+test("checkMinimums reports multiple failures", () => {
+    const result = checkMinimums({
         summary: {
             linesFound: 100,
             linesHit: 50,
@@ -182,14 +182,14 @@ test("checkThresholds reports multiple failures", () => {
             functionsFound: 10,
             functionsHit: 4,
         },
-        thresholds: { line: 80, branch: 70, function: 60 },
+        minimums: { line: 80, branch: 70, function: 60 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 3);
 });
 
-test("checkThresholds treats zero lines found as 0%", () => {
-    const result = checkThresholds({
+test("checkMinimums treats zero lines found as 0%", () => {
+    const result = checkMinimums({
         summary: {
             linesFound: 0,
             linesHit: 0,
@@ -198,7 +198,7 @@ test("checkThresholds treats zero lines found as 0%", () => {
             functionsFound: 0,
             functionsHit: 0,
         },
-        thresholds: { line: 80 },
+        minimums: { line: 80 },
     });
     assert.equal(result.pass, false);
 });
@@ -275,7 +275,7 @@ test("fails when no lcov.info after fix mode command", async () => {
     assert.match(result.notice ?? "", /no coverage report/u);
 });
 
-test("passes when coverage meets default 80% threshold", async () => {
+test("passes when coverage meets default 80% minimum", async () => {
     const dir = await tempDir();
     await writeFile(
         join(dir, ".defined.json"),
@@ -296,7 +296,7 @@ test("passes when coverage meets default 80% threshold", async () => {
     assert.match(result.notice ?? "", /85\.0%/u);
 });
 
-test("fails when coverage below default 80% threshold", async () => {
+test("fails when coverage below default 80% minimum", async () => {
     const dir = await tempDir();
     await writeFile(
         join(dir, ".defined.json"),
@@ -317,14 +317,14 @@ test("fails when coverage below default 80% threshold", async () => {
     assert.match(result.notice ?? "", /50\.0%.*80%/u);
 });
 
-test("uses custom threshold when configured", async () => {
+test("uses custom minimum when configured", async () => {
     const dir = await tempDir();
     await writeFile(
         join(dir, ".defined.json"),
         JSON.stringify({
             version: SHA,
             coverage: {
-                node: { command: "npm t", thresholds: { line: 50 } },
+                node: { command: "npm t", minimums: { line: 50 } },
             },
         }),
     );

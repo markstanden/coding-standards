@@ -64,7 +64,7 @@ naming → node → node-coverage → dotnet → dotnet-coverage → shell → s
 - Coverage steps (`node-coverage`, `dotnet-coverage`) activate on a `.defined.json`
   `coverage` entry for their ecosystem; absent entry = skip. They parse the
   existing report (lcov for node, Cobertura XML for dotnet) and enforce the
-  configured line/branch/function thresholds (default 80% line). In `fix` mode
+  configured line/branch/function minimums (default 80% line). In `fix` mode
   they run the consumer's coverage command before validating.
 - `smoke` always probes the container's git.
 - Missing applicable tools fail loudly pointing at the Containerfile — there is
@@ -130,11 +130,11 @@ Its only required field is `version` (the immutable image tag). Optional
   "coverage": {
     "node": {
       "command": "npm run test:coverage",
-      "thresholds": { "line": 80, "branch": 70, "function": 90 }
+      "minimums": { "line": 80, "branch": 70, "function": 90 }
     },
     "dotnet": {
       "command": "dotnet test --collect:XPlat",
-      "thresholds": { "line": 80 }
+      "minimums": { "line": 80 }
     }
   }
 }
@@ -144,8 +144,8 @@ Its only required field is `version` (the immutable image tag). Optional
   skips.
 - `command` is the shell command that generates the coverage report; it runs
   in `fix` mode, while `no-fix` mode only parses an existing report.
-- `thresholds` per metric are optional; an omitted metric is not checked. When
-  the `thresholds` key is absent, the step defaults to 80% line coverage.
+- `minimums` per metric are optional; an omitted metric is not checked. When
+  the `minimums` key is absent, the step defaults to 80% line coverage.
 - The gate parses `node` reports as lcov (`coverage/lcov.info`) and `dotnet`
   reports as Cobertura XML (`coverage.cobertura.xml` or
   `TestResults/coverage.cobertura.xml`).

@@ -6,7 +6,7 @@
 //
 // Public surface:
 //   loadConfig({ repoRoot })  — read + validate, or return empty config
-//   CoverageConfig            — per-ecosystem coverage thresholds
+//   CoverageConfig            — per-ecosystem coverage minimums
 //   DefinedConfig             — full parsed config shape
 //
 // The runner is injected so tests need no filesystem.
@@ -17,7 +17,7 @@ import { join } from "node:path";
 
 const CONFIG_FILE = ".defined.json";
 
-export interface CoverageThresholds {
+export interface CoverageMinimums {
     /** Line coverage percentage (0–100). Omitted = not checked. */
     line?: number;
     /** Branch coverage percentage (0–100). Omitted = not checked. */
@@ -29,8 +29,8 @@ export interface CoverageThresholds {
 export interface CoverageConfig {
     /** Shell command to generate coverage reports (fix mode). */
     command: string;
-    /** Thresholds to enforce. Omitted key = not checked. */
-    thresholds?: CoverageThresholds;
+    /** Minimums to enforce. Omitted key = not checked. */
+    minimums?: CoverageMinimums;
 }
 
 export interface DefinedConfig {
@@ -57,33 +57,33 @@ function validateVersion(version: unknown): string {
     return version;
 }
 
-function validateThresholds(
+function validateMinimums(
     key: string,
     raw: unknown,
-): CoverageThresholds | undefined {
+): CoverageMinimums | undefined {
     if (raw === undefined || raw === null) {
         return undefined;
     }
     if (typeof raw !== "object" || Array.isArray(raw)) {
         throw new Error(
-            `.defined.json: "coverage.${key}.thresholds" must be an object`,
+            `.defined.json: "coverage.${key}.minimums" must be an object`,
         );
     }
-    const result: CoverageThresholds = {};
+    const result: CoverageMinimums = {};
     for (const [metric, value] of Object.entries(
         raw as Record<string, unknown>,
     )) {
         if (metric !== "line" && metric !== "branch" && metric !== "function") {
             throw new Error(
-                `.defined.json: unknown threshold metric "${metric}" in "coverage.${key}.thresholds"`,
+                `.defined.json: unknown minimum metric "${metric}" in "coverage.${key}.minimums"`,
             );
         }
         if (typeof value !== "number" || value < 0 || value > 100) {
             throw new Error(
-                `.defined.json: "coverage.${key}.thresholds.${metric}" must be a number 0–100`,
+                `.defined.json: "coverage.${key}.minimums.${metric}" must be a number 0–100`,
             );
         }
-        result[metric as keyof CoverageThresholds] = value;
+        result[metric as keyof CoverageMinimums] = value;
     }
     return result;
 }
@@ -105,7 +105,7 @@ function validateCoverageEntry(
     }
     return {
         command: entry.command,
-        thresholds: validateThresholds(key, entry.thresholds),
+        minimums: validateMinimums(key, entry.minimums),
     };
 }
 

@@ -1,4 +1,4 @@
-// Tests for steps/dotnet-coverage.mts: Cobertura parser + threshold gate.
+// Tests for steps/dotnet-coverage.mts: Cobertura parser + minimum gate.
 // Runner injected, so no host binaries are needed here.
 // Run: node --test steps/dotnet-coverage.test.mts
 
@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { afterEach, test } from "node:test";
 
 import {
-    checkThresholds,
+    checkMinimums,
     parseCobertura,
     runDotNetCoverageStep,
 } from "./dotnet-coverage.mts";
@@ -84,61 +84,61 @@ test("parseCobertura returns zero for empty content", () => {
     assert.equal(summary.branchRate, undefined);
 });
 
-// --- checkThresholds ---
+// --- checkMinimums ---
 
-test("checkThresholds passes when above line threshold", () => {
-    const result = checkThresholds({
+test("checkMinimums passes when above line minimum", () => {
+    const result = checkMinimums({
         summary: { lineRate: 0.9, branchRate: 0.8 },
-        thresholds: { line: 80 },
+        minimums: { line: 80 },
     });
     assert.equal(result.pass, true);
     assert.equal(result.failures.length, 0);
 });
 
-test("checkThresholds fails when below line threshold", () => {
-    const result = checkThresholds({
+test("checkMinimums fails when below line minimum", () => {
+    const result = checkMinimums({
         summary: { lineRate: 0.7, branchRate: 0.8 },
-        thresholds: { line: 80 },
+        minimums: { line: 80 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /line:.*70\.0%.*80%/u);
 });
 
-test("checkThresholds checks branch when configured", () => {
-    const result = checkThresholds({
+test("checkMinimums checks branch when configured", () => {
+    const result = checkMinimums({
         summary: { lineRate: 0.9, branchRate: 0.6 },
-        thresholds: { line: 80, branch: 70 },
+        minimums: { line: 80, branch: 70 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /branch:.*60\.0%.*70%/u);
 });
 
-test("checkThresholds fails on missing branch data when branch threshold configured", () => {
-    const result = checkThresholds({
+test("checkMinimums fails on missing branch data when branch minimum configured", () => {
+    const result = checkMinimums({
         summary: { lineRate: 0.9, branchRate: undefined },
-        thresholds: { line: 80, branch: 70 },
+        minimums: { line: 80, branch: 70 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /no branch-rate data/u);
 });
 
-test("checkThresholds fails on function threshold (no function data in Cobertura)", () => {
-    const result = checkThresholds({
+test("checkMinimums fails on function minimum (no function data in Cobertura)", () => {
+    const result = checkMinimums({
         summary: { lineRate: 0.9, branchRate: 0.8 },
-        thresholds: { line: 80, function: 70 },
+        minimums: { line: 80, function: 70 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 1);
     assert.match(result.failures[0]!, /no function coverage/u);
 });
 
-test("checkThresholds reports multiple failures", () => {
-    const result = checkThresholds({
+test("checkMinimums reports multiple failures", () => {
+    const result = checkMinimums({
         summary: { lineRate: 0.5, branchRate: 0.5 },
-        thresholds: { line: 80, branch: 70 },
+        minimums: { line: 80, branch: 70 },
     });
     assert.equal(result.pass, false);
     assert.equal(result.failures.length, 2);
@@ -216,7 +216,7 @@ test("fails when no cobertura report after fix mode command", async () => {
     assert.match(result.notice ?? "", /no coverage report/u);
 });
 
-test("passes when coverage meets default 80% threshold (root report)", async () => {
+test("passes when coverage meets default 80% minimum (root report)", async () => {
     const dir = await tempDir();
     await writeFile(
         join(dir, ".defined.json"),
@@ -262,7 +262,7 @@ test("passes when coverage report lives under TestResults/", async () => {
     assert.match(result.notice ?? "", /85\.0%/u);
 });
 
-test("fails when coverage below default 80% line threshold", async () => {
+test("fails when coverage below default 80% line minimum", async () => {
     const dir = await tempDir();
     await writeFile(
         join(dir, ".defined.json"),
@@ -286,14 +286,14 @@ test("fails when coverage below default 80% line threshold", async () => {
     assert.match(result.notice ?? "", /50\.0%.*80%/u);
 });
 
-test("uses custom threshold when configured", async () => {
+test("uses custom minimum when configured", async () => {
     const dir = await tempDir();
     await writeFile(
         join(dir, ".defined.json"),
         JSON.stringify({
             version: SHA,
             coverage: {
-                dotnet: { command: "dotnet test", thresholds: { line: 50 } },
+                dotnet: { command: "dotnet test", minimums: { line: 50 } },
             },
         }),
     );

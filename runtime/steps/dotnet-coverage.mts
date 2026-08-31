@@ -1,14 +1,14 @@
-// steps/dotnet-coverage.mts — .NET coverage gate: parse Cobertura, enforce thresholds.
+// steps/dotnet-coverage.mts — .NET coverage gate: parse Cobertura, enforce minimums.
 //
 // Tools:    none (parses existing coverage reports)
-// Config:   .defined.json "coverage.dotnet" — command + thresholds
+// Config:   .defined.json "coverage.dotnet" — command + minimums
 // Fix:      runs the consumer's coverage command, then validates the report
 // Skip:     no .defined.json entry for "dotnet", or no Cobertura XML found
 //
 // Detection is config-driven: the step only activates when .defined.json
 // includes a "coverage.dotnet" entry. The consumer provides the shell command
 // to generate coverage reports; the gate parses the resulting Cobertura XML
-// and enforces line/branch thresholds.
+// and enforces line/branch minimums.
 // The runner is injected so tests need no host binaries.
 
 import { existsSync } from "node:fs";
@@ -22,7 +22,7 @@ import {
     type StepResult,
 } from "../lib/step-result.mts";
 import { run } from "../../lib/proc.mts";
-import { loadConfig, type CoverageThresholds } from "../lib/config.mts";
+import { loadConfig, type CoverageMinimums } from "../lib/config.mts";
 
 export interface DotNetCoverageRunContext {
     mode: "fix" | "no-fix";
@@ -80,59 +80,59 @@ function extractAttribute(xml: string, name: string): string | undefined {
     return match?.[1];
 }
 
-export function checkThresholds({
+export function checkMinimums({
     summary,
-    thresholds,
+    minimums,
 }: {
     summary: CoberturaSummary;
-    thresholds: CoverageThresholds;
+    minimums: CoverageMinimums;
 }): { pass: boolean; failures: string[] } {
     const failures: string[] = [];
 
-    if (thresholds.line !== undefined) {
+    if (minimums.line !== undefined) {
         const pct = summary.lineRate * 100;
-        if (pct < thresholds.line) {
+        if (pct < minimums.line) {
             failures.push(
-                `line: ${pct.toFixed(1)}% < ${thresholds.line}% threshold`,
+                `line: ${pct.toFixed(1)}% < ${minimums.line}% minimum`,
             );
         }
     }
 
-    if (thresholds.branch !== undefined) {
+    if (minimums.branch !== undefined) {
         if (summary.branchRate === undefined) {
             failures.push(
-                `branch: report has no branch-rate data (threshold ${thresholds.branch}%)`,
+                `branch: report has no branch-rate data (minimum ${minimums.branch}%)`,
             );
         } else {
             const pct = summary.branchRate * 100;
-            if (pct < thresholds.branch) {
+            if (pct < minimums.branch) {
                 failures.push(
-                    `branch: ${pct.toFixed(1)}% < ${thresholds.branch}% threshold`,
+                    `branch: ${pct.toFixed(1)}% < ${minimums.branch}% minimum`,
                 );
             }
         }
     }
 
-    if (thresholds.function !== undefined) {
+    if (minimums.function !== undefined) {
         // Cobertura XML from coverlet does not expose a single function-rate
         // attribute; function-level coverage is not a stable top-level metric
-        // we can aggregate reliably. A configured function threshold cannot be
+        // we can aggregate reliably. A configured function minimum cannot be
         // satisfied, so fail loudly rather than silently ignoring it.
         failures.push(
-            `function: report format has no function coverage (threshold ${thresholds.function}%)`,
+            `function: report format has no function coverage (minimum ${minimums.function}%)`,
         );
     }
 
     return { pass: failures.length === 0, failures };
 }
 
-function effectiveThresholds(
-    configThresholds: CoverageThresholds | undefined,
-): CoverageThresholds {
-    if (configThresholds === undefined) {
+function effectiveMinimums(
+    configMinimums: CoverageMinimums | undefined,
+): CoverageMinimums {
+    if (configMinimums === undefined) {
         return { line: 80 };
     }
-    return configThresholds;
+    return configMinimums;
 }
 
 function findCoberturaFile({ repoRoot }: { repoRoot: string }): string | null {
@@ -151,7 +151,7 @@ function findCoberturaFile({ repoRoot }: { repoRoot: string }): string | null {
 /**
  * Run dotnet coverage gate. Skips when no config entry; in fix mode, runs the
  * consumer's command; always validates the report against configured
- * thresholds. Looks for coverage.cobertura.xml at repo root or TestResults/.
+ * minimums. Looks for coverage.cobertura.xml at repo root or TestResults/.
  */
 export async function runDotNetCoverageStep({
     ctx,
@@ -202,8 +202,8 @@ export async function runDotNetCoverageStep({
         });
     }
 
-    const thresholds = effectiveThresholds(coverageConfig.thresholds);
-    const { pass, failures } = checkThresholds({ summary, thresholds });
+    const minimums = effectiveMinimums(coverageConfig.minimums);
+    const { pass, failures } = checkMinimums({ summary, minimums });
 
     if (!pass) {
         return failed({

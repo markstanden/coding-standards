@@ -52,18 +52,18 @@ the image.
       "coverage": {
         "node": {
           "command": "npm run test:coverage",
-          "thresholds": { "line": 80, "branch": 70 }
+          "minimums": { "line": 80, "branch": 70 }
         },
         "dotnet": {
           "command": "dotnet test --collect:XPlat",
-          "thresholds": { "line": 80 }
+          "minimums": { "line": 80 }
         }
       }
     }
     ```
 
     Absent `coverage` (or an absent ecosystem entry) skips that coverage step;
-    `command` generates the report in `comply` mode; omitted thresholds default
+    `command` generates the report in `comply` mode; omitted minimums default
     to 80% line coverage.
 3. **Gate locally** — run `defined comply`. It bootstraps `.editorconfig` and
    `Directory.Build.props` into the repo root and seeds the AGENTS.md managed

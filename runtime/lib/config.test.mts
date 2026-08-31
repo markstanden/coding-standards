@@ -49,18 +49,18 @@ test("loadConfig parses version-only config", async () => {
     assert.equal(config.coverage, undefined);
 });
 
-test("loadConfig parses full config with coverage thresholds", async () => {
+test("loadConfig parses full config with coverage minimums", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
         coverage: {
             node: {
                 command: "npm run test:coverage",
-                thresholds: { line: 80, branch: 70, function: 90 },
+                minimums: { line: 80, branch: 70, function: 90 },
             },
             dotnet: {
                 command: "dotnet test --collect:XPlat",
-                thresholds: { line: 85 },
+                minimums: { line: 85 },
             },
         },
     };
@@ -68,15 +68,15 @@ test("loadConfig parses full config with coverage thresholds", async () => {
     const config = await loadConfig({ repoRoot: dir });
     assert.equal(config.version, SHA);
     assert.equal(config.coverage?.node?.command, "npm run test:coverage");
-    assert.equal(config.coverage?.node?.thresholds?.line, 80);
-    assert.equal(config.coverage?.node?.thresholds?.branch, 70);
-    assert.equal(config.coverage?.node?.thresholds?.function, 90);
+    assert.equal(config.coverage?.node?.minimums?.line, 80);
+    assert.equal(config.coverage?.node?.minimums?.branch, 70);
+    assert.equal(config.coverage?.node?.minimums?.function, 90);
     assert.equal(config.coverage?.dotnet?.command, "dotnet test --collect:XPlat");
-    assert.equal(config.coverage?.dotnet?.thresholds?.line, 85);
-    assert.equal(config.coverage?.dotnet?.thresholds?.branch, undefined);
+    assert.equal(config.coverage?.dotnet?.minimums?.line, 85);
+    assert.equal(config.coverage?.dotnet?.minimums?.branch, undefined);
 });
 
-test("loadConfig parses coverage entry without thresholds", async () => {
+test("loadConfig parses coverage entry without minimums", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
@@ -87,7 +87,7 @@ test("loadConfig parses coverage entry without thresholds", async () => {
     await writeConfig(dir, JSON.stringify(cfg));
     const config = await loadConfig({ repoRoot: dir });
     assert.equal(config.coverage?.node?.command, "npm run test:coverage");
-    assert.equal(config.coverage?.node?.thresholds, undefined);
+    assert.equal(config.coverage?.node?.minimums, undefined);
 });
 
 test("loadConfig rejects invalid JSON", async () => {
@@ -201,11 +201,11 @@ test("loadConfig rejects coverage entry with empty command", async () => {
     );
 });
 
-test("loadConfig rejects threshold out of range", async () => {
+test("loadConfig rejects minimum out of range", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
-        coverage: { node: { command: "npm t", thresholds: { line: 101 } } },
+        coverage: { node: { command: "npm t", minimums: { line: 101 } } },
     };
     await writeConfig(dir, JSON.stringify(cfg));
     await assert.rejects(
@@ -214,11 +214,11 @@ test("loadConfig rejects threshold out of range", async () => {
     );
 });
 
-test("loadConfig rejects negative threshold", async () => {
+test("loadConfig rejects negative minimum", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
-        coverage: { node: { command: "npm t", thresholds: { line: -5 } } },
+        coverage: { node: { command: "npm t", minimums: { line: -5 } } },
     };
     await writeConfig(dir, JSON.stringify(cfg));
     await assert.rejects(
@@ -227,37 +227,37 @@ test("loadConfig rejects negative threshold", async () => {
     );
 });
 
-test("loadConfig rejects unknown threshold metric", async () => {
+test("loadConfig rejects unknown minimum metric", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
-        coverage: { node: { command: "npm t", thresholds: { statements: 80 } } },
+        coverage: { node: { command: "npm t", minimums: { statements: 80 } } },
     };
     await writeConfig(dir, JSON.stringify(cfg));
     await assert.rejects(
         () => loadConfig({ repoRoot: dir }),
-        /unknown threshold metric "statements"/u,
+        /unknown minimum metric "statements"/u,
     );
 });
 
-test("loadConfig accepts threshold of exactly 0", async () => {
+test("loadConfig accepts minimum of exactly 0", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
-        coverage: { node: { command: "npm t", thresholds: { line: 0 } } },
+        coverage: { node: { command: "npm t", minimums: { line: 0 } } },
     };
     await writeConfig(dir, JSON.stringify(cfg));
     const config = await loadConfig({ repoRoot: dir });
-    assert.equal(config.coverage?.node?.thresholds?.line, 0);
+    assert.equal(config.coverage?.node?.minimums?.line, 0);
 });
 
-test("loadConfig accepts threshold of exactly 100", async () => {
+test("loadConfig accepts minimum of exactly 100", async () => {
     const dir = await tempDir();
     const cfg = {
         version: SHA,
-        coverage: { node: { command: "npm t", thresholds: { line: 100 } } },
+        coverage: { node: { command: "npm t", minimums: { line: 100 } } },
     };
     await writeConfig(dir, JSON.stringify(cfg));
     const config = await loadConfig({ repoRoot: dir });
-    assert.equal(config.coverage?.node?.thresholds?.line, 100);
+    assert.equal(config.coverage?.node?.minimums?.line, 100);
 });

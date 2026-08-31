@@ -1,14 +1,14 @@
-// steps/node-coverage.mts — Node/JS coverage gate: parse lcov, enforce thresholds.
+// steps/node-coverage.mts — Node/JS coverage gate: parse lcov, enforce minimums.
 //
 // Tools:    none (parses existing coverage reports)
-// Config:   .defined.json "coverage.node" — command + thresholds
+// Config:   .defined.json "coverage.node" — command + minimums
 // Fix:      runs the consumer's coverage command, then validates the report
 // Skip:     no .defined.json entry for "node", or no coverage/lcov.info found
 //
 // Detection is config-driven: the step only activates when .defined.json
 // includes a "coverage.node" entry. The consumer provides the shell command
 // to generate coverage reports; the gate parses the resulting lcov.info
-// and enforces line/branch/function thresholds.
+// and enforces line/branch/function minimums.
 // The runner is injected so tests need no host binaries.
 
 import { existsSync } from "node:fs";
@@ -22,7 +22,7 @@ import {
     type StepResult,
 } from "../lib/step-result.mts";
 import { run } from "../../lib/proc.mts";
-import { loadConfig, type CoverageThresholds } from "../lib/config.mts";
+import { loadConfig, type CoverageMinimums } from "../lib/config.mts";
 
 export interface NodeCoverageRunContext {
     mode: "fix" | "no-fix";
@@ -82,47 +82,47 @@ export function parseLcov({ content }: { content: string }): LcovSummary {
     };
 }
 
-export function checkThresholds({
+export function checkMinimums({
     summary,
-    thresholds,
+    minimums,
 }: {
     summary: LcovSummary;
-    thresholds: CoverageThresholds;
+    minimums: CoverageMinimums;
 }): { pass: boolean; failures: string[] } {
     const failures: string[] = [];
 
-    if (thresholds.line !== undefined) {
+    if (minimums.line !== undefined) {
         const pct =
             summary.linesFound > 0
                 ? (summary.linesHit / summary.linesFound) * 100
                 : 0;
-        if (pct < thresholds.line) {
+        if (pct < minimums.line) {
             failures.push(
-                `line: ${pct.toFixed(1)}% < ${thresholds.line}% threshold`,
+                `line: ${pct.toFixed(1)}% < ${minimums.line}% minimum`,
             );
         }
     }
 
-    if (thresholds.branch !== undefined) {
+    if (minimums.branch !== undefined) {
         const pct =
             summary.branchesFound > 0
                 ? (summary.branchesHit / summary.branchesFound) * 100
                 : 0;
-        if (pct < thresholds.branch) {
+        if (pct < minimums.branch) {
             failures.push(
-                `branch: ${pct.toFixed(1)}% < ${thresholds.branch}% threshold`,
+                `branch: ${pct.toFixed(1)}% < ${minimums.branch}% minimum`,
             );
         }
     }
 
-    if (thresholds.function !== undefined) {
+    if (minimums.function !== undefined) {
         const pct =
             summary.functionsFound > 0
                 ? (summary.functionsHit / summary.functionsFound) * 100
                 : 0;
-        if (pct < thresholds.function) {
+        if (pct < minimums.function) {
             failures.push(
-                `function: ${pct.toFixed(1)}% < ${thresholds.function}% threshold`,
+                `function: ${pct.toFixed(1)}% < ${minimums.function}% minimum`,
             );
         }
     }
@@ -131,22 +131,22 @@ export function checkThresholds({
 }
 
 /**
- * Effective thresholds: consumer-provided thresholds override the 80% line
- * default. When thresholds key is absent entirely, default to 80% line only.
+ * Effective minimums: consumer-provided minimums override the 80% line
+ * default. When minimums key is absent entirely, default to 80% line only.
  */
-function effectiveThresholds(
-    configThresholds: CoverageThresholds | undefined,
-): CoverageThresholds {
-    if (configThresholds === undefined) {
+function effectiveMinimums(
+    configMinimums: CoverageMinimums | undefined,
+): CoverageMinimums {
+    if (configMinimums === undefined) {
         return { line: 80 };
     }
-    return configThresholds;
+    return configMinimums;
 }
 
 /**
  * Run Node.js coverage gate. Skips when no config entry or no report found;
  * in fix mode, runs the consumer's command first; always validates the report
- * against configured thresholds.
+ * against configured minimums.
  */
 export async function runNodeCoverageStep({
     ctx,
@@ -197,8 +197,8 @@ export async function runNodeCoverageStep({
         });
     }
 
-    const thresholds = effectiveThresholds(coverageConfig.thresholds);
-    const { pass, failures } = checkThresholds({ summary, thresholds });
+    const minimums = effectiveMinimums(coverageConfig.minimums);
+    const { pass, failures } = checkMinimums({ summary, minimums });
 
     if (!pass) {
         return failed({
