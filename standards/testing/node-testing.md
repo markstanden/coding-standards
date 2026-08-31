@@ -1,24 +1,29 @@
-<!-- update: agent=opencode | date=2026-08-30 | scope=standards/testing/node-testing.md -->
+<!-- update: agent=opencode | date=2026-08-31 | scope=standards/testing/node-testing.md -->
 
 # Node testing and quality standards
 
 House conventions for Node/TypeScript projects, mirroring
-[`unit-testing.md`](unit-testing.md) for .NET. These are the defaults the gate
-enforces; the sibling doc defines the C# stack.
+[`unit-testing.md`](unit-testing.md) for .NET.
 
-## Quality checks (what the gate runs)
+## What the gate enforces
 
-The gate's `node` step runs these over a tracked npm project — local green =
-merge green:
+The gate's `node` step activates when a repo has a tracked `package.json` or
+`*.md` file. It runs repo-wide prettier (house config + `.editorconfig` for
+indentation):
 
-| Check      | Tool                               | Fix                          |
-| ---------- | ---------------------------------- | ---------------------------- |
-| Formatting | prettier (repo-wide, house config) | `comply` (repair pass)       |
-| Lint       | eslint                             | project config               |
-| Types      | `tsc --noEmit` (project)           | project config               |
-| Tests      | node's test runner                 | `comply` reruns, never skips |
+| Check      | Tool     | Fix                    |
+| ---------- | -------- | ---------------------- |
+| Formatting | prettier | `comply` (repair pass) |
 
-## Testing stack
+The gate does not run ESLint, `tsc --noEmit`, or project tests for consumers —
+those need project-local dependency restore and stay with the project (or a
+future gate extension).
+
+## Testing stack (gate-internal, guidance)
+
+These conventions apply to the `defined` runtime's own `*.test.mts` suite and
+are a recommendation for consumer Node projects, not a mechanically enforced
+rule:
 
 - **Runner**: `node --test` (Node ≥ 26 strip-types) — zero dependencies keeps
   "drop in anywhere" honest; no vitest/jest required.
@@ -26,17 +31,20 @@ merge green:
 - **Colocation**: tests live next to the module as `<module>.test.mts`.
 - **No test grab-bags**: one test file per module.
 
-## Module conventions (law, not preference)
+## Module conventions (gate-internal, law)
 
-- **No enums/namespaces**: bare string-literal unions (`"check" | "fix"`).
+These are conventions for the gate's own `runtime/` and `lib/` TypeScript
+modules, not enforced against consumer code:
+
+- **No enums/namespaces**: bare string-literal unions (e.g. `"fix" | "no-fix"`).
 - **Extensioned imports**: `./foo.mts`, never extensionless.
 - **Zero dependencies** in modules: Node built-ins + `lib/` shared blocks only.
 - **Object params**: public functions take one destructured object; positional
   params only for genuinely unary operations.
 - **Runnable modules never end in `-test`**: Node's `*-test.*` discovery glob
-  would execute them (see `standards/naming.md`).
+  would execute them.
 - **Injected runner**: modules that invoke binaries accept an optional
-  `runner = run` param so tests need no host binaries.
+  `runner` param so tests need no host binaries.
 
 ## Test naming
 

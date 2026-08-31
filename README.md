@@ -7,7 +7,6 @@ A single source of truth for my development project configuration files, workflo
 **defined** — a portable, drop-in quality gate. A single container image
 (`runtime/`) that detects any project's stack and runs the right checks,
 backed by shared building blocks (`lib/`) and house standards (`standards/`).
-The design and decision log live in [PLAN.md](PLAN.md).
 
 ## The gate: one command owns local verification
 
@@ -25,28 +24,31 @@ when the checkout is green. `verify` exists solely for the pipeline: it is the
 read-only check `defined--verify.yml` runs in CI (never writes), and is not the
 command for a developer to reach for.
 
-The launcher needs only git + podman/docker; it prefers podman, mounts the repo
+The launcher is a bash script needing git + podman/docker (plus the standard
+coreutils any bash environment has); it prefers podman, mounts the repo
 read-write for `comply` and read-only for `verify`, and runs the exact image
-pinned in the repo's `.defined-version` — so local green = merge green by
-construction: CI runs that same image.
+pinned in the repo's `.defined-version` — so local green = merge green: CI runs
+that same image as long as the workflow ref and the `.defined-version` pin
+match (keep them in step).
 
 The gate detects the stack (steps run in order `naming → node → dotnet → shell
-→ yaml → workflow → tofu`), skips cleanly when an ecosystem is absent, and
-fails loudly when a pinned tool is missing. Tool versions are pinned in
+→ smoke → yaml → workflow → tofu`), skips cleanly when an ecosystem is absent,
+and fails loudly when a pinned tool is missing. Tool versions are pinned in
 [`runtime/tool-versions.env`](runtime/tool-versions.env) — a pin change rebuilds
 the image.
 
 ## Adopt the gate in a consumer repo
 
 1. **Install the launcher** — copy `cli/defined` onto PATH (normally
-   `~/.local/bin/defined`); it needs only git + podman/docker.
+   `~/.local/bin/defined`); a bash script needing git + podman/docker.
 2. **Commit the pin** — add a `.defined-version` file holding the immutable
    image tag you want (e.g. the git SHA of the gate commit you're adopting).
 3. **Gate locally** — run `defined comply`. It bootstraps `.editorconfig` and
    `Directory.Build.props` into the repo root and seeds the AGENTS.md managed
-   block (raises-only; your tightened rules are never overwritten), repairs
-   safe findings, then re-verifies. Use `comply` every time — it is the whole
-   local loop; `verify` is reserved for CI.
+   block, repairs safe findings, then re-verifies. Managed files are installed
+   from the image and must stay byte-identical — any difference is drift and
+   fails. Use `comply` every time — it is the whole local loop; `verify` is
+   reserved for CI.
 4. **Gate in CI** — call the reusable `defined--verify.yml` workflow, pinned
    to the same git sha as the pin:
 
@@ -57,15 +59,17 @@ the image.
     ```
 
     The workflow reads `.defined-version` for the image tag — the same pin the
-    local launcher reads — so local and CI always run the exact same image.
-    Release identity is immutable: the workflow ref SHA and the `.defined-version`
-    pin must match.
+    local launcher reads — so local and CI run the same image. Keep the
+    workflow ref SHA and the `.defined-version` pin in step: only when they
+    match is local green = merge green.
 
 ## Quality badges
 
 SonarQube Cloud exposes quality-gate badges for the repo README. The badge
-reflects the gate on the default branch; the link goes to the new-code
-summary.
+reflects the Sonar quality gate on the default branch; the link goes to the
+new-code summary. This is **optional external integration** — SonarQube is
+separate from the `defined` gate and none of the `defined` workflows runs a
+Sonar scan in CI.
 
 ```markdown
 [![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=<org>_<repo>)](https://sonarcloud.io/summary/new_code?id=<org>_<repo>)
@@ -77,13 +81,13 @@ summary.
   at least once (a blank badge means no analysis yet).
 - Add the same badge to client-project READMEs that adopt the gate — it is the
   public "is it green?" signal for a repo, and points reviewers at the new-code
-  summary where the gate conditions are explained.
+  summary where the conditions are explained.
 
 ## SonarQube Cloud project artifacts
 
 Two small files pin the SonarQube Cloud project identity so IDE analysis and
-standalone scanning target the same project as CI. Neither contains secrets —
-tokens live in CI secrets, never in the repo.
+standalone scanning agree. Neither contains secrets — tokens live in CI
+secrets, never in the repo.
 
 - `sonar-project.properties` — `sonar.projectKey` / `sonar.organization` /
   `sonar.sources` for the standalone scanner.
@@ -92,8 +96,8 @@ tokens live in CI secrets, never in the repo.
   store.
 
 Client projects adopting the gate should add both, substituting their own
-`<org>_<repo>` key, so IDE and CLI analysis agree with CI by construction. Keep
-the `sonar.projectKey` in this repo's `sonar-project.properties`,
+`<org>_<repo>` key, so IDE and CLI analysis agree. Keep the
+`sonar.projectKey` in this repo's `sonar-project.properties`,
 `.sonarlint/connectedMode.json` and the README badge in step.
 
 ## Workflow templates
@@ -107,31 +111,30 @@ pipeline via a gitsha-pinned ref. Filename grammar:
 jobs:
     quality:
         uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
-        with:
-            image-tag: <shortsha>
 ```
 
+The workflow reads the repo's committed `.defined-version` for the image tag —
+no inputs — so it runs the same pinned image as the local launcher.
 `defined--test.yml` and `defined--publish.yml` are this repo's own CI (tests
-and image publication), not consumer templates.
+and image publication); they are not consumer templates.
 
 A full example pipeline is in [`standards/workflows/pipeline.example.yml`](standards/workflows/pipeline.example.yml).
 
 ## Standards
 
 - [`standards/naming.md`](standards/naming.md) — workflow filename grammar
-- [`standards/testing/unit-testing.md`](standards/testing/unit-testing.md) — C#/xUnit testing patterns
-- [`standards/testing/node-testing.md`](standards/testing/node-testing.md) — Node/TypeScript testing + module conventions
+- [`standards/testing/unit-testing.md`](standards/testing/unit-testing.md) — C#/xUnit testing patterns (reviewer guidance)
+- [`standards/testing/node-testing.md`](standards/testing/node-testing.md) — Node/TypeScript testing + module conventions (reviewer guidance)
 - [`practices/architecture.md`](practices/architecture.md) — delivery/structure/code preferences
 - [`standards/.editorconfig`](standards/.editorconfig) — editor + dotnet code style (installed by gate setup)
 - [`standards/Directory.Build.props`](standards/Directory.Build.props) — common MSBuild properties (installed by gate setup)
-- [`standards/git-hooks/`](standards/git-hooks/) — .NET git hooks
 
 ## Project structure
 
 ```bash
-coding-standards/
+defined/
 ├── cli/                             # installed host launcher (no gate logic)
-│   └── defined                      # needs only git + podman/docker
+│   └── defined                      # bash; needs git + podman/docker
 ├── runtime/                         # the container image (the gate)
 │   ├── Containerfile                # node 26 slim base, pinned tools
 │   ├── tool-versions.env            # single source of tool version pins

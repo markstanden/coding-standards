@@ -2,15 +2,14 @@
 
 # Naming conventions
 
-House filename grammar for the gate's own workflow templates. The gate exposes
+House filename grammar for the gate's own workflow files. The gate exposes
 exactly one consumer-facing reusable workflow and keeps two for its own CI; the
-filename encodes the segments — see PLAN.md decision log #20 and the refocus
-scope (#22, #25).
+filename encodes the segments.
 
-## Workflow templates: `<namespace>--<loose-verb>[--<target>].yml`
+## Workflow files: `<namespace>--<loose-verb>[--<target>].yml`
 
-Reusable `workflow_call` templates under `.github/workflows/` are **jobs**.
-The filename encodes three segments separated by `--`:
+Workflow files under `.github/workflows/` follow this grammar. The filename
+encodes three segments separated by `--`:
 
 ```text
 <namespace>--<loose-verb>[--<target>].yml
@@ -19,15 +18,17 @@ The filename encodes three segments separated by `--`:
 - `--` separates the segments; `-` joins words **within** a segment.
 - **Loose verb**, not the tool: name the intent (`build`, `test`, `verify`,
   `publish`), never the binary that happens to do it.
-- **Target is optional**: workflows with no scope drop the last segment
-  (`defined--publish`, `defined--test`, `defined--verify` — the repo's own
-  gate workflows, namespace only).
+- **Target is optional**: workflows without a scope are namespace + verb only
+  (`defined--publish`, `defined--test`, `defined--verify`).
 
-The gate's three workflows:
+The gate's three workflow files:
 
 ```text
 defined--verify.yml    defined--test.yml    defined--publish.yml
 ```
+
+Only `defined--verify.yml` is a reusable workflow a consumer invokes at a job
+level; the other two are ordinary CI for this repo.
 
 Consequences:
 
@@ -36,8 +37,11 @@ Consequences:
 - A `--` inside a segment is impossible by construction, so single-hyphen
   namespaces/targets need no escaping.
 
-## Scope
+## Scope and enforcement
 
-This grammar covers the gate's workflow templates. Internal modules
+This grammar covers the gate's workflow files. Internal modules
 (`runtime/steps/*.mts` where filename == step id, `lib/*.mts` shared helpers)
 and `standards/` files are not part of the segmented scheme.
+
+The grammar is currently upheld by convention (naming is reviewed, not yet
+mechanically enforced — the gate's `naming` step is reserved and disabled).

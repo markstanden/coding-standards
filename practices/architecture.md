@@ -12,10 +12,12 @@ hard rules (gate steps, module conventions, naming) live in
 - **One container image is the toolchain.** Pin versions in one place
   (`tool-versions.env`); the image tag IS the release. No per-distro installer
   scripts, no drift between environments.
-- **Local green = merge green by construction.** CI runs the same image as
-  the developer; nothing is environment-specific.
+- **Local green = merge green.** CI runs the same image as the developer as
+  long as the workflow ref and the `.defined-version` pin match; nothing is
+  environment-specific.
 - **Two distribution channels only**: the pinned image and gitsha-pinned
-  reusable-workflow refs. No submodules, no symlinks, no release artifacts.
+  reusable-workflow refs. No submodules, no symlinks, no consumer application
+  artifacts (the gate image itself is, of course, a release artifact).
 - **One gate workflow**: `defined--verify.yml` is the sole consumer-facing
   reusable workflow. Delivery actions live in the consumer's own pipelines.
 
@@ -28,12 +30,15 @@ hard rules (gate steps, module conventions, naming) live in
 ## Code
 
 - **TypeScript core, strip-types runtime**: no enums/namespaces, extensioned
-  imports, zero dependencies. Bash shrinks to a ~30-line shim.
+  imports, zero dependencies. The host launcher is a thin bash shim and the
+  source shim stays thin too.
 - **Testability by injection**: anything that shells out accepts a runner
   parameter; pure logic is extracted and table-tested.
-- **Floors raise, never lower**: defaults are strict; projects may add
-  strictness, never remove it. Mechanical fixes are committed as mechanical
-  diffs — a `comply` repair pass that leaves diffs reads as failure.
+- **Floors are exact**: managed root configs must stay byte-identical to the
+  image-baked versions (drift fails); extension happens through project-level
+  files, not by editing the managed floor. `comply` may apply repairs that
+  modify the working tree — those changes are reviewable, and each tool must
+  pass its own subsequent check in the mandatory second verify pass.
 
 ## Tools
 

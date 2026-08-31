@@ -1,7 +1,16 @@
-<!-- update: agent=opencode | date=2026-08-30 | scope=practices/defined-feedback.md -->
-<!-- status: pending review — ChatGPT feedback on README + AGENTS.md, to work through session-by-session -->
+<!-- update: agent=opencode | date=2026-08-31 | scope=practices/defined-feedback.md -->
+<!-- status: historical input — reviewed and dispositioned; the original
+feedback is retained verbatim below. Do not treat it as current guidance. -->
 
 # `defined` — Top 20 Improvements
+
+> **Historical record.** This is the original ChatGPT feedback reviewed during
+> the scope correction. It has been dispositioned and is kept verbatim for the
+> record. The **current** public contract is `defined comply` (the local/agent
+> loop) and `defined verify` (the pipeline-only read-only check) — the
+> `setup`/`fix` commands referenced throughout below were retired. Product and
+> architecture decisions are recorded in the plan of record; see `PLAN.md` and
+> the README for what is true today.
 
 ## Product / architecture
 
