@@ -37,6 +37,13 @@ tofu`; missing applicable tools fail loudly pointing at the Containerfile
   `compliant` line on green; a stable agent-actionable breakdown otherwise.
   The retired `setup` verb and `--fix`/`--no-fix`/`--silent` flags are usage
   errors.
+- **Installed launcher + shared pin (Phase 3, 2026-08-31)** — `cli/defined`
+  (bash, no gate logic) reads the consumer's `.defined-version`, prefers
+  podman, mounts rw for `comply` / ro for `verify`, and runs the exact pinned
+  image. Unit tests inject fake engines on PATH; smoke-tested against a
+  throwaway consumer. `defined--verify.yml` reads `.defined-version` (no
+  `image-tag` input); `runtime/verify.sh` stays the source-development shim
+  (it builds/live-edits the local image, which the launcher does not).
 - **Tested** — 145+ host unit tests (colocated `*.test.mts`) + a broken-fixture
   integration test (`runtime/fixture.test.mts`) driving the real gate
   in-container (hash-proves `verify` is side-effect free) + the podman
@@ -255,24 +262,24 @@ repos.
 
 ### Phase 3 — Installed launcher and shared pin
 
-- [ ] `.defined-version` parsing unit: trim, validate immutable tag, reject
+- [x] `.defined-version` parsing unit: trim, validate immutable tag, reject
       mutable aliases, report path in errors.
-- [ ] `cli/defined` tests: engine preference, absent engine, repo-root
+- [x] `cli/defined` tests: engine preference, absent engine, repo-root
       discovery, exact image selection, missing image/pull failure, arg
       forwarding, mount modes (inject runner; no real engine for unit tests).
-- [ ] Launcher smoke against throwaway consumer with podman: first pull, cached
+- [x] Launcher smoke against throwaway consumer with podman: first pull, cached
       run, `comply` bootstrap/repair, side-effect-free `verify`, malformed/
       unavailable pin.
-- [ ] Keep `.defined-version` out of this producer repo; test with fixture
+- [x] Keep `.defined-version` out of this producer repo; test with fixture
       consumers; use `runtime/verify.sh` for source development.
-- [ ] `defined--verify.yml` takes no `fix`/`silent`/`image-tag` inputs; reads
+- [x] `defined--verify.yml` takes no `fix`/`silent`/`image-tag` inputs; reads
       `.defined-version`, runs the exact image with `verify`, fails clearly on
       invalid pin.
-- [ ] Document install into `~/.local/bin`, `.defined-version` adoption, and the
+- [x] Document install into `~/.local/bin`, `.defined-version` adoption, and the
       workflow-ref/image-pin match invariant.
-- [ ] Decide whether internal `runtime/verify.sh` still adds value; retire only
+- [x] Decide whether internal `runtime/verify.sh` still adds value; retire only
       when equivalent local image build/live-edit is covered elsewhere.
-- [ ] Launcher unit/integration + host + podman gate.
+- [x] Launcher unit/integration + host + podman gate.
 
 ### Phase 4 — Rename the product repository
 

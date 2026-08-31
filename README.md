@@ -11,14 +11,19 @@ The design and decision log live in [PLAN.md](PLAN.md).
 
 ## The gate: two verbs own verification
 
-`./runtime/verify.sh comply` from a project root bootstraps, repairs and
-verifies it; `./runtime/verify.sh verify` is a read-only check. Local green =
-merge green: CI runs the same image.
+Install the `defined` launcher, then run it from a project root:
 
 ```bash
-./runtime/verify.sh comply    # bootstrap (configs + AGENTS block) → repair → verify
-./runtime/verify.sh verify    # read-only check (never writes)
+install -m 755 cli/defined ~/.local/bin/defined   # one-time install
+
+defined comply    # bootstrap (configs + AGENTS block) → repair → verify
+defined verify    # read-only check (never writes)
 ```
+
+The launcher needs only git + podman/docker; it prefers podman, mounts the repo
+read-write for `comply` and read-only for `verify`, and runs the exact image
+pinned in the repo's `.defined-version` — so local green = merge green by
+construction: CI runs that same image.
 
 The gate detects the stack (steps run in order `naming → node → dotnet → shell
 → yaml → workflow → tofu`), skips cleanly when an ecosystem is absent, and
@@ -28,24 +33,27 @@ the image.
 
 ## Adopt the gate in a consumer repo
 
-1. **Bootstrap** — run `verify.sh comply` to install `.editorconfig` and
-   `Directory.Build.props` into the repo root and seed the AGENTS.md managed
-   block (raises-only; your tightened rules are never overwritten).
-2. **Gate locally** — `./runtime/verify.sh verify` (read-only) or
-   `./runtime/verify.sh comply` (bootstraps, repairs, then re-verifies).
-3. **Gate in CI** — call the reusable `defined--verify.yml` workflow, pinned
-   to a git sha with a matching image tag:
+1. **Install the launcher** — copy `cli/defined` onto PATH (normally
+   `~/.local/bin/defined`); it needs only git + podman/docker.
+2. **Commit the pin** — add a `.defined-version` file holding the immutable
+   image tag you want (e.g. the git SHA of the gate commit you're adopting).
+3. **Gate locally** — `defined comply` bootstraps `.editorconfig` and
+   `Directory.Build.props` into the repo root and seeds the AGENTS.md managed
+   block (raises-only; your tightened rules are never overwritten), repairs
+   safe findings, then re-verifies. `defined verify` is the read-only check.
+4. **Gate in CI** — call the reusable `defined--verify.yml` workflow, pinned
+   to the same git sha as the pin:
 
     ```yaml
     jobs:
         quality:
             uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
-            with:
-                image-tag: <shortsha>
     ```
 
-    The image tag IS the release: pin the workflow ref and image tag to the
-    same commit so local green = merge green by construction.
+    The workflow reads `.defined-version` for the image tag — the same pin the
+    local launcher reads — so local and CI always run the exact same image.
+    Release identity is immutable: the workflow ref SHA and the `.defined-version`
+    pin must match.
 
 ## Quality badges
 
@@ -116,17 +124,23 @@ A full example pipeline is in [`standards/workflows/pipeline.example.yml`](stand
 
 ```bash
 coding-standards/
-├── runtime/                          # the container image (the gate)
-│   ├── Containerfile                 # node 26 slim base, pinned tools
-│   ├── tool-versions.env             # single source of tool version pins
-│   ├── verify.sh                     # host shim: engine → mount → exec
-│   ├── verify.mts                    # orchestrator (step manifest + setup dispatch)
-│   ├── setup.mts                     # bootstrap (configs + AGENTS.md block)
-│   ├── lib/                          # gate-specific core (ctx, severities, blocks)
-│   ├── steps/                        # one module per ecosystem check
-│   └── config/                       # tool configs travelling in the image
-├── lib/                              # shared building blocks (proc, paths, git)
-├── standards/                        # house standards and tools
-├── practices/                        # docs / how-to
+├── cli/                             # installed host launcher (no gate logic)
+│   └── defined                      # needs only git + podman/docker
+├── runtime/                         # the container image (the gate)
+│   ├── Containerfile                # node 26 slim base, pinned tools
+│   ├── tool-versions.env            # single source of tool version pins
+│   ├── verify.sh                    # internal source-development shim
+│   ├── verify.mts                   # comply/verify orchestration
+│   ├── setup.mts                    # bootstrap/check implementation
+│   ├── lib/                         # gate-specific core (ctx, severities, blocks)
+│   ├── steps/                       # one module per ecosystem check
+│   └── config/                      # tool configs travelling in the image
+├── lib/                             # shared building blocks (proc, paths, git)
+├── standards/                       # house standards and tools
+├── practices/                       # docs / how-to
 └── .github/workflows/                # defined--verify/test/publish
 ```
+
+Consumers commit a `.defined-version` (one immutable image tag) read by both the
+launcher and `defined--verify.yml`; this producer repo does not commit its own
+(a file containing its own SHA is impossible by construction).

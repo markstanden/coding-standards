@@ -12,6 +12,12 @@ end-to-end gate.
 
 ## Non-obvious structure
 
+- `cli/defined` is the **installed host launcher** (decision #25): bash, no gate
+  behaviour, needs only git + podman/docker. It reads the consumer's committed
+  `.defined-version` pin, prefers podman, mounts the repo rw for `comply` / ro
+  for `verify`. Tested via `cli/defined.test.mts` with fake engines injected on
+  PATH (no real engine needed). The producer repo does not commit its own
+  `.defined-version`.
 - Root `.github/workflows/*.yml` are mostly **reusable `workflow_call` templates**
   for consumer repos, NOT CI for this repo. There is exactly one consumer-facing
   template: `defined--verify.yml` (the gate). Naming convention:
@@ -26,12 +32,12 @@ end-to-end gate.
   here. The `.yml` extension means the gate's `yaml` step lints it, so the
   template stays valid YAML.
 - `standards/.editorconfig` and `standards/Directory.Build.props` are the
-  single source of truth for shared root configs — the gate's `setup`
+  single source of truth for shared root configs — `comply`'s bootstrap
   installs them into consumer repo roots (raises-only) from the baked image.
-  The repo's own root `.editorconfig` is a copy of `standards/.editorconfig`
-  (self-hosted: `comply` on this repo is a no-op beyond the AGENTS block, and
-  drift fails loudly). It drives prettier (pure-defaults config reads it
-  natively), shfmt and IDEs from one source.
+  The repo's own root `.editorconfig` and `Directory.Build.props` are copies of
+  the `standards/` versions (self-hosted: `comply` on this repo is a no-op
+  beyond the AGENTS block, and drift fails loudly). It drives prettier
+  (pure-defaults config reads it natively), shfmt and IDEs from one source.
 
 ## The gate: how it works
 
@@ -41,7 +47,8 @@ aren't relitigated:
 
 - Container-native runtime (official `node:<ver>-slim` base, digest-pinned
   via `tool-versions.env`; global pinned `tsc` for typechecking gate code);
-  only host surface is a ~30-line bash shim.
+  host surface is the installed `cli/defined` launcher (git + podman/docker
+  only) plus the internal `runtime/verify.sh` source-development shim.
 - TypeScript core, Node ≥26 strip-types: **no enums/namespaces** (bare string
   literal unions), extensioned imports, zero dependencies, tested with
   `node --test` colocated as `*.test.mts`.
@@ -69,9 +76,9 @@ aren't relitigated:
 
 <!-- defined:start -->
 
-This project is gated by Mark's portable defined gate (`runtime/`).
+This project is gated by Mark's portable defined gate.
 House standards, tool pins and the decision log live in the gate's PLAN.md;
 the canonical cross-project index is the coding-standards README. Run
-`./runtime/verify.sh comply` to bootstrap, repair and verify; `./runtime/verify.sh verify`
+`defined comply` to bootstrap, repair and verify; `defined verify`
 for a read-only check; a missing ecosystem skips, a missing tool fails loudly.
 <!-- defined:end -->
