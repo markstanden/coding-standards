@@ -37,6 +37,41 @@ test("runSetup installs root configs and seeds the AGENTS.md managed block", asy
     }
 });
 
+test("runSetup seeds a pinned .defined.json when the repo has none", async () => {
+    const repo = await makeTempRepo();
+    try {
+        await runSetup({ startDir: repo });
+        const raw = await readFile(join(repo, ".defined.json"), "utf8");
+        const config = JSON.parse(raw) as { version?: string };
+        assert.match(
+            config.version ?? "",
+            /^[0-9a-f]{12}$/u,
+            "version must be the 12-char pinhash of tool-versions.env",
+        );
+    } finally {
+        await rm(repo, { recursive: true, force: true });
+    }
+});
+
+test("runSetup never overwrites an existing .defined.json", async () => {
+    const repo = await makeTempRepo();
+    try {
+        const mine = {
+            version: "deadbeef",
+            coverage: { node: { command: "npm t" } },
+        };
+        await writeFile(
+            join(repo, ".defined.json"),
+            `${JSON.stringify(mine)}\n`,
+        );
+        await runSetup({ startDir: repo });
+        const raw = await readFile(join(repo, ".defined.json"), "utf8");
+        assert.deepEqual(JSON.parse(raw), mine);
+    } finally {
+        await rm(repo, { recursive: true, force: true });
+    }
+});
+
 test("runSetup preserves pre-existing AGENTS.md content outside the block", async () => {
     const repo = await makeTempRepo();
     try {

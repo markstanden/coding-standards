@@ -42,9 +42,10 @@ the image.
 
 1. **Install the launcher** — copy `cli/defined` onto PATH (normally
    `~/.local/bin/defined`); a bash script needing git + podman/docker.
-2. **Commit the config** — add a `.defined.json` file holding the immutable
-   image tag under its `version` field (e.g. the git SHA of the gate commit
-   you're adopting), plus optional `coverage` configuration:
+2. **Commit the config** — add a `.defined.json` file. `version` is optional:
+   omit it to ride the current published default image, or pin an immutable
+   tag (e.g. the git SHA of the gate commit you're adopting) for
+   reproducibility. Add optional `coverage` configuration:
 
     ```jsonc
     {
@@ -82,9 +83,10 @@ the image.
     ```
 
     The workflow reads `.defined.json` for the image tag — the same pin the
-    local launcher reads — so local and CI run the same image. Keep the
-    workflow ref SHA and the `.defined.json` pin in step: only when they
-    match is local green = merge green.
+    local launcher reads — so local and CI run the same image. Omitted
+    `version` defaults to the current published image; a written pin restores
+    immutability. Keep the workflow ref SHA and the `.defined.json` pin in
+    step: only when they match is local green = merge green.
 
 ## Quality badges
 
@@ -162,7 +164,7 @@ defined/
 │   ├── Containerfile                # node 26 slim base, pinned tools
 │   ├── tool-versions.env            # single source of tool version pins
 │   ├── comply.sh                    # internal source-development shim
-│   ├── verify.mts                   # comply/verify orchestration
+│   ├── comply.mts                   # comply/verify orchestration
 │   ├── setup.mts                    # bootstrap/check implementation
 │   ├── lib/                         # gate-specific core (ctx, severities, blocks)
 │   ├── steps/                       # one module per ecosystem check
@@ -173,7 +175,8 @@ defined/
 └── .github/workflows/                # defined--verify/test/publish
 ```
 
-Consumers commit a `.defined.json` (immutable image tag under `version`, plus
-optional coverage config) read by both the launcher and `defined--verify.yml`;
-this producer repo does not commit its own (a config whose `version` is its own
-SHA is impossible by construction).
+Consumers commit a `.defined.json` (optional immutable image tag under
+`version` — omitted means the default published image — plus optional coverage
+config) read by both the launcher and `defined--verify.yml`; this producer repo
+commits its own versionless config, a coverage-only `.defined.json`, so the
+gate is tested on the gate.

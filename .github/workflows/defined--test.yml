@@ -15,9 +15,17 @@ jobs:
         permissions:
             contents: read
             packages: read
+            pull-requests: read
+        env:
+            # Hoisted to job level: the `secrets` context is not available in a
+            # step-level `if`, but job-level env is visible to step conditions.
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         steps:
             - name: Checkout
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+              with:
+                  # Full history: SonarQube branch/PR analysis needs it.
+                  fetch-depth: 0
 
             - name: Setup Node
               uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -48,9 +56,18 @@ jobs:
                     exit 0
                   fi
                   # Published on main merges; reuse it so PR runs skip the build.
+                  # Only reuse it when the baked ENTRYPOINT matches the current
+                  # source (comply.mts) — a stale entrypoint (pre-rebrand image)
+                  # would exec a file that no longer exists under the bind-mount.
                   if docker pull "ghcr.io/markstanden/defined:${{ steps.pins.outputs.pinhash }}" 2>/dev/null; then
-                    docker tag "ghcr.io/markstanden/defined:${{ steps.pins.outputs.pinhash }}" "${IMAGE}"
-                    echo "pulled published image"
+                    PUBLISHED="ghcr.io/markstanden/defined:${{ steps.pins.outputs.pinhash }}"
+                    if docker image inspect --format '{{.Config.Entrypoint}}' "${PUBLISHED}" \
+                        | grep -q 'comply.mts'; then
+                      docker tag "${PUBLISHED}" "${IMAGE}"
+                      echo "pulled published image with matching entrypoint"
+                      exit 0
+                    fi
+                    echo "published image entrypoint is stale; comply.sh will build it"
                     exit 0
                   fi
                   echo "no published image; comply.sh will build it on first run"
@@ -58,3 +75,15 @@ jobs:
             - name: Run test suite (unit + broken fixture)
               shell: bash
               run: node --test 'cli/*.test.mts' 'lib/*.test.mts' 'runtime/**/*.test.mts'
+
+            - name: Run the gate on itself (bootstrap + repair + verify, with coverage)
+              shell: bash
+              run: ./runtime/comply.sh
+
+            - name: SonarQube Cloud Scan
+              # Inert until the SONAR_TOKEN secret is added — the gate has
+              # already published coverage/lcov.info for the scanner to read.
+              if: env.SONAR_TOKEN != ''
+              uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

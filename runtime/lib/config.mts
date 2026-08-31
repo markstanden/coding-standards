@@ -1,8 +1,13 @@
 // lib/config.mts — .defined.json reader and typed configuration.
 //
 // Reads the consumer's .defined.json at the repo root. The file is the single
-// source of truth: it holds the immutable image pin (replacing the old
-// .defined-version) and optional per-ecosystem coverage configuration.
+// source of truth: it holds the optional immutable image pin (replacing the
+// old .defined-version) and optional per-ecosystem coverage configuration.
+//
+// Version contract: an omitted `version` means "use the current published
+// default image" (the launcher resolves it); a present `version` is an
+// immutable pin and must be a 7–40 char hex SHA. The gate itself never uses
+// the pin — only the launcher does — so an empty version is always valid here.
 //
 // Public surface:
 //   loadConfig({ repoRoot })  — read + validate, or return empty config
@@ -34,7 +39,10 @@ export interface CoverageConfig {
 }
 
 export interface DefinedConfig {
-    /** Immutable image tag (git SHA, 7–40 hex chars). */
+    /**
+     * Immutable image tag (7–40 hex chars). Empty when omitted — the launcher
+     * then uses the current published default image (`latest`).
+     */
     version: string;
     /** Per-ecosystem coverage configuration. Absent key = step skips. */
     coverage?: {
@@ -130,7 +138,10 @@ function validateParsed(raw: unknown): DefinedConfig {
         throw new Error(`.defined.json: must be a JSON object`);
     }
     const obj = raw as Record<string, unknown>;
-    const version = validateVersion(obj.version);
+    // Omitted version = "use the current published default image". A present
+    // version must be an immutable pin; empty/null/non-string are errors.
+    const version =
+        obj.version === undefined ? "" : validateVersion(obj.version);
     const coverage = validateCoverage(obj.coverage);
     return { version, coverage };
 }

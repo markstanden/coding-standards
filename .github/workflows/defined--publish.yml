@@ -70,3 +70,4 @@ jobs:
                   tags: |
                       ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.hashes.outputs.pinhash }}
                       ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.hashes.outputs.shortsha }}
+                      ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest

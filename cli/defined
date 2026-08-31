@@ -4,16 +4,17 @@
 # The only public surface: `defined comply` and `defined verify`. `comply` is
 # the command to use locally and for agent work (bootstrap + repair + verify);
 # `verify` is the read-only check the pipeline runs and nothing else. Reads
-# the consumer's committed .defined-version pin, picks a container engine
-# (podman preferred), ensures the exact image is present, then runs it —
-# mounting the repo read-write for comply, read-only for verify. No gate
-# behaviour lives here; everything else is in the image.
+# the consumer's committed .defined.json `version` (omitted → current default
+# image), picks a container engine (podman preferred), ensures the exact image
+# is present, then runs it — mounting the repo read-write for comply,
+# read-only for verify. No gate behaviour lives here; everything else is in
+# the image.
 #
 # Needs only git + podman/docker on the host. Install: put this file on PATH
 # (normally ~/.local/bin/defined). Source development uses runtime/comply.sh.
-# The runtime's .defined-version parser is exercised here end-to-end; the
-# producer repo does not commit its own pin (a file containing its own SHA is
-# impossible by construction).
+# The runtime's .defined.json parser is exercised here end-to-end; the
+# producer repo commits its own versionless config (a coverage pin, see the
+# repo root .defined.json).
 
 set -euo pipefail
 
@@ -38,24 +39,29 @@ repo_root() {
 }
 
 # Read and validate the immutable image pin from .defined.json.
-# Prints the validated pin on success; errors name the path. Mutable aliases
-# (empty, latest, non-SHA tokens) are rejected so local and CI always run the
-# exact same image (release identity, PLAN.md).
+# Prints the image tag to run: a validated immutable pin when the file holds
+# one, otherwise the default `latest` tag. A missing file or an omitted
+# `version` both mean "current published default image" (release identity
+# defaults are obvious; explicit values are overrides). Explicit mutable
+# aliases (latest, non-SHA tokens) are rejected so a *written* pin is always
+# the exact image local and CI run (release identity, PLAN.md).
 read_pin() {
     local root="$1"
     local file="${root}/${CONFIG_FILE}"
     if [[ ! -f "${file}" ]]; then
-        die "no ${CONFIG_FILE} in ${root} — commit one first"
+        echo "latest"
+        return 0
     fi
     # Extract the "version" field from the JSON document without jq: target the
     # `"version": "<hex>"` line/segment and strip quotes + surrounding chars.
     local pin
     pin="$(tr -d '[:space:]' <"${file}" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')"
     if [[ -z "${pin}" ]]; then
-        die "${file} has no \"version\" field — it must hold an immutable image tag"
+        echo "latest"
+        return 0
     fi
     if [[ "${pin}" == "latest" ]]; then
-        die "${file} must pin an immutable tag, not 'latest'"
+        die "${file} must pin an immutable tag, not 'latest' — omit 'version' to use the default"
     fi
     if [[ ! "${pin}" =~ ^[0-9a-f]{7,40}$ ]]; then
         die "${file} has an invalid pin '${pin}' — expected a git SHA"

@@ -7,11 +7,13 @@ name: "Defined Gate"
 #     quality:
 #       uses: markstanden/defined/.github/workflows/defined--verify.yml@<shortsha>
 #
-# The image tag comes from the repo's committed .defined-version — the same
-# pin the local `defined` launcher reads — so local green = merge green by
-# construction. Release identity is immutable: the workflow ref SHA and the
-# .defined-version pin must match (see PLAN.md). The pipeline verb is always
-# read-only `verify`; `comply` is the local/agent loop, never CI.
+# The image tag comes from the repo's committed .defined.json — the same pin
+# the local `defined` launcher reads — so local green = merge green by
+# construction. Release identity: an omitted `version` uses the current
+# published default image; a written pin must be immutable (a hex SHA), and
+# local green = merge green only while that pin matches the workflow ref (see
+# PLAN.md). The pipeline verb is always read-only `verify`; `comply` is the
+# local/agent loop, never CI.
 
 on:
     workflow_call:
@@ -25,22 +27,24 @@ jobs:
             - name: Checkout
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
-            - name: Read image pin
+            - name: Read image tag
               id: pin
               shell: bash
               run: |
                   set -euo pipefail
-                  if [[ ! -f .defined.json ]]; then
-                    echo "::error::no .defined.json in the repo root — commit one (see PLAN.md release identity)"
-                    exit 1
+                  # Omitted version (or no file) = current published default.
+                  if [[ -f .defined.json ]]; then
+                    PIN="$(jq -r '.version // empty' .defined.json)"
+                  else
+                    PIN=""
                   fi
-                  PIN="$(jq -r '.version // empty' .defined.json)"
+                  DEFAULTED="0"
                   if [[ -z "${PIN}" ]]; then
-                    echo "::error::.defined.json is missing the version field — it must hold an immutable image tag"
-                    exit 1
+                    PIN="latest"
+                    DEFAULTED="1"
                   fi
-                  if [[ "${PIN}" == "latest" ]]; then
-                    echo "::error::.defined.json must pin an immutable tag, not 'latest'"
+                  if [[ "${PIN}" == "latest" && "${DEFAULTED}" == "0" ]]; then
+                    echo "::error::.defined.json must pin an immutable tag, not 'latest' — omit 'version' to default"
                     exit 1
                   fi
                   if [[ ! "${PIN}" =~ ^[0-9a-f]{7,40}$ ]]; then

@@ -2,16 +2,22 @@
 // setup.mts — gate bootstrap (decisions #13–14).
 //
 // runSetup is the write path, invoked as the first phase of `comply`; it
-// installs shared root configs from standards/ into the repo root and seeds
-// the AGENTS.md managed block from config/agents-block.md. Idempotent:
-// re-runs rewrite the block only and leave unchanged configs alone
-// (raises-only — differences fail loudly). checkSetup is the read-only path
-// used by `verify`; it reports bootstrap state without writing a byte.
+// installs shared root configs from standards/ into the repo root, seeds
+// the AGENTS.md managed block from config/agents-block.md, and creates a
+// pinned .defined.json when the repo has none. Idempotent: re-runs rewrite
+// the block only, leave unchanged configs alone, and never touch an existing
+// .defined.json (raises-only — differences fail loudly). checkSetup is the
+// read-only path used by `verify`; it reports bootstrap state without
+// writing a byte.
 //
-// Pure module: no top-level main — verify.mts owns the entry point, so this
+// Pure module: no top-level main — comply.mts owns the entry point, so this
 // file is never double-executed when imported.
 
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
     checkMarkedBlock,
@@ -32,11 +38,48 @@ import { deriveRepoRoot } from "../lib/paths.mts";
 // from it — no copied config/root/ that can drift.
 const ROOT_CONFIG_NAMES = [".editorconfig", "Directory.Build.props"] as const;
 
+const CONFIG_FILE = ".defined.json";
+
+// tool-versions.env lives next to setup.mts — /opt/defined/runtime baked in
+// the image, runtime/ on a host checkout. Same bytes either way, so the
+// pinhash always matches what comply.sh and the publish workflow tag.
+const TOOL_VERSIONS_PATH = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "tool-versions.env",
+);
+
 /**
- * Bootstrap a target repo (startDir's git root): install root configs then
- * upsert the AGENTS.md managed block. Order matters — the block references
- * the installed configs, so it reflects reality by the time it is written.
- * Prints nothing: `comply` renders output via the report contract.
+ * The immutable image tag for the image that actually ran: the 12-char hash
+ * of tool-versions.env (pinhash), the same tag comply.sh builds locally and
+ * the publish workflow pushes to ghcr.
+ */
+async function imagePin(): Promise<string> {
+    const content = await readFile(TOOL_VERSIONS_PATH, "utf8");
+    return createHash("sha256").update(content).digest("hex").slice(0, 12);
+}
+
+/**
+ * Seed a pinned .defined.json when the repo has none — the omitted-version
+ * default self-improves to an immutable pin on first `comply`. An existing
+ * file (explicit pin, coverage config) is never touched.
+ */
+async function ensureConfigFile(repoRoot: string): Promise<void> {
+    const configPath = join(repoRoot, CONFIG_FILE);
+    if (existsSync(configPath)) {
+        return;
+    }
+    await writeFile(
+        configPath,
+        `${JSON.stringify({ version: await imagePin() })}\n`,
+    );
+}
+
+/**
+ * Bootstrap a target repo (startDir's git root): install root configs, upsert
+ * the AGENTS.md managed block, and seed a pinned .defined.json when absent.
+ * Order matters — the block references the installed configs, so it reflects
+ * reality by the time it is written. Prints nothing: `comply` renders output
+ * via the report contract.
  */
 export async function runSetup({
     startDir,
@@ -49,6 +92,7 @@ export async function runSetup({
         names: [...ROOT_CONFIG_NAMES],
         repoRoot,
     });
+    await ensureConfigFile(repoRoot);
 
     const block = await readMarkedBlock({
         templatePath: await gateConfigPath({ name: "agents-block.md" }),

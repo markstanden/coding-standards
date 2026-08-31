@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// verify.mts — quality gate orchestrator (two-verb contract, decision #23).
+// comply.mts — quality gate orchestrator (two-verb contract, decision #23).
 //
 // Public surface:
 //   defined comply   bootstrap → repair (fix) pass → fresh verify (no-fix)
@@ -7,10 +7,11 @@
 //   defined verify   managed-artifact check (never writes) → complete no-fix
 //                    pass → non-zero for any drift, finding or failure.
 //
-// Steps run in fixed order (naming → node → node-coverage → dotnet →
-// dotnet-coverage → shell → yaml → workflow → tofu), strictly sequentially.
-// Output follows the report contract (decision
-// #24): green runs print exactly one `compliant` line; anything else prints a
+// Named comply.mts because it owns the `comply` verb — the always-use loop;
+// `verify` shares the orchestrator. Steps run in fixed order (naming → node →
+// node-coverage → dotnet → dotnet-coverage → shell → yaml → workflow → tofu),
+// strictly sequentially. Output follows the report contract (decision #24):
+// green runs print exactly one `compliant` line; anything else prints a
 // stable, agent-actionable breakdown.
 
 import { spawnSync } from "node:child_process";

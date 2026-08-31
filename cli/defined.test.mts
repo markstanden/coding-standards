@@ -37,23 +37,36 @@ interface Fixture {
     repo: string;
 }
 
-/** Temp dir + fake bin + a git repo containing the given .defined.json. */
-async function makeFixture(pin?: string): Promise<Fixture> {
+/**
+ * Temp dir + fake bin + a git repo containing the given .defined.json.
+ * `pin` is either a version string, a full config object (for versionless
+ * configs), or undefined (no .defined.json at all).
+ */
+async function makeFixture(
+    pin?: string | Record<string, unknown>,
+): Promise<Fixture> {
     const root = await mkdtemp(join(tmpdir(), "quality-launcher-"));
     const bin = join(root, "bin");
     const repo = join(root, "repo");
     await mkdir(bin);
     await mkdir(repo);
-    const config = {
-        version: pin ?? "deadbeef",
-    };
-    await writeFile(join(repo, ".defined.json"), `${JSON.stringify(config)}\n`);
+    if (typeof pin === "string") {
+        await writeFile(
+            join(repo, ".defined.json"),
+            `${JSON.stringify({ version: pin })}\n`,
+        );
+    } else if (pin !== undefined) {
+        await writeFile(
+            join(repo, ".defined.json"),
+            `${JSON.stringify(pin)}\n`,
+        );
+    }
     return { root, bin, repo };
 }
 
 /** Run a test body against a fresh fixture, always cleaning up. */
 async function withFixture<T>(
-    pin: string | undefined,
+    pin: string | Record<string, unknown> | undefined,
     fn: (fixture: Fixture) => Promise<T>,
 ): Promise<T> {
     const fixture = await makeFixture(pin);
@@ -296,32 +309,31 @@ test("rejects mutable and malformed pins", async () => {
     }
 });
 
-test("fails when the config file is missing, empty or has no version", async () => {
-    await withFixture("abc12345", async (missing) => {
-        await rm(join(missing.repo, ".defined.json"));
+test("defaults to the latest image when config is missing, empty or versionless", async () => {
+    // Missing .defined.json → default latest, no error.
+    await withFixture(undefined, async (missing) => {
         const r = await runLauncher({ fixture: missing, args: ["verify"] });
-        assert.equal(r.status, 1);
-        assert.match(r.stderr, /\.defined\.json/u);
-        assert.deepEqual(r.log, []);
+        assert.equal(r.status, 0);
+        const run = r.log.find((line) => line.startsWith("run --rm"));
+        assert.ok(run, "default must still run the engine");
+        assert.ok(run!.endsWith(`${IMAGE_REPO}:latest verify`));
     });
 
+    // Empty/whitespace-only file → no version extracted → default latest.
     await withFixture("abc12345", async (blank) => {
         await writeFile(join(blank.repo, ".defined.json"), "\n  \n");
         const r = await runLauncher({ fixture: blank, args: ["verify"] });
-        assert.equal(r.status, 1);
-        assert.match(r.stderr, /no "version"/u);
-        assert.deepEqual(r.log, []);
+        assert.equal(r.status, 0);
+        const run = r.log.find((line) => line.startsWith("run --rm"));
+        assert.ok(run!.endsWith(`${IMAGE_REPO}:latest verify`));
     });
 
-    await withFixture("abc12345", async (noVersion) => {
-        await writeFile(
-            join(noVersion.repo, ".defined.json"),
-            JSON.stringify({ coverage: {} }),
-        );
+    // Versionless config (coverage only) → default latest, coverage preserved.
+    await withFixture({ coverage: {} }, async (noVersion) => {
         const r = await runLauncher({ fixture: noVersion, args: ["verify"] });
-        assert.equal(r.status, 1);
-        assert.match(r.stderr, /no "version"/u);
-        assert.deepEqual(r.log, []);
+        assert.equal(r.status, 0);
+        const run = r.log.find((line) => line.startsWith("run --rm"));
+        assert.ok(run!.endsWith(`${IMAGE_REPO}:latest verify`));
     });
 });
 

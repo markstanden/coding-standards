@@ -3,7 +3,7 @@
 #
 # Locates a container engine, ensures the pinned image exists (builds it on
 # first run or when tool pins change), mounts the target repo rw and
-# runtime/ + lib/ + standards/ ro, then execs verify.mts inside the container.
+# runtime/ + lib/ + standards/ ro, then execs comply.mts inside the container.
 #
 # Usage: ./runtime/comply.sh            # local/agent loop (default): bootstrap + repair + verify
 #        ./runtime/comply.sh --check-only  # read-only no-fix pass (tests + no-write checks)
