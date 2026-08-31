@@ -1,59 +1,71 @@
-// lib/ctx.mts — run-context assembly for the quality gate.
+// lib/ctx.mts — command parsing and run-context assembly for the gate.
 //
-// Flag parsing (pure, table-testable) and context creation (derives the
-// repo root from the invocation directory). Never imports steps.
+// The public contract is exactly two verbs (decision #23): `comply` (bootstrap
+// + repair + verify) and `verify` (read-only check). Everything else — no
+// verb, unknown verbs, the old public `setup`, and the retired `--fix` /
+// `--no-fix` / `--silent` flags — is a concise usage error with a non-zero
+// exit. Never imports steps.
 
 import { deriveRepoRoot } from "../../lib/paths.mts";
 
+export type Verb = "comply" | "verify";
 export type StepMode = "fix" | "no-fix";
 
-export interface ParsedArgs {
-    mode: StepMode;
-    silent: boolean;
+export interface ParsedCommand {
+    verb: Verb;
     help: boolean;
 }
 
-export interface RunContext extends ParsedArgs {
-    help: false;
+export interface RunContext {
+    verb: Verb;
     repoRoot: string;
 }
 
 /**
- * Parse gate flags. `--fix`/`--no-fix` are last-wins; unknown flags throw
- * so typos never silently change behaviour.
+ * Parse the positional verb. Returns help for `-h`/`--help`; throws a concise
+ * usage error for anything else so typos never silently change behaviour.
  */
-export function parseArgs({
-    argv,
-}: {
-    argv: string[];
-}): ParsedArgs & { help: boolean } {
-    let mode: StepMode = "no-fix";
-    let silent = false;
-    for (const arg of argv) {
-        if (arg === "--fix") {
-            mode = "fix";
-        } else if (arg === "--no-fix") {
-            mode = "no-fix";
-        } else if (arg === "--silent") {
-            silent = true;
-        } else if (arg === "-h" || arg === "--help") {
-            return { mode, silent, help: true };
-        } else {
-            throw new Error(`unknown flag: ${arg}`);
-        }
+export function parseCommand({ argv }: { argv: string[] }): ParsedCommand {
+    if (argv.length === 0) {
+        throw new Error("missing command — expected 'comply' or 'verify'");
     }
-    return { mode, silent, help: false };
+    if (argv[0] === "-h" || argv[0] === "--help") {
+        if (argv.length > 1) {
+            throw new Error(`unexpected argument: ${argv[1]}`);
+        }
+        return { verb: "verify", help: true };
+    }
+    if (argv.length > 1) {
+        throw new Error(`unexpected argument: ${argv[1]}`);
+    }
+    const verb = argv[0];
+    if (verb === "comply" || verb === "verify") {
+        return { verb, help: false };
+    }
+    if (verb === "setup") {
+        throw new Error(
+            "'setup' is no longer public — run 'comply' to bootstrap",
+        );
+    }
+    if (verb === "--fix") {
+        throw new Error("'--fix' is gone — run 'comply' to repair");
+    }
+    if (verb === "--no-fix" || verb === "--silent") {
+        throw new Error(`'${verb}' is gone — run 'verify' to check`);
+    }
+    throw new Error(
+        `unknown command '${verb}' — expected 'comply' or 'verify'`,
+    );
 }
 
 /** Assemble a full run context, deriving the repo root from startDir. */
 export async function createRunContext({
-    argv,
+    verb,
     startDir,
 }: {
-    argv: string[];
+    verb: Verb;
     startDir: string;
 }): Promise<RunContext> {
-    const parsed = parseArgs({ argv });
     const repoRoot = await deriveRepoRoot({ startDir });
-    return { ...parsed, help: false, repoRoot };
+    return { verb, repoRoot };
 }

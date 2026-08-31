@@ -1,11 +1,17 @@
-// Integration test: the gate finds broken code and auto-fixes it.
+// Integration test: the two-verb runtime contract against a real gate run.
 //
-// Builds a deliberately-broken git repo (lib/fixture.mts), runs the real gate
-// against it in-container via runtime/verify.sh, and asserts:
-//   1. check mode FAILS on every broken ecosystem (picked up),
-//   2. --fix repairs the auto-fixable ones (node/shell/yaml/tofu pass,
-//      workflow stays red — actionlint is check-only),
-//   3. a file behind the host .prettierignore is never touched.
+// Builds a deliberately-broken git repo (lib/fixture.mts), drives the real
+// gate against it in-container via runtime/verify.sh, and asserts:
+//   1. `verify` FAILS non-zero, read-only (every broken ecosystem picked up,
+//      bootstrap drift detected, and every file byte-identical after — hash
+//      proof that verify never writes to the checkout).
+//   2. `comply` bootstraps, repairs the auto-fixable ones (node/shell/yaml/tofu
+//      go green), stays red for the check-only workflow step, and reports
+//      `not compliant after repair`.
+//   3. A file behind the host .prettierignore is never touched — even by
+//      comply's repair pass.
+//   4. After semantic repair of the workflow file, both `verify` and `comply`
+//      exit 0 with the single stable `compliant` line.
 //
 // Requires a container engine + the gate image (verify.sh builds it on first
 // run). Skips cleanly when no engine is usable so `node --test` stays
@@ -18,10 +24,11 @@
 // Run: node --test fixture.test.mts
 
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { test } from "node:test";
 
 import { createBrokenFixture, brokenFixtureFiles } from "./lib/fixture.mts";
@@ -43,50 +50,92 @@ async function makeTemp(): Promise<string> {
     return mkdtemp(join(tmpdir(), "quality-fixture-"));
 }
 
+/** Walk every regular file under root and return path → sha256. */
+function hashTree(root: string): Map<string, string> {
+    const hashes = new Map<string, string>();
+    const walk = (dir: string): void => {
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+            const full = join(dir, entry.name);
+            if (entry.isDirectory()) {
+                walk(full);
+            } else if (entry.isFile()) {
+                const digest = createHash("sha256")
+                    .update(readFileSync(full))
+                    .digest("hex");
+                hashes.set(relative(root, full), digest);
+            }
+        }
+    };
+    walk(root);
+    return hashes;
+}
+
+function assertTreeUntouched(root: string, before: Map<string, string>): void {
+    const after = hashTree(root);
+    assert.deepEqual(
+        [...after].sort(),
+        [...before].sort(),
+        "verify must never write to the checkout",
+    );
+}
+
 test(
-    "gate picks up every broken ecosystem and --fix repairs auto-fixable ones",
+    "verify fails read-only on broken code; comply repairs safe findings and stays red for check-only ones",
     { skip: !hasEngine() },
     async () => {
         const root = await makeTemp();
         try {
             await createBrokenFixture({ root });
 
-            // Check mode: every broken ecosystem fails (picked up).
-            const check = run({ cmd: gateShim(), args: [], cwd: root });
+            // ---- verify: non-zero, every ecosystem picked up, no writes ----
+            const before = hashTree(root);
+            const verify = run({
+                cmd: gateShim(),
+                args: ["verify"],
+                cwd: root,
+            });
             assert.equal(
-                check.status,
+                verify.status,
                 1,
-                `check should fail, got:\n${check.stdout}`,
+                `verify should fail, got:\n${verify.stdout}`,
             );
             for (const step of ["node", "shell", "yaml", "workflow", "tofu"]) {
                 assert.match(
-                    check.stdout,
+                    verify.stdout,
                     new RegExp(`^fail ${step} `, "m"),
-                    `${step} should be picked up in check mode`,
+                    `${step} should be picked up by verify`,
                 );
             }
+            // Bootstrap drift is a verify finding too (fixture has no configs).
+            assert.match(verify.stdout, /^fail bootstrap /m);
+            assertTreeUntouched(root, before);
 
-            // Fix mode: auto-fixable ecosystems pass; workflow (check-only) stays red.
-            const fix = run({ cmd: gateShim(), args: ["--fix"], cwd: root });
+            // ---- comply: bootstraps, repairs safe findings, workflow stays red ----
+            const comply = run({
+                cmd: gateShim(),
+                args: ["comply"],
+                cwd: root,
+            });
             assert.equal(
-                fix.status,
+                comply.status,
                 1,
-                "fix run still fails (workflow is check-only)",
+                "comply still fails (workflow is check-only)",
             );
+            assert.match(comply.stdout, /^not compliant after repair/m);
             for (const step of ["node", "shell", "yaml", "tofu"]) {
-                assert.match(
-                    fix.stdout,
-                    new RegExp(`^pass ${step} `, "m"),
-                    `${step} should pass after --fix`,
+                assert.doesNotMatch(
+                    comply.stdout,
+                    new RegExp(`^fail ${step} `, "m"),
+                    `${step} should be repaired by comply`,
                 );
             }
             assert.match(
-                fix.stdout,
+                comply.stdout,
                 /^fail workflow /m,
-                "workflow stays red after --fix (actionlint is check-only)",
+                "workflow stays red after comply (actionlint is check-only)",
             );
 
-            // Ignored file untouched: host .prettierignore covers dotfiles/nvim/.
+            // Ignored file untouched even by comply's repair pass.
             const ignored = await readFile(
                 join(root, "dotfiles/nvim/lazy-lock.json"),
                 "utf8",
@@ -95,6 +144,62 @@ test(
                 ignored,
                 brokenFixtureFiles()["dotfiles/nvim/lazy-lock.json"],
             );
+        } finally {
+            await rm(root, { recursive: true, force: true });
+        }
+    },
+);
+
+test(
+    "verify and comply are both green after semantic repair",
+    { skip: !hasEngine() },
+    async () => {
+        const root = await makeTemp();
+        try {
+            await createBrokenFixture({ root });
+
+            // comply bootstraps configs + repairs safe findings; workflow stays
+            // red until a human/agent fixes the check-only finding.
+            const comply = run({
+                cmd: gateShim(),
+                args: ["comply"],
+                cwd: root,
+            });
+            assert.equal(comply.status, 1, "workflow is still check-only-red");
+
+            // Semantic repair: give the workflow job a runs-on. The fix must
+            // also be prettier-formatted (4-space indent, per the .editorconfig
+            // comply installed), or the node step stays red.
+            const workflowPath = join(root, ".github/workflows/ci.yml");
+            const repaired = [
+                "name: CI",
+                "on: push",
+                "jobs:",
+                "    build:",
+                "        runs-on: ubuntu-latest",
+                "        steps:",
+                "            - run: echo hi",
+                "",
+            ].join("\n");
+            await writeFile(workflowPath, repaired);
+
+            for (const verb of ["verify", "comply"]) {
+                const result = run({
+                    cmd: gateShim(),
+                    args: [verb],
+                    cwd: root,
+                });
+                assert.equal(
+                    result.status,
+                    0,
+                    `${verb} should pass after semantic repair, got:\n${result.stdout}`,
+                );
+                assert.deepEqual(
+                    result.stdout.trim().split("\n"),
+                    ["compliant"],
+                    `${verb} must print exactly one compliant line`,
+                );
+            }
         } finally {
             await rm(root, { recursive: true, force: true });
         }

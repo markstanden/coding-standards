@@ -9,16 +9,15 @@ A single source of truth for my development project configuration files, workflo
 backed by shared building blocks (`lib/`) and house standards (`standards/`).
 The design and decision log live in [PLAN.md](PLAN.md).
 
-## The gate: one command owns verification
+## The gate: two verbs own verification
 
-`./runtime/verify.sh` from a project root gates it. Local green = merge green:
-CI runs the same image.
+`./runtime/verify.sh comply` from a project root bootstraps, repairs and
+verifies it; `./runtime/verify.sh verify` is a read-only check. Local green =
+merge green: CI runs the same image.
 
 ```bash
-./runtime/verify.sh            # check mode
-./runtime/verify.sh --fix      # repair mechanically (fmt/lint autofix)
-./runtime/verify.sh --silent   # log-style output for CI
-./runtime/verify.sh setup      # bootstrap: installs root configs + AGENTS.md block
+./runtime/verify.sh comply    # bootstrap (configs + AGENTS block) → repair → verify
+./runtime/verify.sh verify    # read-only check (never writes)
 ```
 
 The gate detects the stack (steps run in order `naming → node → dotnet → shell
@@ -29,10 +28,11 @@ the image.
 
 ## Adopt the gate in a consumer repo
 
-1. **Bootstrap** — run `verify.sh setup` to install `.editorconfig` and
+1. **Bootstrap** — run `verify.sh comply` to install `.editorconfig` and
    `Directory.Build.props` into the repo root and seed the AGENTS.md managed
    block (raises-only; your tightened rules are never overwritten).
-2. **Gate locally** — `./runtime/verify.sh` (add `--fix` to repair).
+2. **Gate locally** — `./runtime/verify.sh verify` (read-only) or
+   `./runtime/verify.sh comply` (bootstraps, repairs, then re-verifies).
 3. **Gate in CI** — call the reusable `defined--verify.yml` workflow, pinned
    to a git sha with a matching image tag:
 

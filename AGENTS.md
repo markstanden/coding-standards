@@ -29,9 +29,9 @@ end-to-end gate.
   single source of truth for shared root configs — the gate's `setup`
   installs them into consumer repo roots (raises-only) from the baked image.
   The repo's own root `.editorconfig` is a copy of `standards/.editorconfig`
-  (self-hosted: `verify.sh setup` on this repo is a no-op, and drift fails
-  loudly). It drives prettier (pure-defaults config reads it natively), shfmt
-  and IDEs from one source.
+  (self-hosted: `comply` on this repo is a no-op beyond the AGENTS block, and
+  drift fails loudly). It drives prettier (pure-defaults config reads it
+  natively), shfmt and IDEs from one source.
 
 ## The gate: how it works
 
@@ -49,7 +49,7 @@ aren't relitigated:
 → tofu`; missing tools fail loudly pointing at the Containerfile (no
   optional tier).
 - **Run the full suite continuously**: host `node --test` _and_ the podman
-  end-to-end gate (`./runtime/verify.sh`) — host-green does not mean
+  end-to-end gate (`./runtime/verify.sh verify`) — host-green does not mean
   gate-green (2026-08-30: the unit suite passed while the gate went red on
   real workflow-template findings until the stage-2 refactor fixed them).
   `node --test` also runs the broken-fixture integration test
@@ -72,6 +72,6 @@ aren't relitigated:
 This project is gated by Mark's portable defined gate (`runtime/`).
 House standards, tool pins and the decision log live in the gate's PLAN.md;
 the canonical cross-project index is the coding-standards README. Run
-`./runtime/verify.sh` to gate (add `--fix` to repair mechanically, `--silent`
-for log-style output); a missing ecosystem skips, a missing tool fails loudly.
+`./runtime/verify.sh comply` to bootstrap, repair and verify; `./runtime/verify.sh verify`
+for a read-only check; a missing ecosystem skips, a missing tool fails loudly.
 <!-- defined:end -->

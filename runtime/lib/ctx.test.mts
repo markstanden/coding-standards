@@ -1,4 +1,4 @@
-// Tests for lib/ctx.mts: flag parsing and run-context assembly.
+// Tests for lib/ctx.mts: command parsing and run-context assembly.
 // Run: node --test lib/ctx.test.mts
 
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
 
-import { createRunContext, parseArgs } from "./ctx.mts";
+import { createRunContext, parseCommand } from "./ctx.mts";
 
 const tempDirs: string[] = [];
 
@@ -26,47 +26,65 @@ async function tempGitTree(): Promise<string> {
     return dir;
 }
 
-test("parseArgs defaults to check-only, non-silent", () => {
-    assert.deepEqual(parseArgs({ argv: [] }), {
-        mode: "no-fix",
-        silent: false,
+test("parseCommand accepts exactly comply and verify", () => {
+    assert.deepEqual(parseCommand({ argv: ["comply"] }), {
+        verb: "comply",
+        help: false,
+    });
+    assert.deepEqual(parseCommand({ argv: ["verify"] }), {
+        verb: "verify",
         help: false,
     });
 });
 
-test("parseArgs recognises --fix and --silent", () => {
-    assert.deepEqual(parseArgs({ argv: ["--fix", "--silent"] }), {
-        mode: "fix",
-        silent: true,
-        help: false,
+test("parseCommand reports help", () => {
+    assert.deepEqual(parseCommand({ argv: ["-h"] }), {
+        verb: "verify",
+        help: true,
     });
-});
-
-test("parseArgs lets the last of --fix/--no-fix win", () => {
-    assert.equal(parseArgs({ argv: ["--fix", "--no-fix"] }).mode, "no-fix");
-    assert.equal(parseArgs({ argv: ["--no-fix", "--fix"] }).mode, "fix");
-});
-
-test("parseArgs reports help without other effects", () => {
-    assert.deepEqual(parseArgs({ argv: ["--help"] }), {
-        mode: "no-fix",
-        silent: false,
+    assert.deepEqual(parseCommand({ argv: ["--help"] }), {
+        verb: "verify",
         help: true,
     });
 });
 
-test("parseArgs rejects unknown flags loudly", () => {
-    assert.throws(() => parseArgs({ argv: ["--wat"] }), /unknown flag: --wat/u);
+test("parseCommand rejects a missing command", () => {
+    assert.throws(() => parseCommand({ argv: [] }), /missing command/u);
+});
+
+test("parseCommand rejects unknown verbs", () => {
+    assert.throws(() => parseCommand({ argv: ["wat"] }), /unknown command/u);
+    assert.throws(() => parseCommand({ argv: ["setup"] }), /no longer public/u);
+});
+
+test("parseCommand rejects the retired flags", () => {
+    assert.throws(() => parseCommand({ argv: ["--fix"] }), /'--fix' is gone/u);
+    assert.throws(
+        () => parseCommand({ argv: ["--no-fix"] }),
+        /'--no-fix' is gone/u,
+    );
+    assert.throws(
+        () => parseCommand({ argv: ["--silent"] }),
+        /'--silent' is gone/u,
+    );
+});
+
+test("parseCommand rejects trailing arguments", () => {
+    assert.throws(
+        () => parseCommand({ argv: ["comply", "--silent"] }),
+        /unexpected argument/u,
+    );
+    assert.throws(
+        () => parseCommand({ argv: ["verify", "extra"] }),
+        /unexpected argument/u,
+    );
 });
 
 test("createRunContext derives repoRoot via git marker walk-up", async () => {
     const root = await tempGitTree();
     const nested = join(root, "deep");
     await mkdir(nested);
-    const ctx = await createRunContext({ argv: [], startDir: nested });
+    const ctx = await createRunContext({ verb: "verify", startDir: nested });
     assert.equal(ctx.repoRoot, root);
-    assert.deepEqual(
-        { mode: ctx.mode, silent: ctx.silent },
-        { mode: "no-fix", silent: false },
-    );
+    assert.equal(ctx.verb, "verify");
 });

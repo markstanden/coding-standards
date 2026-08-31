@@ -14,10 +14,16 @@ import { join } from "node:path";
 import { readContentsOrEmpty } from "./agents-block.mts";
 
 export type InstallStatus = "installed" | "unchanged";
+export type CheckStatus = "present" | "absent" | "drift";
 
 export interface InstalledConfig {
     name: string;
     status: InstallStatus;
+}
+
+export interface CheckedConfig {
+    name: string;
+    status: CheckStatus;
 }
 
 /**
@@ -47,6 +53,37 @@ export async function installRootConfigs({
             throw new Error(
                 `${target} differs from the gate's copy — resolve by hand; the gate never overwrites (raises-only)`,
             );
+        }
+    }
+    return results;
+}
+
+/**
+ * Read-only counterpart of installRootConfigs: report each named config as
+ * present (identical), absent or drifted without writing a byte. Used by
+ * `verify` to detect bootstrap drift before the check pass.
+ */
+export async function checkRootConfigs({
+    sourceDir,
+    names,
+    repoRoot,
+}: {
+    sourceDir: string;
+    names: string[];
+    repoRoot: string;
+}): Promise<CheckedConfig[]> {
+    const results: CheckedConfig[] = [];
+    for (const name of names) {
+        const desired = await readFile(join(sourceDir, name), "utf8");
+        const existing = await readContentsOrEmpty({
+            filePath: join(repoRoot, name),
+        });
+        if (existing === "") {
+            results.push({ name, status: "absent" });
+        } else if (existing === desired) {
+            results.push({ name, status: "present" });
+        } else {
+            results.push({ name, status: "drift" });
         }
     }
     return results;

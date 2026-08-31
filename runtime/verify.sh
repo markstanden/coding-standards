@@ -5,7 +5,8 @@
 # first run or when tool pins change), mounts the target repo rw and
 # runtime/ + lib/ + standards/ ro, then execs verify.mts inside the container.
 #
-# Usage: ./runtime/verify.sh [--fix] [--silent] [step flags...]
+# Usage: ./runtime/verify.sh comply   # bootstrap + repair + verify
+#        ./runtime/verify.sh verify   # read-only check (the pipeline verb)
 #
 # Engine preference is podman → docker: podman adheres more strictly to OCI
 # semantics, so developing against it keeps the image honest; docker's

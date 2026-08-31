@@ -33,11 +33,11 @@ hard rules (gate steps, module conventions, naming) live in
   parameter; pure logic is extracted and table-tested.
 - **Floors raise, never lower**: defaults are strict; projects may add
   strictness, never remove it. Mechanical fixes are committed as mechanical
-  diffs — a `--fix` that leaves diffs reads as failure.
+  diffs — a `comply` repair pass that leaves diffs reads as failure.
 
 ## Tools
 
 - **No optional tier**: a tool the image should contain must exist; its
   absence is a Containerfile problem, not a soft skip.
-- **Config owns style**: edit config and run `verify --fix`, never hand-tune
+- **Config owns style**: edit config and run `comply`, never hand-tune
   generated output.

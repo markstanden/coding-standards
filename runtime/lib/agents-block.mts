@@ -11,6 +11,8 @@ import { readFile, writeFile } from "node:fs/promises";
 export const BLOCK_START = "<!-- defined:start -->";
 export const BLOCK_END = "<!-- defined:end -->";
 
+export type MarkedBlockStatus = "present" | "absent" | "drift" | "corrupt";
+
 function isErrno(err: unknown, code: string): boolean {
     return (err as NodeJS.ErrnoException).code === code;
 }
@@ -93,4 +95,38 @@ export async function writeMarkedBlock({
             .join("\n");
     }
     await writeFile(filePath, next);
+}
+
+/**
+ * Read-only counterpart of writeMarkedBlock: classify the managed block in
+ * filePath without writing a byte. Used by `verify` to detect absence, drift
+ * or marker corruption before the check pass.
+ *
+ * - `corrupt`: one marker present, the other missing, or out of order.
+ * - `absent`: no markers in the file (or the file does not exist).
+ * - `drift`: marked block present but differs from the template.
+ * - `present`: marked block matches the template exactly.
+ */
+export async function checkMarkedBlock({
+    filePath,
+    block,
+}: {
+    filePath: string;
+    block: string;
+}): Promise<MarkedBlockStatus> {
+    const existing = await readContentsOrEmpty({ filePath });
+    const lines = existing === "" ? [] : existing.split("\n");
+    const startLine = lines.findIndex((l) => l.includes(BLOCK_START));
+    const endLine = lines.findIndex((l) => l.includes(BLOCK_END));
+    if (
+        (startLine === -1) !== (endLine === -1) ||
+        (startLine !== -1 && startLine > endLine)
+    ) {
+        return "corrupt";
+    }
+    if (startLine === -1) {
+        return "absent";
+    }
+    const present = lines.slice(startLine, endLine + 1).join("\n");
+    return present === block ? "present" : "drift";
 }

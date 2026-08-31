@@ -27,13 +27,21 @@ tofu`; missing applicable tools fail loudly pointing at the Containerfile
   `lib/` and standards baked at `/opt/defined`; local shim bind-mounts ro for
   live edits. CI via `defined--test.yml`; publication via
   `defined--publish.yml` (linux/amd64+arm64, pinhash + shortsha tags).
-- **Bootstrap** — gate setup installs `.editorconfig` + `Directory.Build.props`
+- **Bootstrap** — `comply` installs `.editorconfig` + `Directory.Build.props`
   into repo roots (raises-only) and seeds a marker-delimited managed block in
-  consumer `AGENTS.md` (raises-only, idempotent).
+  consumer `AGENTS.md` (raises-only, idempotent); `verify` detects
+  absence/drift/corruption read-only.
+- **Two-verb runtime contract (Phase 2, 2026-08-31)** — `defined comply`
+  bootstraps → repairs → re-verifies; `defined verify` checks managed artifacts
+  then runs a complete no-fix pass, never writing. Output is one stable
+  `compliant` line on green; a stable agent-actionable breakdown otherwise.
+  The retired `setup` verb and `--fix`/`--no-fix`/`--silent` flags are usage
+  errors.
 - **Tested** — 145+ host unit tests (colocated `*.test.mts`) + a broken-fixture
   integration test (`runtime/fixture.test.mts`) driving the real gate
-  in-container + the podman end-to-end gate (`./runtime/verify.sh`). Run the
-  full suite continuously: host-green does not mean gate-green.
+  in-container (hash-proves `verify` is side-effect free) + the podman
+  end-to-end gate (`./runtime/verify.sh verify`). Run the full suite
+  continuously: host-green does not mean gate-green.
 - **Current repo target** — `runtime/`, root `lib/`, `standards/`, `practices/`,
   `.github/workflows/{defined--verify|defined--test|defined--publish}.yml`.
 - **Scope correction applied (Phase 1 of the refocus, 2026-08-31)** — the ten
@@ -227,23 +235,23 @@ repos.
 
 ### Phase 2 — Two-verb runtime contract
 
-- [ ] Positional verb parsing tests: only `comply`/`verify`; no verb, unknown
+- [x] Positional verb parsing tests: only `comply`/`verify`; no verb, unknown
       verbs, public `setup`, `--fix`, `--no-fix`, `--silent` → concise usage
       errors, non-zero.
-- [ ] Split bootstrap into write vs check: `comply` idempotent/no-clobber;
+- [x] Split bootstrap into write vs check: `comply` idempotent/no-clobber;
       `verify` detects absence/drift/marker corruption without writing a byte.
-- [ ] `comply` = bootstrap → complete fix pass → fresh complete verify pass;
+- [x] `comply` = bootstrap → complete fix pass → fresh complete verify pass;
       prove the second pass runs after repairs and surviving failures set exit.
-- [ ] `verify` = managed-artifact check → complete no-fix pass; hash fixture
+- [x] `verify` = managed-artifact check → complete no-fix pass; hash fixture
       files to prove side-effect freedom.
-- [ ] Success = one stable line, chatter suppressed; table-driven failure-output
+- [x] Success = one stable line, chatter suppressed; table-driven failure-output
       tests for bootstrap drift, findings, failed builds, missing tools.
-- [ ] Broken fixture drives both verbs: `verify` fails read-only; `comply`
+- [x] Broken fixture drives both verbs: `verify` fails read-only; `comply`
       repairs safe findings, stays red for check-only ones; both green after
       semantic repair.
-- [ ] Keep internal `StepMode = "fix" | "no-fix"` unless simplification shows
+- [x] Keep internal `StepMode = "fix" | "no-fix"` unless simplification shows
       otherwise.
-- [ ] Host tests + podman gate after each behaviour slice.
+- [x] Host tests + podman gate after each behaviour slice.
 
 ### Phase 3 — Installed launcher and shared pin
 
