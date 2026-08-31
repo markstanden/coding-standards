@@ -96,9 +96,11 @@ defined verify   # pipeline-only: the read-only check
   installed on PATH (normally `~/.local/bin/defined`); no gate behaviour; needs
   git + podman/docker; prefers podman; mounts repo read-write for `comply`,
   read-only for `verify`.
-- `.defined.json` holds the immutable image tag under its `version` field, plus
-  optional per-ecosystem coverage configuration; rejects empty, `latest`,
-  malformed or conflicting overrides. Offline runs succeed only with the exact
+- `.defined.json` holds the optional immutable image tag under its `version`
+  field, plus optional per-ecosystem coverage configuration. An omitted
+  `version` (or a missing file) means the current published default image
+  (`latest`); a written pin must be immutable — empty, `latest`, malformed or
+  conflicting overrides are rejected. Offline runs succeed only with the exact
   image present.
 - `runtime/comply.sh` is an internal source-development shim, not a third
   public API; it defaults to the `comply` verb and `--check-only` runs the
@@ -116,12 +118,15 @@ GitHub forbids an expression in a reusable workflow `uses:` ref, so the
 consumer writes the workflow SHA in YAML; `.defined.json` removes the
 separate `image-tag` input so local and CI share one source. Local green =
 merge green only while the workflow ref and `.defined.json` pin match — the
-consumer keeps those in step.
+consumer keeps those in step. An omitted `version` deliberately rides the
+current published default image (`latest`) — defaults are obvious, a written
+pin is the override that restores immutability.
 
 ### Consumer configuration
 
 `.defined.json` at the repo root is the single consumer configuration file.
-Its only required field is `version` (the immutable image tag). Optional
+`version` is optional — omitted means the launcher uses the current published
+default image; a written pin is immutable (a 7–40 char hex SHA). Optional
 `coverage` configuration activates the per-ecosystem coverage gate:
 
 ```jsonc
@@ -168,7 +173,7 @@ defined/
 ├── runtime/
 │   ├── Containerfile                 # pinned, self-contained gate image
 │   ├── tool-versions.env             # tool pins used to build the image
-│   ├── verify.mts                    # comply/verify orchestration
+│   ├── comply.mts                    # comply/verify orchestration
 │   ├── setup.mts                     # internal bootstrap/check implementation
 │   ├── lib/                          # gate-specific core + tests (incl. config.mts)
 │   ├── steps/                        # detected ecosystem checks + tests
@@ -182,6 +187,8 @@ defined/
     └── defined--publish.yml          # image publication
 ```
 
-The producer repo does not commit a self-referential `.defined.json`
-(committing a config whose `version` is its own SHA is impossible) — it is the
-contract in consumer repos.
+The producer repo commits a versionless `.defined.json` — a coverage-only
+config (a self-referential `version` pin is impossible by construction, and an
+omitted version means the default image, which the source-development shim
+never consults anyway). `comply` on this repo is the coverage gate it ships,
+self-hosted on the gate's own test suite.

@@ -89,4 +89,4 @@ COPY lib /opt/defined/lib
 COPY standards /opt/defined/standards
 
 WORKDIR /repo
-ENTRYPOINT ["node", "/opt/defined/runtime/verify.mts"]
+ENTRYPOINT ["node", "/opt/defined/runtime/comply.mts"]

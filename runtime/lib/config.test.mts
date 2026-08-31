@@ -114,7 +114,6 @@ test("loadConfig rejects array root", async () => {
 
 test("loadConfig rejects invalid version values", async () => {
     const BAD_VERSIONS = [
-        { label: "missing", config: { coverage: {} } },
         { label: "too short", config: { version: "abc123" } },
         {
             label: "non-hex",
@@ -125,6 +124,9 @@ test("loadConfig rejects invalid version values", async () => {
             config: { version: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2" },
         },
         { label: "non-string", config: { version: 1234567 } },
+        { label: "empty string", config: { version: "" } },
+        { label: "null", config: { version: null } },
+        { label: "latest", config: { version: "latest" } },
     ] as const;
     for (const { label, config } of BAD_VERSIONS) {
         await rejectsLoad({
@@ -134,6 +136,19 @@ test("loadConfig rejects invalid version values", async () => {
         });
         assert.ok(true, `rejects ${label}`);
     }
+});
+
+test("loadConfig accepts a config with no version and keeps coverage", async () => {
+    const dir = await makeTempDir("quality-config-");
+    const cfg = {
+        coverage: {
+            node: { command: "npm run test:coverage" },
+        },
+    };
+    await writeConfig(dir, JSON.stringify(cfg));
+    const config = await loadConfig({ repoRoot: dir });
+    assert.equal(config.version, "");
+    assert.equal(config.coverage?.node?.command, "npm run test:coverage");
 });
 
 test("loadConfig rejects coverage with unknown ecosystem", async () => {

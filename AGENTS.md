@@ -14,18 +14,20 @@ end-to-end gate.
 
 - `cli/defined` is the **installed host launcher** (decision #25): bash, no gate
   behaviour, needs only git + podman/docker. It reads the consumer's committed
-  `.defined.json` `version` pin, prefers podman, mounts the repo rw for `comply` / ro
+  `.defined.json` `version` (omitted → current published default image; a
+  written pin is immutable), prefers podman, mounts the repo rw for `comply` / ro
   for `verify`. Tested via `cli/defined.test.mts` with fake engines injected on
-  PATH (no real engine needed). The producer repo does not commit its own
-  `.defined.json`.
+  PATH (no real engine needed). The producer repo commits its own versionless
+  config — a coverage-only `.defined.json`.
 - Root `.github/workflows/*.yml` hold one consumer-facing reusable workflow and
   two repository CI workflows. The only reusable workflow is `defined--verify.yml`
   (the gate). Naming convention: `<namespace>--<loose-verb>[--<target>].yml`
   (double hyphen separates the segments; the verb names the intent, not the tool
   — see `standards/naming.md`). The other two ARE CI for this repo:
-  `defined--publish.yml` (builds + pushes the gate image to ghcr on main) and
-  `defined--test.yml` (runs the gate's own unit + broken-fixture suite on PRs
-  and merges).
+  `defined--publish.yml` (builds + pushes the gate image to ghcr on main,
+  tagged with the tool-pin hash, short SHA and `latest`) and `defined--test.yml`
+  (runs the gate's own unit + broken-fixture suite, the self-host gate with
+  coverage, and a guarded SonarQube scan on PRs and merges).
 - `standards/workflows/pipeline.example.yml` — the `.example` in the stem is
   deliberate: it is a template for consumer pipelines, not a real workflow
   here. The `.yml` extension means the gate's `yaml` step lints it, so the
@@ -34,8 +36,9 @@ end-to-end gate.
   single source of truth for shared root configs — `comply`'s bootstrap
   installs them into consumer repo roots from the baked image. The repo's own
   root `.editorconfig` and `Directory.Build.props` are copies of the
-  `standards/` versions (self-hosted: `comply` on this repo is a no-op
-  beyond the AGENTS block). Managed files are compared byte-for-byte: any
+  `standards/` versions (self-hosted: `comply` on this repo bootstraps nothing
+  beyond the AGENTS block but runs the coverage gate on its own tests). Managed
+  files are compared byte-for-byte: any
   difference is drift and fails — there is no semantic merge. It drives prettier
   (pure-defaults config reads it natively), shfmt and IDEs from one source.
 
