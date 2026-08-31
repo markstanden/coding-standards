@@ -57,4 +57,4 @@ jobs:
 
             - name: Run test suite (unit + broken fixture)
               shell: bash
-              run: node --test 'lib/*.test.mts' 'runtime/**/*.test.mts' 'pipelines/*.test.mts'
+              run: node --test 'lib/*.test.mts' 'runtime/**/*.test.mts'

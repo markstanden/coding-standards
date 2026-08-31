@@ -24,10 +24,9 @@ Built and green to date:
 tofu`; missing applicable tools fail loudly pointing at the Containerfile
   (no optional tier except Sonar, outside the manifest).
 - **Self-contained image** `ghcr.io/markstanden/defined` — gate code, shared
-  `lib/`, standards and (currently) pipelines baked at `/opt/defined`; local
-  shim bind-mounts ro for live edits. CI via `defined--test.yml`;
-  publication via `defined--publish.yml` (linux/amd64+arm64, pinhash + shortsha
-  tags).
+  `lib/` and standards baked at `/opt/defined`; local shim bind-mounts ro for
+  live edits. CI via `defined--test.yml`; publication via
+  `defined--publish.yml` (linux/amd64+arm64, pinhash + shortsha tags).
 - **Bootstrap** — gate setup installs `.editorconfig` + `Directory.Build.props`
   into repo roots (raises-only) and seeds a marker-delimited managed block in
   consumer `AGENTS.md` (raises-only, idempotent).
@@ -37,6 +36,11 @@ tofu`; missing applicable tools fail loudly pointing at the Containerfile
   full suite continuously: host-green does not mean gate-green.
 - **Current repo target** — `runtime/`, root `lib/`, `standards/`, `practices/`,
   `.github/workflows/{defined--verify|defined--test|defined--publish}.yml`.
+- **Scope correction applied (Phase 1 of the refocus, 2026-08-31)** — the ten
+  delivery workflow templates, the `pipelines/` layer (14 modules + 14 tests +
+  helper) and the orphaned `lib/gha.mts`/`lib/json.mts` helpers are removed;
+  `defined--verify.yml` is the sole consumer-facing workflow. Git history is
+  the archive.
 
 ## Decisions log (condensed)
 
@@ -198,27 +202,27 @@ repos.
 
 ### Phase 1 — Remove the workflow catalogue
 
-- [ ] Delete the ten consumer workflows outside the gate boundary:
+- [x] Delete the ten consumer workflows outside the gate boundary:
       `azure-swa--deploy--blazor-wasm.yml`, `azure-swa--deploy--static-site.yml`,
       `dotnet--analyse--sonarqube.yml`, `dotnet--build--blazor-frontend.yml`,
       `dotnet--test--playwright-tests.yml`, `healthcheck--verify--endpoints.yml`,
       `node--build--frontend.yml`, `node--test--playwright.yml`,
       `opentofu--build--infrastructure.yml`, `opentofu--destroy--workspace.yml`.
-- [ ] Keep exactly one consumer-facing workflow, `defined--verify.yml`; keep
+- [x] Keep exactly one consumer-facing workflow, `defined--verify.yml`; keep
       `defined--test.yml` and `defined--publish.yml` as this repo's own CI.
-- [ ] Delete `pipelines/` in full (14 modules + 14 tests + helper). Git history
+- [x] Delete `pipelines/` in full (14 modules + 14 tests + helper). Git history
       is the archive; no `archive/` directory.
-- [ ] Delete root `lib/gha.mts`, `lib/json.mts` + tests after proving no runtime
+- [x] Delete root `lib/gha.mts`, `lib/json.mts` + tests after proving no runtime
       consumers; retain `git.mts`, `paths.mts`, `proc.mts`.
-- [ ] Remove `pipelines/` from the Containerfile copy, the verify.sh bind mount,
+- [x] Remove `pipelines/` from the Containerfile copy, the verify.sh bind mount,
       the publish path trigger and the pipeline test glob. Keep `curl` (image
       build still fetches gate tools).
-- [ ] Reduce `standards/naming.md` to conventions exercised by the gate and its
+- [x] Reduce `standards/naming.md` to conventions exercised by the gate and its
       three `defined--*.yml` workflows.
-- [ ] Update README, AGENTS, architecture guidance and the pipeline example to
+- [x] Update README, AGENTS, architecture guidance and the pipeline example to
       describe one gate workflow, not a catalogue.
-- [ ] Add a status entry recording the scope correction and exact removals.
-- [ ] Host tests + full podman gate green; workflow step green against the
+- [x] Add a status entry recording the scope correction and exact removals.
+- [x] Host tests + full podman gate green; workflow step green against the
       smaller `.github/workflows/` tree.
 
 ### Phase 2 — Two-verb runtime contract

@@ -17,7 +17,6 @@ RUNTIME_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 GATE_ROOT="$(dirname "${RUNTIME_DIR}")"
 LIB_DIR="${GATE_ROOT}/lib"
 STANDARDS_DIR="${GATE_ROOT}/standards"
-PIPELINES_DIR="${GATE_ROOT}/pipelines"
 
 # Repo root comes from the invocation CWD's git root — never from where this
 # script lives — so the gate can run against any checkout.
@@ -64,7 +63,6 @@ exec "${ENGINE}" run --rm \
     -v "${RUNTIME_DIR}:/opt/defined/runtime:ro" \
     -v "${LIB_DIR}:/opt/defined/lib:ro" \
     -v "${STANDARDS_DIR}:/opt/defined/standards:ro" \
-    -v "${PIPELINES_DIR}:/opt/defined/pipelines:ro" \
     -v "defined-node-${PINHASH}-${REPO_HASH}:/repo/node_modules" \
     -v "defined-npm-${REPO_HASH}:/root/.npm" \
     -v "defined-nuget-${REPO_HASH}:/root/.nuget/packages" \

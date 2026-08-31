@@ -1,4 +1,4 @@
-<!-- update: agent=opencode | date=2026-08-30 | scope=AGENTS.md -->
+<!-- update: agent=opencode | date=2026-08-31 | scope=AGENTS.md -->
 
 # AGENTS.md
 
@@ -13,11 +13,12 @@ end-to-end gate.
 ## Non-obvious structure
 
 - Root `.github/workflows/*.yml` are mostly **reusable `workflow_call` templates**
-  for consumer repos, NOT CI for this repo. Naming convention:
+  for consumer repos, NOT CI for this repo. There is exactly one consumer-facing
+  template: `defined--verify.yml` (the gate). Naming convention:
   `<namespace>--<loose-verb>[--<target>].yml` (double hyphen separates the
   segments; the verb names the intent, not the tool — see
   `standards/naming.md`), inputs parameterise paths/versions.
-  Exceptions that ARE CI for this repo: `defined--publish.yml` (builds +
+  The other two ARE CI for this repo: `defined--publish.yml` (builds +
   pushes the gate image to ghcr on main) and `defined--test.yml` (runs
   the gate's own unit + broken-fixture suite on PRs and merges).
 - `standards/workflows/pipeline.example.yml` — the `.example` in the stem is
@@ -56,15 +57,8 @@ aren't relitigated:
   deliberately-broken repo and skips cleanly without a container engine.
   The gate is now fully green; keeping it green is the tripwire — any new
   workflow-template deviation fails the `workflow` step again.
-- Pipeline modules live in `pipelines/*.mts` (thin zero-dep wrappers over the
-  shared `lib/` building blocks), baked into the image at
-  `/opt/defined/pipelines` and invoked by containerised workflow jobs as
-  `node /opt/defined/pipelines/<module>.mts` with inputs via env. Modules are
-  shared building blocks named `<namespace>-<loose-verb>.mts` — never 1:1
-  mirrors of a workflow, and runnable modules never end in `-test` (Node's
-  `*-test.*` discovery glob would execute them). See `standards/naming.md`.
-  The image tag IS the toolchain for containerised workflows — no
-  setup-opentofu/setup-dotnet/setup-node steps needed.
+- The image tag IS the toolchain — the gate image carries every pinned tool, so
+  containerised CI jobs need no setup-opentofu/setup-dotnet/setup-node steps.
 
 ## Conventions
 

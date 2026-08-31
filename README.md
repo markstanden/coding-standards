@@ -4,11 +4,10 @@
 
 A single source of truth for my development project configuration files, workflow templates, and development tools to ensure consistency across projects.
 
-**defined** — a portable, drop-in quality gate and workflow runtime base. A
-single container image (`runtime/`) that detects any project's stack and runs
-the right checks, backed by shared building blocks (`lib/`), pipeline modules
-(`pipelines/`) and house standards (`standards/`). The design and decision log
-live in [PLAN.md](PLAN.md).
+**defined** — a portable, drop-in quality gate. A single container image
+(`runtime/`) that detects any project's stack and runs the right checks,
+backed by shared building blocks (`lib/`) and house standards (`standards/`).
+The design and decision log live in [PLAN.md](PLAN.md).
 
 ## The gate: one command owns verification
 
@@ -62,10 +61,9 @@ summary.
   on the project dashboard).
 - The badge works only once SonarQube Cloud has analysed the default branch
   at least once (a blank badge means no analysis yet).
-- Add the same badge to client-project READMEs that run
-  `dotnet--analyse--sonarqube.yml` — it is the public "is it green?" signal
-  for a repo, and points reviewers at the new-code summary where the gate
-  conditions are explained.
+- Add the same badge to client-project READMEs that adopt the gate — it is the
+  public "is it green?" signal for a repo, and points reviewers at the new-code
+  summary where the gate conditions are explained.
 
 ## SonarQube Cloud project artifacts
 
@@ -79,37 +77,34 @@ tokens live in CI secrets, never in the repo.
   key, region). No credentials: SonarLint keeps them in the IDE's secret
   store.
 
-Client projects running `dotnet--analyse--sonarqube.yml` should add both,
-substituting their own `<org>_<repo>` key, so IDE and CLI analysis agree with
-CI by construction. Keep the `sonar.projectKey` in this repo's
-`sonar-project.properties`, `.sonarlint/connectedMode.json` and the README
-badge in step.
+Client projects adopting the gate should add both, substituting their own
+`<org>_<repo>` key, so IDE and CLI analysis agree with CI by construction. Keep
+the `sonar.projectKey` in this repo's `sonar-project.properties`,
+`.sonarlint/connectedMode.json` and the README badge in step.
 
-## Workflow template catalogue
+## Workflow templates
 
-Reusable `workflow_call` templates under `.github/workflows/`. Call any of
-these from a consumer pipeline via a gitsha-pinned ref. Filename grammar:
+The gate exposes exactly one consumer-facing reusable workflow:
+`defined--verify.yml` — quality scan for any repo. Call it from a consumer
+pipeline via a gitsha-pinned ref. Filename grammar:
 `<namespace>--<loose-verb>[--<target>]` (see [`standards/naming.md`](standards/naming.md)).
 
-| Template                              | What it runs                                    |
-| ------------------------------------- | ----------------------------------------------- |
-| `defined--verify.yml`                 | The gate itself (quality scan for any repo)     |
-| `dotnet--analyse--sonarqube.yml`      | SonarQube analysis (outside the gate by design) |
-| `dotnet--build--blazor-frontend.yml`  | Blazor WASM frontend build (npm + dotnet)       |
-| `dotnet--test--playwright-tests.yml`  | Playwright end-to-end tests                     |
-| `node--build--frontend.yml`           | Node frontend build                             |
-| `node--test--playwright.yml`          | Playwright tests for a node project             |
-| `azure-swa--deploy--blazor-wasm.yml`  | Deploy Blazor WASM to Azure Static Web Apps     |
-| `azure-swa--deploy--static-site.yml`  | Deploy a static site to Azure Static Web Apps   |
-| `opentofu--build--infrastructure.yml` | OpenTofu init/plan/apply with outputs           |
-| `opentofu--destroy--workspace.yml`    | OpenTofu workspace destroy                      |
-| `healthcheck--verify--endpoints.yml`  | cURL healthchecks against a route list          |
+```yaml
+jobs:
+    quality:
+        uses: markstanden/coding-standards/.github/workflows/defined--verify.yml@<shortsha>
+        with:
+            image-tag: <shortsha>
+```
+
+`defined--test.yml` and `defined--publish.yml` are this repo's own CI (tests
+and image publication), not consumer templates.
 
 A full example pipeline is in [`standards/workflows/pipeline.example.yml`](standards/workflows/pipeline.example.yml).
 
 ## Standards
 
-- [`standards/naming.md`](standards/naming.md) — workflow + pipeline filename grammar
+- [`standards/naming.md`](standards/naming.md) — workflow filename grammar
 - [`standards/testing/unit-testing.md`](standards/testing/unit-testing.md) — C#/xUnit testing patterns
 - [`standards/testing/node-testing.md`](standards/testing/node-testing.md) — Node/TypeScript testing + module conventions
 - [`practices/architecture.md`](practices/architecture.md) — delivery/structure/code preferences
@@ -121,7 +116,7 @@ A full example pipeline is in [`standards/workflows/pipeline.example.yml`](stand
 
 ```bash
 coding-standards/
-├── runtime/                          # the container image (gate + runtime base)
+├── runtime/                          # the container image (the gate)
 │   ├── Containerfile                 # node 26 slim base, pinned tools
 │   ├── tool-versions.env             # single source of tool version pins
 │   ├── verify.sh                     # host shim: engine → mount → exec
@@ -130,9 +125,8 @@ coding-standards/
 │   ├── lib/                          # gate-specific core (ctx, severities, blocks)
 │   ├── steps/                        # one module per ecosystem check
 │   └── config/                       # tool configs travelling in the image
-├── lib/                              # shared building blocks (proc, paths, git, json, gha)
-├── pipelines/                        # zero-dep pipeline modules (thin lib/ consumers)
+├── lib/                              # shared building blocks (proc, paths, git)
 ├── standards/                        # house standards and tools
 ├── practices/                        # docs / how-to
-└── .github/workflows/                # defined--*.yml (gate CI) + pipeline templates
+└── .github/workflows/                # defined--verify/test/publish
 ```
